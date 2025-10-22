@@ -10,7 +10,6 @@ ORG_NAME = "Imageomics"
 OUTPUT_FILE = f"{ORG_NAME}_repo_info.xlsx"
 
 # Helper Functions
-
 def get_file(repo, *paths: str):
     for path in paths:
         try:
@@ -67,7 +66,7 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
             contributors.append((contributor.author.login if contributor.author else "Unknown", total_changes))
 
         top_n_contributors = sorted(contributors, key=lambda x: x[1], reverse=True)[:top_n] # sort and take the top N results
-        return ", ".join([f"{name} ({changes} changes)" for name, changes in top_n_contributors])
+        return ", ".join([f"{name}" for name, _ in top_n_contributors])
     except Exception:
         return "Unknown"
     
@@ -78,7 +77,7 @@ def get_repo_info(repo):
         "Date Created": repo.created_at.strftime("%Y-%m-%d"),
         "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
         "Created By": get_repo_creator(repo),
-        "Top 4 Contributors": get_top_contributors(repo, 4),
+        "Top 4 Contributors (lines of code changes)": get_top_contributors(repo, 4),
         "Stars": repo.stargazers_count,
         "Has README": "Yes" if get_readme(repo) != "N/A" else "No",
         "Has License": "Yes" if get_license(repo) != "N/A" else "No",
@@ -108,6 +107,8 @@ def add_excel_color_coding(file_path: str) -> None:
 
 def main():
     TOKEN = os.getenv("GITHUB_TOKEN") or input("Enter your GitHub token: ").strip()
+
+    start_time = time.time()
 
     gh = Github(auth=Auth.Token(TOKEN))
     try:
@@ -145,6 +146,11 @@ def main():
     print(f"Finished fetching info for {len(df)} repositories from {ORG_NAME} organization to {OUTPUT_FILE}")
     
     add_excel_color_coding(OUTPUT_FILE)
+
+    elapsed = time.time() - start_time
+    minutes, seconds = divmod(int(elapsed), 60)
+
+    print(f"Total time taken: {minutes}m {seconds}s")
 
 if __name__ == "__main__":
     main()
