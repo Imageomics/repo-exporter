@@ -75,12 +75,20 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
     
 def has_doi(repo) -> str:
     try:
-        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
-        if "doi.org" in readme:
+        file = repo.get_contents("CITATION.cff")
+        content = file.decoded_content.decode("utf-8", errors="ignore")
+        if re.search(r"doi\s*:\s*10\.\d{4,9}/[-._;()/:A-Z0-9]+", content, re.IGNORECASE):
             return "Yes"
         return "No"
-    except Exception:
-        return "No"
+    except GithubException:
+        # Check for Zenodo DOI badge in README as fallback
+        try:
+            readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+            if "zenodo.org/badge" in readme or "doi.org" in readme:
+                return "Yes"
+            return "No"
+        except Exception:
+            return "No"
         
 def has_dataset(repo) -> str:
     try:
@@ -116,10 +124,10 @@ def get_repo_info(repo):
         "Has .gitignore": "Yes" if get_file(repo, ".gitignore") != "N/A" else "No",
         "Has CITATION.cff": "Yes" if get_file(repo, "CITATION.cff") != "N/A" else "No",
         "Has Package Requirements": "Yes" if get_file(repo, "requirements.txt", "environment.yaml", "environment.yml") != "N/A" else "No",
-        "Website": repo.homepage if repo.homepage else "No",
-        "DOI Link": has_doi(repo),
+        "Website Reference": repo.homepage if repo.homepage else "No",
         "Dataset": has_dataset(repo),
         "Paper Associated": has_associated_paper(repo),
+        "DOI for GitHub Repo": has_doi(repo),
         "Branches": get_num_branches(repo)
     }
 
