@@ -24,12 +24,12 @@ cd repo-exporter
 
 2. Install Python dependencies:
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 3. Run the script:
 ```
-py export_repos.py
+python export_repos.py
 ```
 
 4. Enter your GitHub Personal Access Token (Create one by: [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens) -> Generate new token -> Set the organization you want to read for the token).
