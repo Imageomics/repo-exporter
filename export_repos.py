@@ -3,7 +3,10 @@ import pandas as pd
 from github import Github, GithubException, Auth
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
+from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.formatting.rule import CellIsRule
 import time
+import re
 
 # Config
 ORG_NAME = "Imageomics"
@@ -47,13 +50,13 @@ def get_repo_creator(repo):
     
 def get_top_contributors(repo, top_n: int = 4) -> str:
     try:
-        # Keep fetching until stats are ready
+        # Keep repeatedly fetching stats since it may take time for GitHub to fetch that data from database
         stats = None
-        for _ in range(5):  # Try up to 5 times
+        for _ in range(5):
             stats = repo.get_stats_contributors()
             if stats:
                 break
-            time.sleep(10)  # Wait 10 seconds between tries
+            time.sleep(5)
 
         if not stats:
             return "Unknown"
@@ -70,6 +73,35 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
     except Exception:
         return "Unknown"
     
+def has_doi(repo) -> str:
+    try:
+        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+        if "doi.org" in readme:
+            return "Yes"
+        return "No"
+    except Exception:
+        return "No"
+        
+def has_dataset(repo) -> str:
+    try:
+        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+        keywords = ["zenodo", "figshare", "kaggle", "data", "dataset"]
+        if any(k in readme for k in keywords):
+            return "Yes"
+        return "No"
+    except Exception:
+        return "No"
+    
+def has_associated_paper(repo) -> str:
+    try:
+        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+        keywords = ["arxiv", "doi.org", "springer", "nature.com", "acm.org", "ieee.org", "researchgate"]
+        if any(k in readme for k in keywords):
+            return "Yes"
+        return "No"
+    except Exception:
+        return "No"
+    
 def get_repo_info(repo):
     return {
         "Name": repo.name,
@@ -84,23 +116,43 @@ def get_repo_info(repo):
         "Has .gitignore": "Yes" if get_file(repo, ".gitignore") != "N/A" else "No",
         "Has CITATION.cff": "Yes" if get_file(repo, "CITATION.cff") != "N/A" else "No",
         "Has Package Requirements": "Yes" if get_file(repo, "requirements.txt", "environment.yaml", "environment.yml") != "N/A" else "No",
-        "Branches": get_num_branches(repo),
+        "Website": repo.homepage if repo.homepage else "No",
+        "DOI Link": has_doi(repo),
+        "Dataset": has_dataset(repo),
+        "Paper Associated": has_associated_paper(repo),
+        "Branches": get_num_branches(repo)
     }
 
 def add_excel_color_coding(file_path: str) -> None:
     wb = load_workbook(file_path)
     ws = wb.active
-
-    red_hex_code = "FFC7CE"
-
-    red_fill = PatternFill(start_color=red_hex_code, end_color=red_hex_code, fill_type="solid")
-
-    for row in ws.iter_rows(min_row=2): # skip header
-        for cell in row:
-            value = str(cell.value).strip().lower()
-            if value == "no":
-                cell.fill = red_fill
-
+    max_row = ws.max_row
+    max_col = ws.max_column
+    
+    orange_header = "FF8A4B"
+    light_orange = "FCE4D6"
+    red_color = "FFC7CE"   
+    
+    # Apply header color (row 1)
+    header_fill = PatternFill(start_color=orange_header, end_color=orange_header, fill_type="solid")
+    for col in range(1, max_col + 1):
+        ws.cell(row=1, column=col).fill = header_fill
+    
+    # Apply alternating row colors (starting from row 2)
+    light_orange_fill = PatternFill(start_color=light_orange, end_color=light_orange, fill_type="solid")
+    for row in range(2, max_row + 1):
+        if row % 2 == 0:
+            for col in range(1, max_col + 1):
+                ws.cell(row=row, column=col).fill = light_orange_fill
+    
+    # Apply red fill for "No" values using conditional formatting
+    red_fill = PatternFill(start_color=red_color, end_color=red_color, fill_type="solid")
+    data_ref = f"A2:{chr(64 + max_col)}{max_row}"
+    ws.conditional_formatting.add(
+        data_ref,
+        CellIsRule(operator="equal", formula=['"No"'], fill=red_fill)
+    )
+    
     wb.save(file_path)
     print(f"Color coding applied to {file_path}")
 # --------
