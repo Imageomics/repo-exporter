@@ -24,7 +24,7 @@ cd repo-exporter
 
 2. Install Python dependencies:
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 3. Run the script:
