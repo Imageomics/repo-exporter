@@ -3,7 +3,6 @@ import pandas as pd
 from github import Github, GithubException, Auth
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
-from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.formatting.rule import CellIsRule
 import time
 import re
@@ -182,7 +181,7 @@ def main():
     print("")
     print("----------------")
 
-    repos = org.get_repos()
+    repos = org.get_repos(type="all")
     data = []
 
     for repo in repos:
