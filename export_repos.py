@@ -112,7 +112,7 @@ def has_associated_paper(repo) -> str:
 def get_repo_info(repo):
     return {
         "Visibility": "Private" if repo.private else "Public",
-        "Name": repo.name,
+        "Name": f'=HYPERLINK("{repo.html_url}", "{repo.name}")',
         "Description": repo.description or "N/A",
         "Date Created": repo.created_at.strftime("%Y-%m-%d"),
         "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
