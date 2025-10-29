@@ -5,7 +5,7 @@ A Python script that automatically gathers metadata for all repositories in a Gi
 ## Features
 - Fetches all repositories in an organization  
 - Collects key details:
-  - Name and description  
+  - Repo visibility, name and description  
   - Date created and last updated  
   - Creator and top 4 contributors (`Unknown` creator means it was either a transferreed repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their github account)
   - Number of stars 

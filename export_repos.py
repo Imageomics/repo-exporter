@@ -111,6 +111,7 @@ def has_associated_paper(repo) -> str:
     
 def get_repo_info(repo):
     return {
+        "Visibility": "Private" if repo.private else "Public",
         "Name": repo.name,
         "Description": repo.description or "N/A",
         "Date Created": repo.created_at.strftime("%Y-%m-%d"),
@@ -123,7 +124,7 @@ def get_repo_info(repo):
         "Has .gitignore": "Yes" if get_file(repo, ".gitignore") != "N/A" else "No",
         "Has CITATION.cff": "Yes" if get_file(repo, "CITATION.cff") != "N/A" else "No",
         "Has Package Requirements": "Yes" if get_file(repo, "requirements.txt", "environment.yaml", "environment.yml") != "N/A" else "No",
-        "Website Reference": repo.homepage if repo.homepage else "No",
+        "Website Reference": "Yes" if repo.homepage else "No",
         "Dataset": has_dataset(repo),
         "Paper Associated": has_associated_paper(repo),
         "DOI for GitHub Repo": has_doi(repo),
