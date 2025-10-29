@@ -4,6 +4,7 @@ from github import Github, GithubException, Auth
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 from openpyxl.formatting.rule import CellIsRule
+from tqdm import tqdm
 import time
 import re
 
@@ -182,16 +183,16 @@ def main():
     print("")
     print("----------------")
 
-    repos = org.get_repos(type="all")
+    repos = list(org.get_repos(type="all"))
     data = []
 
-    for repo in repos:
+    for repo in tqdm(repos, desc=f"Fetching repos from {ORG_NAME}", unit="repo", colour="green", ncols=100):
         try:
             info = get_repo_info(repo)
             data.append(info)
-            print(f"Fetched info for /{repo.name} repo")
+            tqdm.write(f"Fetched info for /{repo.name} repo")
         except Exception as e:
-            print(f"ERROR: Cannot fetch /{repo.name} info, due to {type(e).__name__}: {e}. Skipping...")
+            tqdm.write(f"ERROR: Cannot fetch /{repo.name} info, due to {type(e).__name__}: {e}. Skipping...")
 
     if not data:
         print("ERROR: No data collected")
