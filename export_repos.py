@@ -13,25 +13,28 @@ ORG_NAME = "Imageomics"
 OUTPUT_FILE = f"{ORG_NAME}_repo_info.xlsx"
 
 # Helper Functions
-def get_file(repo, *paths: str):
+def has_file(repo, *paths: str):
     for path in paths:
         try:
-            return repo.get_contents(path)
+            if repo.get_contents(path):
+                return "Yes"
         except GithubException:
             continue
-    return "N/A"
+    return "No"
     
-def get_readme(repo):
+def has_readme(repo):
     try:
-        return repo.get_readme()
+        if repo.get_readme():
+            return "Yes"
     except GithubException:
-        return "N/A"
+        return "No"
 
-def get_license(repo):
+def has_license(repo):
     try:
-        return repo.get_license()
+        if repo.get_license():
+            return "Yes"
     except GithubException:
-        return "N/A"
+        return "No"
         
 def get_num_branches(repo):
     try:
@@ -44,9 +47,9 @@ def get_repo_creator(repo):
         commits = repo.get_commits()
         first_commit = commits.reversed[0]
         author = first_commit.author
-        return f"{author.name} ({author.login})" if author else "Unknown"
+        return f"{author.name} ({author.login})" if author else "N/A"
     except Exception:
-        return "Unknown"
+        return "N/A"
     
 def get_top_contributors(repo, top_n: int = 4) -> str:
     try:
@@ -59,19 +62,19 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
             time.sleep(5)
 
         if not stats:
-            return "Unknown"
+            return "N/A"
         
         contributors = []
         for contributor in stats:
             total_additions = sum(week.a for week in contributor.weeks)
             total_deletions = sum(week.d for week in contributor.weeks)
             total_changes = total_additions + total_deletions
-            contributors.append((contributor.author.login if contributor.author else "Unknown", total_changes))
+            contributors.append((contributor.author.login if contributor.author else "N/A", total_changes))
 
         top_n_contributors = sorted(contributors, key=lambda x: x[1], reverse=True)[:top_n] # sort and take the top N results
         return ", ".join([f"{name}" for name, _ in top_n_contributors])
     except Exception:
-        return "Unknown"
+        return "N/A"
     
 def has_doi(repo) -> str:
     try:
@@ -120,11 +123,11 @@ def get_repo_info(repo):
         "Created By": get_repo_creator(repo),
         "Top 4 Contributors (lines of code changes)": get_top_contributors(repo, 4),
         "Stars": repo.stargazers_count,
-        "Has README": "Yes" if get_readme(repo) != "N/A" else "No",
-        "Has License": "Yes" if get_license(repo) != "N/A" else "No",
-        "Has .gitignore": "Yes" if get_file(repo, ".gitignore") != "N/A" else "No",
-        "Has CITATION.cff": "Yes" if get_file(repo, "CITATION.cff") != "N/A" else "No",
-        "Has Package Requirements": "Yes" if get_file(repo, "requirements.txt", "environment.yaml", "environment.yml") != "N/A" else "No",
+        "Has README": has_readme(repo),
+        "Has License": has_license(repo),
+        "Has .gitignore": has_file(repo, ".gitignore"),
+        "Has CITATION.cff": has_file(repo, "CITATION.cff"),
+        "Has Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml"),
         "Website Reference": "Yes" if repo.homepage else "No",
         "Dataset": has_dataset(repo),
         "Paper Associated": has_associated_paper(repo),
