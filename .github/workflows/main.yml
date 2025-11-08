@@ -27,15 +27,11 @@ jobs:
     - name: Install dependencies
       run: pip install -r requirements.txt
 
-    - name: Decode Google credentials
-      run: |
-        echo "${{ secrets.GSHEET_CREDENTIALS }}" | base64 --decode > creds.json
+    - name: Write Google credentials
+      run: printf "%s" '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service_account.json
 
     - name: Run script
       env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        GOOGLE_CREDENTIALS_PATH: creds.json
-      run: |
-        python export_repos.py
-    
-    
+        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        GOOGLE_CREDENTIALS_PATH: service_account.json
+      run: python export_repos.py
