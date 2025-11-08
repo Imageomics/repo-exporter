@@ -127,7 +127,7 @@ def get_primary_language(repo) -> str:
     
 def get_repo_info(repo):
     return {
-        "Repository Name": f'HYPERLINK("{repo.html_url}", "{repo.name}")',
+        "Repository Name": f'=HYPERLINK("{repo.html_url}", "{repo.name}")',
         "Description": repo.description or "N/A",
         "Date Created": repo.created_at.strftime("%Y-%m-%d"),
         "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
@@ -199,7 +199,7 @@ def update_google_sheet(df):
             "values": [values]
         })
 
-    sheet.batch_update(batch_body)
+    sheet.batch_update({"value_input_option": "USER_ENTERED", "data": batch_body})
 # --------
 
 def main():
