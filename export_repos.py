@@ -151,43 +151,43 @@ def update_google_sheet(df):
     client = gspread.authorize(creds)
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
 
-    existing = sheet.get_all_values()
-
+    # Pull current header
     HEADER_ROW_INDEX = 2
-
-    # Read the actual headers from row 2
     header = sheet.row_values(HEADER_ROW_INDEX)
 
-    # Start reading data rows from row 3 downward
+    # Build a dict of repo name -> index
+    existing = sheet.get_all_values()
     data_rows = existing[HEADER_ROW_INDEX:]
-
-    # Map: Repository Name -> Actual Google Sheet Row Number
     name_to_row = {}
     for offset, row in enumerate(data_rows, start=HEADER_ROW_INDEX + 1):
         if len(row) > 1:
-            repo_name = row[1]  # Column B = Repository Name
-            name_to_row[repo_name] = offset
+            name_to_row[row[1]] = offset   # Column B
 
-    # Loop through dataframe rows
+    # Prepare a big batch of writes
+    updates = []
     for _, row in df.iterrows():
-
         repo_name = row["Repository Name"]
 
-        # Does repo already exist in the sheet?
+        # Determine destination row
         if repo_name in name_to_row:
             row_idx = name_to_row[repo_name]
         else:
-            # Append new row at bottom
             row_idx = len(existing) + 1
-            sheet.append_row([""] * len(header))
             existing.append([""] * len(header))
 
-        # Match df columns to sheet headers by name
         values = [row.get(col, "") for col in header]
+        updates.append((row_idx, values))
 
-        # Update the correct row
-        end_cell = gspread.utils.rowcol_to_a1(row_idx, len(header))
-        sheet.update(f"A{row_idx}:{end_cell}", [values])
+    # Now perform ONE update instead of hundreds
+    batch_body = []
+    for row_idx, values in updates:
+        end_cell = gspread.utils.rowcol_to_a1(row_idx, len(values))
+        batch_body.append({
+            "range": f"A{row_idx}:{end_cell}",
+            "values": [values]
+        })
+
+    sheet.batch_update(batch_body)
 # --------
 
 def main():
