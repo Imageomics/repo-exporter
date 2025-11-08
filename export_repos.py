@@ -191,7 +191,7 @@ def update_google_sheet(df):
 # --------
 
 def main():
-    TOKEN = os.getenv("GITHUB_TOKEN") or input("Enter your GitHub token: ").strip()
+    TOKEN = os.getenv("GH_TOKEN") or input("Enter your GitHub token: ").strip()
 
     start_time = time.time()
 
