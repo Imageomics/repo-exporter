@@ -114,7 +114,7 @@ def has_associated_paper(repo) -> str:
     except Exception:
         return "No"
     
-def get_primary_language(repo):
+def get_primary_language(repo) -> str:
     try:
         languages = repo.get_languages()
         if not languages:
@@ -223,7 +223,7 @@ def main():
     repos = list(org.get_repos(type="all"))
     data = []
 
-    for repo in tqdm(repos, desc=f"Fetching info for /{repo.name}.", unit="repo", colour="green", ncols=100):
+    for repo in tqdm(repos, desc=f"Fetching repositories from {ORG_NAME}...", unit="repo", colour="green", ncols=100):
         try:
             info = get_repo_info(repo)
             data.append(info)
