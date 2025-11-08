@@ -1,16 +1,17 @@
 import os
 import pandas as pd
 from github import Github, GithubException, Auth
-from openpyxl import load_workbook
-from openpyxl.styles import PatternFill
-from openpyxl.formatting.rule import CellIsRule
 from tqdm import tqdm
 import time
 import re
+import gspread
+from google.oauth2.service_account import Credentials
 
 # Config
 ORG_NAME = "Imageomics"
 OUTPUT_FILE = f"{ORG_NAME}_repo_info.xlsx"
+SPREADSHEET_ID = "1SHTSa3NV3HSAR6lqurQ4IPZbWDcdjU4GwPFHaQpGxEc"
+SHEET_NAME = "Sheet1"
 
 # Helper Functions
 def has_file(repo, *paths: str):
@@ -116,7 +117,7 @@ def has_associated_paper(repo) -> str:
 def get_repo_info(repo):
     return {
         "Visibility": "Private" if repo.private else "Public",
-        "Name": f'=HYPERLINK("{repo.html_url}", "{repo.name}")',
+        "Repository Name": f'=HYPERLINK("{repo.html_url}", "{repo.name}")',
         "Description": repo.description or "N/A",
         "Date Created": repo.created_at.strftime("%Y-%m-%d"),
         "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
@@ -135,38 +136,59 @@ def get_repo_info(repo):
         "Branches": get_num_branches(repo)
     }
 
-def add_excel_color_coding(file_path: str) -> None:
-    wb = load_workbook(file_path)
-    ws = wb.active
-    max_row = ws.max_row
-    max_col = ws.max_column
-    
-    orange_header = "FF8A4B"
-    light_orange = "FCE4D6"
-    red_color = "FFC7CE"   
-    
-    # Apply header color (row 1)
-    header_fill = PatternFill(start_color=orange_header, end_color=orange_header, fill_type="solid")
-    for col in range(1, max_col + 1):
-        ws.cell(row=1, column=col).fill = header_fill
-    
-    # Apply alternating row colors (starting from row 2)
-    light_orange_fill = PatternFill(start_color=light_orange, end_color=light_orange, fill_type="solid")
-    for row in range(2, max_row + 1):
-        if row % 2 == 0:
-            for col in range(1, max_col + 1):
-                ws.cell(row=row, column=col).fill = light_orange_fill
-    
-    # Apply red fill for "No" values using conditional formatting
-    red_fill = PatternFill(start_color=red_color, end_color=red_color, fill_type="solid")
-    data_ref = f"A2:{chr(64 + max_col)}{max_row}"
-    ws.conditional_formatting.add(
-        data_ref,
-        CellIsRule(operator="equal", formula=['"No"'], fill=red_fill)
+def update_google_sheet(df):
+    # Authenticate Google API
+    creds_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
+
+    creds = Credentials.from_service_account_file(
+        creds_path,
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
     )
-    
-    wb.save(file_path)
-    print(f"Color coding applied to {file_path}")
+
+
+    client = gspread.authorize(creds)
+    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+
+    existing = sheet.get_all_values()
+
+    HEADER_ROW_INDEX = 2
+
+    # Read the actual headers from row 2
+    header = sheet.row_values(HEADER_ROW_INDEX)
+
+    # Start reading data rows from row 3 downward
+    data_rows = existing[HEADER_ROW_INDEX:]
+
+    # Map: Repository Name -> Actual Google Sheet Row Number
+    name_to_row = {}
+    for offset, row in enumerate(data_rows, start=HEADER_ROW_INDEX + 1):
+        if len(row) > 1:
+            repo_name = row[1]  # Column B = Repository Name
+            name_to_row[repo_name] = offset
+
+    # Loop through dataframe rows
+    for _, row in df.iterrows():
+
+        repo_name = row["Repository Name"]
+
+        # Does repo already exist in the sheet?
+        if repo_name in name_to_row:
+            row_idx = name_to_row[repo_name]
+        else:
+            # Append new row at bottom
+            row_idx = len(existing) + 1
+            sheet.append_row([""] * len(header))
+            existing.append([""] * len(header))
+
+        # Match df columns to sheet headers by name
+        values = [row.get(col, "") for col in header]
+
+        # Update the correct row
+        end_cell = gspread.utils.rowcol_to_a1(row_idx, len(header))
+        sheet.update(f"A{row_idx}:{end_cell}", [values])
 # --------
 
 def main():
@@ -175,6 +197,7 @@ def main():
     start_time = time.time()
 
     gh = Github(auth=Auth.Token(TOKEN))
+    
     try:
         org = gh.get_organization(ORG_NAME)
     except Exception as e:
@@ -205,11 +228,10 @@ def main():
     print("")
 
     df = pd.DataFrame(data)
-    df.sort_values(by="Name", inplace=True)
-    df.to_excel(OUTPUT_FILE, index=False)
+    df.sort_values(by="Repository Name", inplace=True)
+
+    update_google_sheet(df)
     print(f"Finished fetching info for {len(df)} repositories from {ORG_NAME} organization to {OUTPUT_FILE}")
-    
-    add_excel_color_coding(OUTPUT_FILE)
 
     elapsed = time.time() - start_time
     minutes, seconds = divmod(int(elapsed), 60)
