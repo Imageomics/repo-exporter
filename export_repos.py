@@ -148,7 +148,6 @@ def update_google_sheet(df):
         ]
     )
 
-
     client = gspread.authorize(creds)
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
 
