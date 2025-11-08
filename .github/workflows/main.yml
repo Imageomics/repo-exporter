@@ -32,6 +32,6 @@ jobs:
 
     - name: Run script
       env:
-        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
         GOOGLE_CREDENTIALS_PATH: service_account.json
       run: python export_repos.py
