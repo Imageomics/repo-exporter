@@ -114,26 +114,38 @@ def has_associated_paper(repo) -> str:
     except Exception:
         return "No"
     
+def get_primary_language(repo):
+    try:
+        languages = repo.get_languages()
+        if not languages:
+            return "N/A"
+        
+        return max(languages, key=languages.get)
+    except Exception:
+        return "N/A"
+
+    
 def get_repo_info(repo):
     return {
-        "Visibility": "Private" if repo.private else "Public",
-        "Repository Name": f'=HYPERLINK("{repo.html_url}", "{repo.name}")',
+        "Repository Name": f'HYPERLINK("{repo.html_url}", "{repo.name}")',
         "Description": repo.description or "N/A",
         "Date Created": repo.created_at.strftime("%Y-%m-%d"),
         "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
         "Created By": get_repo_creator(repo),
         "Top 4 Contributors (lines of code changes)": get_top_contributors(repo, 4),
         "Stars": repo.stargazers_count,
-        "Has README": has_readme(repo),
-        "Has License": has_license(repo),
-        "Has .gitignore": has_file(repo, ".gitignore"),
-        "Has CITATION.cff": has_file(repo, "CITATION.cff"),
-        "Has Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml"),
+        "# of Branches": get_num_branches(repo),
+        "README": has_readme(repo),
+        "License": has_license(repo),
+        ".gitignore": has_file(repo, ".gitignore"),
+        "Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml"),
+        "CITATION": has_file(repo, "CITATION.cff"),
+        "Language": get_primary_language(repo),
+        "Visibility": "Private" if repo.private else "Public",
         "Website Reference": "Yes" if repo.homepage else "No",
         "Dataset": has_dataset(repo),
-        "Paper Associated": has_associated_paper(repo),
+        "Paper Association": has_associated_paper(repo),
         "DOI for GitHub Repo": has_doi(repo),
-        "Branches": get_num_branches(repo)
     }
 
 def update_google_sheet(df):
@@ -211,7 +223,7 @@ def main():
     repos = list(org.get_repos(type="all"))
     data = []
 
-    for repo in tqdm(repos, desc=f"Fetching repos from {ORG_NAME}", unit="repo", colour="green", ncols=100):
+    for repo in tqdm(repos, desc=f"Fetching info for /{repo.name}.", unit="repo", colour="green", ncols=100):
         try:
             info = get_repo_info(repo)
             data.append(info)
