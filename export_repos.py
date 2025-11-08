@@ -199,7 +199,10 @@ def update_google_sheet(df):
             "values": [values]
         })
 
-    sheet.batch_update({"value_input_option": "USER_ENTERED", "data": batch_body})
+    client.batch_update(SPREADSHEET_ID, {
+        "value_input_option": "USER_ENTERED",
+        "data": batch_body
+    })
 # --------
 
 def main():
