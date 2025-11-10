@@ -176,8 +176,9 @@ def update_google_sheet(df):
     data_rows = existing[HEADER_ROW_INDEX:]
     name_to_row = {}
     for offset, row in enumerate(data_rows, start=HEADER_ROW_INDEX + 1):
-        if len(row) > 1:
-            name_to_row[row[1]] = offset   # Column B
+        if len(row) > 0:
+            sheet_repo_name = extract_display_name(row[0]) # Repository Name column
+            name_to_row[sheet_repo_name] = offset
 
     # Prepare a big batch of writes
     updates = []
