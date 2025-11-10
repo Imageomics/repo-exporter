@@ -123,7 +123,6 @@ def get_primary_language(repo) -> str:
         return max(languages, key=languages.get)
     except Exception:
         return "N/A"
-
     
 def get_repo_info(repo):
     return {
@@ -180,29 +179,29 @@ def update_google_sheet(df):
             sheet_repo_name = extract_display_name(row[0]) # Repository Name column
             name_to_row[sheet_repo_name] = offset
 
-    # Prepare a big batch of writes
-    updates = []
+    batch_body = []
     for _, row in df.iterrows():
         repo_name = extract_display_name(row["Repository Name"])
 
-        # Determine destination row
+        # Determine row index
         if repo_name in name_to_row:
             row_idx = name_to_row[repo_name]
         else:
             row_idx = len(existing) + 1
             existing.append([""] * len(header))
 
-        values = [row.get(col, "") for col in header]
-        updates.append((row_idx, values))
+        # Create (range, value) for each column individually
+        for col_idx, col_name in enumerate(header, start=1):
+            if col_name not in df.columns:
+                continue  # skip untouched columns
 
-    # Now perform ONE update instead of hundreds
-    batch_body = []
-    for row_idx, values in updates:
-        end_cell = gspread.utils.rowcol_to_a1(row_idx, len(values))
-        batch_body.append({
-            "range": f"A{row_idx}:{end_cell}",
-            "values": [values]
-        })
+            value = row.get(col_name, "")
+            cell = gspread.utils.rowcol_to_a1(row_idx, col_idx)
+
+            batch_body.append({
+                "range": cell,
+                "values": [[value]]  # single cell update
+            })
 
     sheet.spreadsheet.values_batch_update(
         body={
