@@ -60,7 +60,7 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
             stats = repo.get_stats_contributors()
             if stats:
                 break
-            time.sleep(5)
+            time.sleep(2)
 
         if not stats:
             return "N/A"
@@ -148,6 +148,10 @@ def get_repo_info(repo):
         "DOI for GitHub Repo": has_doi(repo),
     }
 
+def extract_display_name(val):
+    match = re.search(r'"([^"]+)"\)$', val) # regex to extract the repo-name from "=HYPERLINK(..., "repo-name")"
+    return match.group(1) if match else val
+
 def update_google_sheet(df):
     # Authenticate Google API
     creds_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
@@ -178,7 +182,7 @@ def update_google_sheet(df):
     # Prepare a big batch of writes
     updates = []
     for _, row in df.iterrows():
-        repo_name = row["Repository Name"]
+        repo_name = extract_display_name(row["Repository Name"])
 
         # Determine destination row
         if repo_name in name_to_row:
@@ -228,7 +232,12 @@ def main():
     repos = list(org.get_repos(type="all"))
     data = []
 
-    for repo in tqdm(repos, desc=f"Fetching repositories from {ORG_NAME}...", unit="repo", colour="green", ncols=100):
+
+    tqdm_kwargs = {}
+    if os.environ.get("CI") == "true":
+        tqdm_kwargs = {"mininterval": 1, "dynamic_ncols": False, "leave": False}
+
+    for repo in tqdm(repos, desc=f"Fetching repositories from {ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
             info = get_repo_info(repo)
             data.append(info)
