@@ -199,9 +199,8 @@ def update_google_sheet(df):
             "values": [values]
         })
 
-    client.values_batch_update(
-        SPREADSHEET_ID,
-        {
+    sheet.spreadsheet.values_batch_update(
+        body={
             "value_input_option": "USER_ENTERED",
             "data": batch_body
         }
