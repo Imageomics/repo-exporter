@@ -12,7 +12,7 @@ A Python script that automatically gathers metadata for all repositories in a Gi
   - README, license, `.gitignore`, `CITATION.cff`, and Package requirements (`requirements.txt`, `environment.yaml`, etc.) presence   
   - Website Reference, Dataset, Paper Associated, DOI for GitHub Repo presence
   - Number of branches
-- Exports everything to an Excel file (`<org>_repo_info.xlsx`)  
+- Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list.
 - Highlights “No” fields with red cell colors  
 
 ## Usage
