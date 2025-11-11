@@ -54,7 +54,7 @@ def get_repo_creator(repo):
     
 def get_top_contributors(repo, top_n: int = 4) -> str:
     try:
-        # Keep repeatedly fetching stats since it may take time for GitHub to fetch that data from database
+        # Keep repeatedly fetching stats since it may take time for GitHub to fetch that data
         stats = None
         for _ in range(5):
             stats = repo.get_stats_contributors()
@@ -67,13 +67,15 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
         
         contributors = []
         for contributor in stats:
+            
             total_additions = sum(week.a for week in contributor.weeks)
             total_deletions = sum(week.d for week in contributor.weeks)
             total_changes = total_additions + total_deletions
+
             contributors.append((contributor.author.login if contributor.author else "N/A", total_changes))
 
         top_n_contributors = sorted(contributors, key=lambda x: x[1], reverse=True)[:top_n] # sort and take the top N results
-        return ", ".join([f"{name}" for name, _ in top_n_contributors])
+        return ", ".join([f"{name} ({login})" for name, login in top_n_contributors])
     except Exception:
         return "N/A"
     
