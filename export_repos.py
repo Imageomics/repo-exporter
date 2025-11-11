@@ -60,7 +60,7 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
             stats = repo.get_stats_contributors()
             if stats:
                 break
-            time.sleep(5)
+            time.sleep(2)
 
         if not stats:
             return "N/A"
@@ -123,7 +123,6 @@ def get_primary_language(repo) -> str:
         return max(languages, key=languages.get)
     except Exception:
         return "N/A"
-
     
 def get_repo_info(repo):
     return {
@@ -147,6 +146,10 @@ def get_repo_info(repo):
         "Paper Association": has_associated_paper(repo),
         "DOI for GitHub Repo": has_doi(repo),
     }
+
+def extract_display_name(val):
+    match = re.search(r'"([^"]+)"\)$', val) # regex to extract the repo-name from "=HYPERLINK(..., "repo-name")"
+    return match.group(1) if match else val
 
 def update_google_sheet(df):
     # Authenticate Google API
@@ -172,32 +175,33 @@ def update_google_sheet(df):
     data_rows = existing[HEADER_ROW_INDEX:]
     name_to_row = {}
     for offset, row in enumerate(data_rows, start=HEADER_ROW_INDEX + 1):
-        if len(row) > 1:
-            name_to_row[row[1]] = offset   # Column B
+        if len(row) > 0:
+            sheet_repo_name = extract_display_name(row[0]) # Repository Name column
+            name_to_row[sheet_repo_name] = offset
 
-    # Prepare a big batch of writes
-    updates = []
+    batch_body = []
     for _, row in df.iterrows():
-        repo_name = row["Repository Name"]
+        repo_name = extract_display_name(row["Repository Name"])
 
-        # Determine destination row
+        # Determine row index
         if repo_name in name_to_row:
             row_idx = name_to_row[repo_name]
         else:
             row_idx = len(existing) + 1
             existing.append([""] * len(header))
 
-        values = [row.get(col, "") for col in header]
-        updates.append((row_idx, values))
+        # Create (range, value) for each column individually
+        for col_idx, col_name in enumerate(header, start=1):
+            if col_name not in df.columns:
+                continue  # skip untouched columns
 
-    # Now perform ONE update instead of hundreds
-    batch_body = []
-    for row_idx, values in updates:
-        end_cell = gspread.utils.rowcol_to_a1(row_idx, len(values))
-        batch_body.append({
-            "range": f"A{row_idx}:{end_cell}",
-            "values": [values]
-        })
+            value = row.get(col_name, "")
+            cell = gspread.utils.rowcol_to_a1(row_idx, col_idx)
+
+            batch_body.append({
+                "range": cell,
+                "values": [[value]]  # single cell update
+            })
 
     sheet.spreadsheet.values_batch_update(
         body={
@@ -228,7 +232,12 @@ def main():
     repos = list(org.get_repos(type="all"))
     data = []
 
-    for repo in tqdm(repos, desc=f"Fetching repositories from {ORG_NAME}...", unit="repo", colour="green", ncols=100):
+
+    tqdm_kwargs = {}
+    if os.environ.get("CI") == "true":
+        tqdm_kwargs = {"mininterval": 1, "dynamic_ncols": False, "leave": False}
+
+    for repo in tqdm(repos, desc=f"Fetching repositories from {ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
             info = get_repo_info(repo)
             data.append(info)
