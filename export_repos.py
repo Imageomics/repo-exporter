@@ -176,7 +176,7 @@ def update_google_sheet(df):
     name_to_row = {}
     for offset, row in enumerate(data_rows, start=HEADER_ROW_INDEX + 1):
         if len(row) > 0:
-            sheet_repo_name = extract_display_name(row[0]) # Repository Name column
+            sheet_repo_name = extract_display_name(row[0]) # hardcoded to check for "Repository Name" column in row 0
             name_to_row[sheet_repo_name] = offset
 
     batch_body = []
@@ -209,6 +209,33 @@ def update_google_sheet(df):
             "data": batch_body
         }
     )
+
+    # Red color coding for No
+    rule = {
+        "addConditionalFormatRule": {
+            "rule": {
+                "ranges": [
+                    { "sheetId": sheet.id }  # Apply to entire sheet
+                ],
+                "booleanRule": {
+                    "condition": {
+                        "type": "TEXT_EQ",
+                        "values": [{"userEnteredValue": "No"}]
+                    },
+                    "format": {
+                        "backgroundColor": {
+                            "red": 1,
+                            "green": 0.8,
+                            "blue": 0.8
+                        }
+                    }
+                },
+            },
+            "index": 0
+        }
+    }
+
+    sheet.spreadsheet.batch_update({"requests": [rule]})
 # --------
 
 def main():
@@ -229,7 +256,7 @@ def main():
     print("")
     print("----------------")
 
-    repos = list(org.get_repos(type="all"))
+    repos = list(org.get_repos(type="private"))
     data = []
 
 
