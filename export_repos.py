@@ -72,9 +72,9 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
             total_deletions = sum(week.d for week in contributor.weeks)
             total_changes = total_additions + total_deletions
 
-            contributors.append((contributor.author.login if contributor.author else "N/A", total_changes))
+            contributors.append((contributor.author.name, contributor.author.login, total_changes))
 
-        top_n_contributors = sorted(contributors, key=lambda x: x[1], reverse=True)[:top_n] # sort and take the top N results
+        top_n_contributors = sorted(contributors, key=lambda x: x[2], reverse=True)[:top_n] # sort and take the top N results
         return ", ".join([f"{name} ({login})" for name, login in top_n_contributors])
     except Exception:
         return "N/A"
