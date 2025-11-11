@@ -75,7 +75,7 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
             contributors.append((contributor.author.name, contributor.author.login, total_changes))
 
         top_n_contributors = sorted(contributors, key=lambda x: x[2], reverse=True)[:top_n] # sort and take the top N results
-        return ", ".join([f"{name} ({login})" for name, login in top_n_contributors])
+        return ", ".join([f"{name} ({login})" for name, login, _ in top_n_contributors])
     except Exception:
         return "N/A"
     
