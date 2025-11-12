@@ -141,6 +141,7 @@ def get_repo_info(repo):
         ".gitignore": has_file(repo, ".gitignore"),
         "Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml"),
         "CITATION": has_file(repo, "CITATION.cff"),
+        ".zenodo.json": has_file(repo, ".zenodo.json"),
         "Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
         "Website Reference": "Yes" if repo.homepage else "No",
