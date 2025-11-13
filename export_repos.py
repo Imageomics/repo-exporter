@@ -96,13 +96,22 @@ def has_doi(repo) -> str:
         except Exception:
             return "No"
         
-def has_dataset(repo) -> str:
+def get_dataset(repo) -> str:
     try:
         readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
-        keywords = ["zenodo", "figshare", "kaggle", "data", "dataset"]
-        if any(k in readme for k in keywords):
-            return "Yes"
-        return "No"
+
+        patterns = [
+            r"https?://zenodo\.org/[A-Za-z0-9_\-./]+",
+            r"https?://figshare\.com/[A-Za-z0-9_\-./]+",
+            r"https?://www\.kaggle\.com/[A-Za-z0-9_\-./]+",
+            r"https?://data\.[A-Za-z0-9_\-./]+",     # generic data.* domains
+            r"https?://.*dataset.*",                # fallback: any URL containing "dataset"
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, readme, flags=re.IGNORECASE)
+            if match:
+                return f'=HYPERLINK("{match.group(0)}", "Yes")'
     except Exception:
         return "No"
 
@@ -119,12 +128,24 @@ def get_model(repo) -> str:
     except Exception:
         return "No"
     
-def has_associated_paper(repo) -> str:
+def get_associated_paper(repo) -> str:
     try:
         readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
-        keywords = ["arxiv", "doi.org", "springer", "nature.com", "acm.org", "ieee.org", "researchgate"]
-        if any(k in readme for k in keywords):
-            return "Yes"
+
+        patterns = [
+            r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
+            r"https?://doi\.org/[A-Za-z0-9_\-./]+",
+            r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+",
+            r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+",
+            r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+",
+            r"https?://ieeexplore\.ieee\.org/[A-Za-z0-9_\-./]+",
+            r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, readme)
+            if match:
+                return f'=HYPERLINK("{match.group(0)}", "Yes")'
         return "No"
     except Exception:
         return "No"
@@ -157,10 +178,10 @@ def get_repo_info(repo):
         ".zenodo.json": has_file(repo, ".zenodo.json"),
         "Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
-        "Website Reference": "Yes" if repo.homepage else "No",
-        "Dataset": has_dataset(repo),
+        "Website Reference": f'=HYPERLINK("{repo.homepage})", "Yes")' if repo.homepage else "No",
+        "Dataset": get_dataset(repo),
         "Model": get_model(repo),
-        "Paper Association": has_associated_paper(repo),
+        "Paper Association": get_associated_paper(repo),
         "DOI for GitHub Repo": has_doi(repo),
     }
 
