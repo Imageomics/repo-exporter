@@ -273,7 +273,7 @@ def main():
     print("")
     print("----------------")
 
-    repos = list(org.get_repos(type="all"))
+    repos = list(org.get_repos(type="private"))
     data = []
 
 
