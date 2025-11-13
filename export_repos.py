@@ -101,17 +101,18 @@ def get_dataset(repo) -> str:
         readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
 
         patterns = [
-            r"https?://zenodo\.org/[A-Za-z0-9_\-./]+",
-            r"https?://figshare\.com/[A-Za-z0-9_\-./]+",
-            r"https?://www\.kaggle\.com/[A-Za-z0-9_\-./]+",
-            r"https?://data\.[A-Za-z0-9_\-./]+",     # generic data.* domains
-            r"https?://.*dataset.*",                # fallback: any URL containing "dataset"
+            r"https?://zenodo\.org/[^\s\)\]\}>\"]+",
+            r"https?://figshare\.com/[^\s\)\]\}>\"]+",
+            r"https?://www\.kaggle\.com/[^\s\)\]\}>\"]+",
+            r"https?://huggingface\.co/datasets/[^\s\)\]\}>\"]+",  # HF datasets
+            r"https?://data\.[^\s\)\]\}>\"]+",                     # data.* domains
         ]
 
         for pattern in patterns:
             match = re.search(pattern, readme, flags=re.IGNORECASE)
             if match:
                 return f'=HYPERLINK("{match.group(0)}", "Yes")'
+        return "No"
     except Exception:
         return "No"
 
