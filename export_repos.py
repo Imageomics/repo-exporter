@@ -105,6 +105,15 @@ def has_dataset(repo) -> str:
         return "No"
     except Exception:
         return "No"
+
+def has_model(repo) -> str:
+    try:
+        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+        if "huggingface.co/imageomics/" in readme:
+            return "Yes"
+        return "No"
+    except Exception:
+        return "No"
     
 def has_associated_paper(repo) -> str:
     try:
@@ -146,6 +155,7 @@ def get_repo_info(repo):
         "Visibility": "Private" if repo.private else "Public",
         "Website Reference": "Yes" if repo.homepage else "No",
         "Dataset": has_dataset(repo),
+        "Model": has_model(repo),
         "Paper Association": has_associated_paper(repo),
         "DOI for GitHub Repo": has_doi(repo),
     }
