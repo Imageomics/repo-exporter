@@ -294,7 +294,7 @@ def main():
     print("")
     print("----------------")
 
-    repos = list(org.get_repos(type="private"))
+    repos = list(org.get_repos(type="all"))
     data = []
 
 
