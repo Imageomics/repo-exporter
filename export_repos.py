@@ -114,7 +114,7 @@ def get_model(repo) -> str:
 
         match = re.search(pattern, readme)
         if match:
-            return match.group(0) # full url
+            return f'=HYPERLINK("{match.group(0)}", "Yes")'
         return "No"
     except Exception:
         return "No"
@@ -159,7 +159,7 @@ def get_repo_info(repo):
         "Visibility": "Private" if repo.private else "Public",
         "Website Reference": "Yes" if repo.homepage else "No",
         "Dataset": has_dataset(repo),
-        "Model": f'=HYPERLINK("{get_model(repo)}", "Yes")' if get_model(repo) else "No",
+        "Model": get_model(repo),
         "Paper Association": has_associated_paper(repo),
         "DOI for GitHub Repo": has_doi(repo),
     }
