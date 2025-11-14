@@ -101,17 +101,22 @@ def get_dataset(repo) -> str:
         readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
 
         patterns = [
-            r"https?://zenodo\.org/[^\s\)\]\}>\"]+",
-            r"https?://figshare\.com/[^\s\)\]\}>\"]+",
-            r"https?://www\.kaggle\.com/[^\s\)\]\}>\"]+",
-            r"https?://huggingface\.co/datasets/[^\s\)\]\}>\"]+",  # HF datasets
-            r"https?://data\.[^\s\)\]\}>\"]+",                     # data.* domains
+            r"https?://zenodo\.org/[^\s]+",
+            r"https?://figshare\.com/[^\s]+",
+            r"https?://www\.kaggle\.com/[^\s]+",
+            r"https?://huggingface\.co/datasets/[^\s]+",
+            r"https?://data\.[^\s]+",
+            r"https?://imageomics\.github\.io/[^\s]+",
         ]
 
         for pattern in patterns:
             match = re.search(pattern, readme, flags=re.IGNORECASE)
             if match:
-                return f'=HYPERLINK("{match.group(0)}", "Yes")'
+                url = match.group(0)
+
+                url = url.rstrip(").],};:>\"'")  # remove common trailing characters
+
+                return f'=HYPERLINK("{url}", "Yes")'
         return "No"
     except Exception:
         return "No"
