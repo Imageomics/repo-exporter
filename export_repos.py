@@ -129,7 +129,11 @@ def get_model(repo) -> str:
 
         match = re.search(pattern, readme)
         if match:
-            return f'=HYPERLINK("{match.group(0)}", "Yes")'
+            url = match.group(0)
+
+            url = url.rstrip(").],};:>\"'")  # remove common trailing characters
+
+            return f'=HYPERLINK("{url}", "Yes")'
         return "No"
     except Exception:
         return "No"
@@ -184,7 +188,7 @@ def get_repo_info(repo):
         ".zenodo.json": has_file(repo, ".zenodo.json"),
         "Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
-        "Website Reference": f'=HYPERLINK("{repo.homepage})", "Yes")' if repo.homepage else "No",
+        "Website Reference": f'=HYPERLINK("{repo.homepage}", "Yes")' if repo.homepage else "No",
         "Dataset": get_dataset(repo),
         "Model": get_model(repo),
         "Paper Association": get_associated_paper(repo),
