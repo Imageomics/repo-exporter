@@ -7,7 +7,7 @@ A Python script that automatically gathers metadata for all repositories in a Gi
 - Collects key details:
   - Repo visibility, name and description  
   - Date created and last updated  
-  - Creator and top 4 contributors (`N/A` creator means it was either a transferreed repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their github account)
+  - Creator and top 4 contributors (`N/A` creator means it was either a transferred repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their github account)
   - Number of stars
   - README, license, `.gitignore`, `CITATION.cff`, and Package requirements (`requirements.txt`, `environment.yaml`, etc.) presence   
   - Website Reference, Dataset, Paper Associated, DOI for GitHub Repo presence
