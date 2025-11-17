@@ -96,22 +96,66 @@ def has_doi(repo) -> str:
         except Exception:
             return "No"
         
-def has_dataset(repo) -> str:
+def get_dataset(repo) -> str:
     try:
         readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
-        keywords = ["zenodo", "figshare", "kaggle", "data", "dataset"]
-        if any(k in readme for k in keywords):
-            return "Yes"
+
+        patterns = [
+            r"https?://zenodo\.org/[^\s]+",
+            r"https?://figshare\.com/[^\s]+",
+            r"https?://www\.kaggle\.com/[^\s]+",
+            r"https?://huggingface\.co/datasets/[^\s]+",
+            r"https?://data\.[^\s]+",
+            r"https?://imageomics\.github\.io/[^\s]+",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, readme, flags=re.IGNORECASE)
+            if match:
+                url = match.group(0)
+
+                url = url.rstrip(").],};:>\"'")  # remove common trailing characters
+
+                return f'=HYPERLINK("{url}", "Yes")'
+        return "No"
+    except Exception:
+        return "No"
+
+def get_model(repo) -> str:
+    try:
+        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+
+        pattern = r"https?://huggingface\.co/imageomics/[A-Za-z0-9_\-./]+"
+
+        match = re.search(pattern, readme)
+        if match:
+            url = match.group(0)
+
+            url = url.rstrip(").],};:>\"'")  # remove common trailing characters
+
+            return f'=HYPERLINK("{url}", "Yes")'
         return "No"
     except Exception:
         return "No"
     
-def has_associated_paper(repo) -> str:
+def get_associated_paper(repo) -> str:
     try:
         readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
-        keywords = ["arxiv", "doi.org", "springer", "nature.com", "acm.org", "ieee.org", "researchgate"]
-        if any(k in readme for k in keywords):
-            return "Yes"
+
+        patterns = [
+            r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
+            r"https?://doi\.org/[A-Za-z0-9_\-./]+",
+            r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+",
+            r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+",
+            r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+",
+            r"https?://ieeexplore\.ieee\.org/[A-Za-z0-9_\-./]+",
+            r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, readme)
+            if match:
+                return f'=HYPERLINK("{match.group(0)}", "Yes")'
         return "No"
     except Exception:
         return "No"
@@ -141,11 +185,13 @@ def get_repo_info(repo):
         ".gitignore": has_file(repo, ".gitignore"),
         "Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml"),
         "CITATION": has_file(repo, "CITATION.cff"),
+        ".zenodo.json": has_file(repo, ".zenodo.json"),
         "Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
-        "Website Reference": "Yes" if repo.homepage else "No",
-        "Dataset": has_dataset(repo),
-        "Paper Association": has_associated_paper(repo),
+        "Website Reference": f'=HYPERLINK("{repo.homepage}", "Yes")' if repo.homepage else "No",
+        "Dataset": get_dataset(repo),
+        "Model": get_model(repo),
+        "Paper Association": get_associated_paper(repo),
         "DOI for GitHub Repo": has_doi(repo),
     }
 
