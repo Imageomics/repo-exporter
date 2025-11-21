@@ -9,8 +9,8 @@ A Python script that automatically gathers metadata for all repositories in a Gi
   - Date created and last updated  
   - Creator and top 4 contributors (`N/A` creator means it was either a transferred repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their github account)
   - Number of stars
-  - README, license, `.gitignore`, `CITATION.cff`, and Package requirements (`requirements.txt`, `environment.yaml`, etc.) presence   
-  - Website Reference, Dataset, Paper Associated, DOI for GitHub Repo presence
+  - README, license, `.gitignore`, Package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, .zenodo.json and contributor files presence
+  - Website Reference, Dataset, Model, Paper Associated, DOI for GitHub Repo presence
   - Number of branches
 - Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list.
 - Highlights “No” fields with red cell colors  
