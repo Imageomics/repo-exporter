@@ -1,8 +1,6 @@
 # Repository Exporter
 
-A Python script that automatically gathers metadata for all repositories in a GitHub organization and exports it to a color-coded Excel spreadsheet for easy viewing and analysis.
-
-It achieves through this creating a Google Cloud Console Service Account to make edits on behalf of us through a bot account after we give it editor permissions on the Google Sheets file that we want it to edit.
+A Python script that gathers metadata for all repositories in a GitHub organization and automatically exports the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
 
 ## Features
 - Fetches all repositories in an organization  
