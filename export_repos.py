@@ -10,7 +10,7 @@ from google.oauth2.service_account import Credentials
 # Config
 ORG_NAME = "Imageomics"
 OUTPUT_FILE = f"{ORG_NAME}_repo_info.xlsx"
-SPREADSHEET_ID = "1SHTSa3NV3HSAR6lqurQ4IPZbWDcdjU4GwPFHaQpGxEc"
+SPREADSHEET_ID = "15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc"
 SHEET_NAME = "Sheet1"
 
 # Helper Functions
