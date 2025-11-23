@@ -304,7 +304,8 @@ def main():
     print("")
     print("----------------")
 
-    repos = list(org.get_repos(type="all"))
+    REPO_TYPE = os.getenv("REPO_TYPE")
+    repos = list(org.get_repos(type=REPO_TYPE))
     data = []
 
 
