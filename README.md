@@ -2,6 +2,8 @@
 
 A Python script that automatically gathers metadata for all repositories in a GitHub organization and exports it to a color-coded Excel spreadsheet for easy viewing and analysis.
 
+It achieves through this creating a Google Cloud Console Service Account to make edits on behalf of us through a bot account after we give it editor permissions on the Google Sheets file that we want it to edit.
+
 ## Features
 - Fetches all repositories in an organization  
 - Collects key details:
