@@ -10,6 +10,15 @@ on:
            # │ │ │ │ │    * means doesn't restrict anything
     - cron: "0 9 * * 1" # Runs once every Monday at 9 AM
   workflow_dispatch:
+    inputs:
+      repo_type:
+        description: "Which group of repos to export?"
+        required: false
+        type: choice
+        default: all
+        options:
+          - private
+          - all
 
 jobs:
   update-sheet:
@@ -34,4 +43,5 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         GOOGLE_CREDENTIALS_PATH: service_account.json
+        REPO_TYPE: ${{ github.event.inputs.REPO_TYPE || 'all' }}
       run: python export_repos.py
