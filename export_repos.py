@@ -258,32 +258,79 @@ def update_google_sheet(df):
         }
     )
 
-    # Red color coding for No
-    rule = {
-        "addConditionalFormatRule": {
-            "rule": {
-                "ranges": [
-                    { "sheetId": sheet.id }  # Apply to entire sheet
-                ],
-                "booleanRule": {
-                    "condition": {
-                        "type": "TEXT_EQ",
-                        "values": [{"userEnteredValue": "No"}]
-                    },
-                    "format": {
-                        "backgroundColor": {
-                            "red": 1,
-                            "green": 0.5,
-                            "blue": 0.5
-                        }
-                    }
-                },
-            },
-            "index": 0
-        }
+    red_columns = {
+        "README",
+        "License",
+        ".gitignore",
+        "Package Requirements",
+        "CITATION"
     }
 
-    sheet.spreadsheet.batch_update({"requests": [rule]})
+    orange_columns = {
+        ".zenodo.json",
+        "Website Reference",
+        "Dataset",
+        "Model",
+        "Paper Association",
+        "DOI for GitHub Repo"
+    }
+
+    rules = []
+
+    for idx, col_name in enumerate(header, start=1):
+        # Red No’s
+        if col_name in red_columns:
+            rules.append({
+                "addConditionalFormatRule": {
+                    "rule": {
+                        "ranges": [
+                            {
+                                "sheetId": sheet.id,
+                                "startColumnIndex": idx - 1,
+                                "endColumnIndex": idx
+                            }
+                        ],
+                        "booleanRule": {
+                            "condition": {
+                                "type": "TEXT_EQ",
+                                "values": [{"userEnteredValue": "No"}]
+                            },
+                            "format": {
+                                "backgroundColor": {"red": 1, "green": 0.5, "blue": 0.5}
+                            }
+                        }
+                    },
+                    "index": 0
+                }
+            })
+
+        # Orange No’s
+        if col_name in orange_columns:
+            rules.append({
+                "addConditionalFormatRule": {
+                    "rule": {
+                        "ranges": [
+                            {
+                                "sheetId": sheet.id,
+                                "startColumnIndex": idx - 1,
+                                "endColumnIndex": idx
+                            }
+                        ],
+                        "booleanRule": {
+                            "condition": {
+                                "type": "TEXT_EQ",
+                                "values": [{"userEnteredValue": "No"}]
+                            },
+                            "format": {
+                                "backgroundColor": {"red": 1, "green": 0.8, "blue": 0.4}
+                            }
+                        }
+                    },
+                    "index": 0
+                }
+            })
+
+    sheet.spreadsheet.batch_update({"requests": [rules]})
 # --------
 
 def main():
@@ -307,7 +354,6 @@ def main():
     REPO_TYPE = os.getenv("REPO_TYPE")
     repos = list(org.get_repos(type=REPO_TYPE))
     data = []
-
 
     tqdm_kwargs = {}
     if os.environ.get("CI") == "true":
