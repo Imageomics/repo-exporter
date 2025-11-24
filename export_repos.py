@@ -96,7 +96,6 @@ def get_dataset(repo) -> str:
             r"https?://huggingface\.co/datasets/[^\s]+",
             rf"https?://github\.com/imageomics/{repo.name.lower()}/tree/main/data[^\s]*",
             r"https?://huggingface\.co/collections/[^\s]+",
-            r"https?://imageomics\.github\.io/[^\s]+",
         ]
 
         for pattern in patterns:
