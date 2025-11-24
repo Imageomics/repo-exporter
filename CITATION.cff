@@ -7,5 +7,7 @@ message: "If you use this software, please cite it using the information below."
 authors:
   - family-names: Radhakrishnan
     given-names: Balaji
+  - family-names: Campolongo
+    given-names: "Elizabeth G."
 date-released: 
 repository-code: https://github.com/Imageomics/repo-exporter
