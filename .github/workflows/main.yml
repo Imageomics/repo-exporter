@@ -31,7 +31,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.14"
+        python-version: "3.x"
 
     - name: Install dependencies
       run: pip install -r requirements.txt
@@ -43,5 +43,5 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         GOOGLE_CREDENTIALS_PATH: service_account.json
-        REPO_TYPE: ${{ github.event.inputs.REPO_TYPE || 'all' }}
+        REPO_TYPE: ${{ github.event.inputs.repo_type || 'all' }}
       run: python export_repos.py
