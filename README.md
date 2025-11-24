@@ -3,15 +3,15 @@
 A Python script that gathers metadata for all repositories in a GitHub organization and automatically exports the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
 
 ## Features
-- Fetches all repositories in an organization  
+- Fetches all repositories in an organization
 - Collects key details:
-  - Repo visibility, name and description  
-  - Date created and last updated  
+  - Repo visibility, name and description
+  - Date created and last updated
   - Creator and top 4 contributors (`N/A` creator means it was either a transferred repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their github account)
-  - Number of stars
-  - README, license, `.gitignore`, Package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, .zenodo.json and contributor files presence
-  - Website Reference, Dataset, Model, Paper Associated, DOI for GitHub Repo presence
-  - Number of branches
+  - Number of stars and number of branches
+  - README, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, .zenodo.json and contributor files presence
+  - Primary Programming Language
+  - Website Reference, Dataset, Model, Paper Association, DOI for GitHub Repo presence
 - Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list.
 - Highlights “No” fields with red cell colors  
 
@@ -57,3 +57,4 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
    5. Click on the **service account email** -> **Keys** -> **Add key** -> **Create new key** and select **JSON** then finally click **Create**
    7. Go to https://github.com/Imageomics/repo-exporter/settings/secrets/actions and click **New repository secret** and name it **GOOGLE_SERVICE_ACCOUNT_JSON** and copy paste the entire contents of the JSON file into the **Secret** section and click **Add secret**
    8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
+   9. Go to your chosen Google Spreadsheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
