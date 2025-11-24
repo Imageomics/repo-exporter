@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from github import Github, GithubException, Auth
 from tqdm import tqdm
+from datetime import datetime, timedelta, timezone
 import time
 import re
 import gspread
@@ -79,22 +80,31 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
     except Exception:
         return "N/A"
     
-def has_doi(repo) -> str:
+def is_inactive(repo) -> str:
     try:
-        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+        updated = repo.updated_at
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+
+        one_year_ago = datetime.now(timezone.utc) - timedelta(days=365)
+
+        return "Yes" if updated < one_year_ago else "No"
+    except Exception:
+        return "No"
+
+def has_doi(readme: str) -> str:
+    try:
         if "zenodo.org/badge" in readme or "doi.org" in readme:
             return "Yes"
         return "No"
     except Exception:
         return "No"
         
-def get_dataset(repo) -> str:
+def get_dataset(readme: str, repo_name: str) -> str:
     try:
-        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
-
         patterns = [
             r"https?://huggingface\.co/datasets/[^\s]+",
-            rf"https?://github\.com/imageomics/{repo.name.lower()}/tree/main/data[^\s]*",
+            rf"https?://github\.com/imageomics/{repo_name}/tree/main/data[^\s]*",
             r"https?://huggingface\.co/collections/[^\s]+",
         ]
 
@@ -110,10 +120,8 @@ def get_dataset(repo) -> str:
     except Exception:
         return "No"
 
-def get_model(repo) -> str:
+def get_model(readme, homepage) -> str:
     try:
-        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
-
         # Check for Hugging Face model link in README
         hf_pattern = r"https?://huggingface\.co/imageomics/[A-Za-z0-9_\-./]+"
         hf_match = re.search(hf_pattern, readme)
@@ -123,8 +131,8 @@ def get_model(repo) -> str:
             return f'=HYPERLINK("{url}", "Yes")'
 
         # Check for arXiv link in About section on GitHub (repo.homepage)
-        if repo.homepage:
-            homepage = repo.homepage.strip().lower()
+        if homepage:
+            homepage = homepage.strip().lower()
 
             arxiv_pattern = r"https?://arxiv\.org/[A-Za-z0-9_\-./]+"
             arxiv_match = re.search(arxiv_pattern, homepage)
@@ -137,10 +145,18 @@ def get_model(repo) -> str:
     except Exception:
         return "No"
     
-def get_associated_paper(repo) -> str:
+def get_primary_language(repo) -> str:
     try:
-        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+        languages = repo.get_languages()
+        if not languages:
+            return "N/A"
+        
+        return max(languages, key=languages.get)
+    except Exception:
+        return "N/A"
 
+def get_associated_paper(readme) -> str:
+    try:
         patterns = [
             r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
             r"https?://doi\.org/[A-Za-z0-9_\-./]+",
@@ -162,17 +178,13 @@ def get_associated_paper(repo) -> str:
     except Exception:
         return "No"
     
-def get_primary_language(repo) -> str:
-    try:
-        languages = repo.get_languages()
-        if not languages:
-            return "N/A"
-        
-        return max(languages, key=languages.get)
-    except Exception:
-        return "N/A"
     
 def get_repo_info(repo):
+    try:
+        readme_content_lower = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+    except Exception:
+        readme_content_lower = ""
+
     return {
         "Repository Name": f'=HYPERLINK("{repo.html_url}", "{repo.name}")',
         "Description": repo.description or "N/A",
@@ -190,11 +202,13 @@ def get_repo_info(repo):
         ".zenodo.json": has_file(repo, ".zenodo.json"),
         "Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
+        "Forks": "Yes" if repo.fork else "No",
+        "Inactive": is_inactive(repo),
         "Website Reference": f'=HYPERLINK("{repo.homepage}", "Yes")' if repo.homepage else "No",
-        "Dataset": get_dataset(repo),
-        "Model": get_model(repo),
-        "Paper Association": get_associated_paper(repo),
-        "DOI for GitHub Repo": has_doi(repo),
+        "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
+        "Model": get_model(readme_content_lower, repo.homepage),
+        "Paper Association": get_associated_paper(readme_content_lower),
+        "DOI for GitHub Repo": has_doi(readme_content_lower),
     }
 
 def extract_display_name(val):
