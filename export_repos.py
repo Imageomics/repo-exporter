@@ -154,7 +154,10 @@ def get_associated_paper(repo) -> str:
         for pattern in patterns:
             match = re.search(pattern, readme)
             if match:
-                return f'=HYPERLINK("{match.group(0)}", "Yes")'
+                url = match.group(0)
+
+                url = url.rstrip(").],};:>\"'")
+                return f'=HYPERLINK("{url}", "Yes")'
         return "No"
     except Exception:
         return "No"
