@@ -303,6 +303,7 @@ def update_google_sheet(df):
                         "ranges": [
                             {
                                 "sheetId": sheet.id,
+                                "startRowIndex": HEADER_ROW_INDEX,
                                 "startColumnIndex": idx - 1,
                                 "endColumnIndex": idx
                             }
@@ -329,6 +330,7 @@ def update_google_sheet(df):
                         "ranges": [
                             {
                                 "sheetId": sheet.id,
+                                "startRowIndex": HEADER_ROW_INDEX,
                                 "startColumnIndex": idx - 1,
                                 "endColumnIndex": idx
                             }
