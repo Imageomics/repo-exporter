@@ -81,31 +81,21 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
     
 def has_doi(repo) -> str:
     try:
-        file = repo.get_contents("CITATION.cff")
-        content = file.decoded_content.decode("utf-8", errors="ignore")
-        if re.search(r"doi\s*:\s*10\.\d{4,9}/[-._;()/:A-Z0-9]+", content, re.IGNORECASE):
+        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+        if "zenodo.org/badge" in readme or "doi.org" in readme:
             return "Yes"
         return "No"
-    except GithubException:
-        # Check for Zenodo DOI badge in README as fallback
-        try:
-            readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
-            if "zenodo.org/badge" in readme or "doi.org" in readme:
-                return "Yes"
-            return "No"
-        except Exception:
-            return "No"
+    except Exception:
+        return "No"
         
 def get_dataset(repo) -> str:
     try:
         readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
 
         patterns = [
-            r"https?://zenodo\.org/[^\s]+",
-            r"https?://figshare\.com/[^\s]+",
-            r"https?://www\.kaggle\.com/[^\s]+",
             r"https?://huggingface\.co/datasets/[^\s]+",
-            r"https?://data\.[^\s]+",
+            rf"https?://github\.com/imageomics/{repo.name.lower()}/tree/main/data[^\s]*",
+            r"https?://huggingface\.co/collections/[^\s]+",
             r"https?://imageomics\.github\.io/[^\s]+",
         ]
 
@@ -125,15 +115,25 @@ def get_model(repo) -> str:
     try:
         readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
 
-        pattern = r"https?://huggingface\.co/imageomics/[A-Za-z0-9_\-./]+"
+        # Check for Hugging Face model link in README
+        hf_pattern = r"https?://huggingface\.co/imageomics/[A-Za-z0-9_\-./]+"
+        hf_match = re.search(hf_pattern, readme)
 
-        match = re.search(pattern, readme)
-        if match:
-            url = match.group(0)
-
-            url = url.rstrip(").],};:>\"'")  # remove common trailing characters
-
+        if hf_match:
+            url = hf_match.group(0).rstrip(").],};:>\"'")
             return f'=HYPERLINK("{url}", "Yes")'
+
+        # Check for arXiv link in About section on GitHub (repo.homepage)
+        if repo.homepage:
+            homepage = repo.homepage.strip().lower()
+
+            arxiv_pattern = r"https?://arxiv\.org/[A-Za-z0-9_\-./]+"
+            arxiv_match = re.search(arxiv_pattern, homepage)
+
+            if arxiv_match:
+                url = arxiv_match.group(0).rstrip(").],};:>\"'")
+                return f'=HYPERLINK("{url}", "Yes")'
+
         return "No"
     except Exception:
         return "No"
