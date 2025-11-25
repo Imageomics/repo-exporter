@@ -10,7 +10,6 @@ from google.oauth2.service_account import Credentials
 
 # Config
 ORG_NAME = "Imageomics"
-OUTPUT_FILE = f"{ORG_NAME}_repo_info.xlsx"
 SPREADSHEET_ID = "15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc"
 SHEET_NAME = "Sheet1"
 
@@ -398,7 +397,7 @@ def main():
     df.sort_values(by="Repository Name", inplace=True)
 
     update_google_sheet(df)
-    print(f"Finished fetching info for {len(df)} repositories from {ORG_NAME} organization to {OUTPUT_FILE}")
+    print(f"Finished fetching info for {len(df)} repositories from {ORG_NAME} organization")
 
     elapsed = time.time() - start_time
     minutes, seconds = divmod(int(elapsed), 60)
