@@ -9,11 +9,11 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
   - Date created and last updated
   - Creator and top 4 contributors (`N/A` creator means it was either a transferred repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their github account)
   - Number of stars and number of branches
-  - README, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, .zenodo.json and contributor files presence
+  - README, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, `.zenodo.json` and `CONTRIBUTING.md` files presence
   - Primary Programming Language
   - Website Reference, Dataset, Model, Paper Association, DOI for GitHub Repo presence
-- Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list.
-- Highlights “No” fields with red cell colors  
+- Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list
+- For **Standard Files** highlights **No** data cell values with red cell colors and for **Recommended Files** and **Filters** highlights **No** data cell values with orange cell colors 
 
 ## Usage
 
@@ -51,10 +51,16 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
 5. Create a Google Cloud Console Service Account and give it permission to use in the repository and in the Google sheet
 
    1. Go to https://console.cloud.google.com/
-   2. Create a **new project** and name it anything
+   2. Under "IAM & Admin", create a **new project** and name it **inventory**
    3. Go to https://console.cloud.google.com/iam-admin/serviceaccounts, if you have multiple projects you'll need to **select the project** that you just made if it hasn't already been selected
-   4. Create a **service account**, enter a name for it, enter a service account ID for it (can be anything), enter a description for it
+   4. Create a **service account**, named **Imageomics**, with description: "Repo checklist automation account" and finally press **Done** (You do not need to add any Permissions or Principals with access)
    5. Click on the **service account email** -> **Keys** -> **Add key** -> **Create new key** and select **JSON** then finally click **Create**
    7. Go to https://github.com/Imageomics/repo-exporter/settings/secrets/actions and click **New repository secret** and name it **GOOGLE_SERVICE_ACCOUNT_JSON** and copy paste the entire contents of the JSON file into the **Secret** section and click **Add secret**
    8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
-   9. Go to your chosen Google Spreadsheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
+   9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
+
+### Important Notes (required for the script to work):
+- 1. You must enter your specific GitHub Organization Name under Config settings at the top of the Python script file (for example, `Imageomics`)
+- 2. You must enter your specific Google Sheet ID under Config settings at the top of the Python script file (for example, if the URL is `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit?gid=0#gid=0`, then `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc` is the Google Sheet ID)
+- 3. You must enter your specific Google Sheet Section Name. This can be found at the bottom of your Google Sheet (for example, `Sheet1`)
+
