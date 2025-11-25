@@ -12,8 +12,8 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
   - README, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, `.zenodo.json` and `CONTRIBUTING.md` files presence
   - Primary Programming Language
   - Website Reference, Dataset, Model, Paper Association, DOI for GitHub Repo presence
-- Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list.
-- Highlights “No” fields for Standard files with red cell colors and highlights 
+- Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list
+- For **Standard Files** highlights **No** data cell values with red cell colors and for **Recommended Files** and **Filters** highlights **No** data cell values with orange cell colors 
 
 ## Usage
 
