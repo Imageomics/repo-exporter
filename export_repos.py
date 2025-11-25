@@ -285,7 +285,7 @@ def update_google_sheet(df):
 
     orange_columns = {
         ".zenodo.json",
-        "CONTRIBUTING.md"
+        "CONTRIBUTING.md",
         "Website Reference",
         "Dataset",
         "Model",
@@ -350,7 +350,7 @@ def update_google_sheet(df):
                 }
             })
 
-    sheet.spreadsheet.batch_update({"requests": [rules]})
+    sheet.spreadsheet.batch_update({"requests": rules})
 # --------
 
 def main():
