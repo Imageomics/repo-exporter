@@ -9,11 +9,11 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
   - Date created and last updated
   - Creator and top 4 contributors (`N/A` creator means it was either a transferred repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their github account)
   - Number of stars and number of branches
-  - README, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, .zenodo.json and contributor files presence
+  - README, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, `.zenodo.json` and `CONTRIBUTING.md` files presence
   - Primary Programming Language
   - Website Reference, Dataset, Model, Paper Association, DOI for GitHub Repo presence
 - Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list.
-- Highlights “No” fields with red cell colors  
+- Highlights “No” fields for Standard files with red cell colors and highlights 
 
 ## Usage
 
@@ -51,7 +51,7 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
 5. Create a Google Cloud Console Service Account and give it permission to use in the repository and in the Google sheet
 
    1. Go to https://console.cloud.google.com/
-   2. Create a **new project** and name it "inventory"
+   2. Create a **new project** and name it **inventory**
    3. Go to https://console.cloud.google.com/iam-admin/serviceaccounts, if you have multiple projects you'll need to **select the project** that you just made if it hasn't already been selected
    4. Create a **service account**, for the name enter **Imageomics**, for the service account ID enter **repo-exporter**, enter a description: "Repo checklist automatation account"
    5. Click on the **service account email** -> **Keys** -> **Add key** -> **Create new key** and select **JSON** then finally click **Create**
