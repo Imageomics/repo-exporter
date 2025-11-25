@@ -53,7 +53,7 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
    1. Go to https://console.cloud.google.com/
    2. Under "IAM & Admin", create a **new project** and name it **inventory**
    3. Go to https://console.cloud.google.com/iam-admin/serviceaccounts, if you have multiple projects you'll need to **select the project** that you just made if it hasn't already been selected
-   4. Create a **service account**, for the name enter **Imageomics**, for the service account ID enter **repo-exporter**, enter a description: "Repo checklist automatation account" and finally press **Done** (You do not need to add any Permissions or Principals with access)
+   4. Create a **service account**, named **Imageomics**, with description: "Repo checklist automation account" and finally press **Done** (You do not need to add any Permissions or Principals with access)
    5. Click on the **service account email** -> **Keys** -> **Add key** -> **Create new key** and select **JSON** then finally click **Create**
    7. Go to https://github.com/Imageomics/repo-exporter/settings/secrets/actions and click **New repository secret** and name it **GOOGLE_SERVICE_ACCOUNT_JSON** and copy paste the entire contents of the JSON file into the **Secret** section and click **Add secret**
    8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
