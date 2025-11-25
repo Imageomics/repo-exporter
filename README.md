@@ -57,4 +57,10 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
    5. Click on the **service account email** -> **Keys** -> **Add key** -> **Create new key** and select **JSON** then finally click **Create**
    7. Go to https://github.com/Imageomics/repo-exporter/settings/secrets/actions and click **New repository secret** and name it **GOOGLE_SERVICE_ACCOUNT_JSON** and copy paste the entire contents of the JSON file into the **Secret** section and click **Add secret**
    8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
-   9. Go to your chosen Google Spreadsheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
+   9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
+
+### Important Notes (required for the script to work):
+- 1. You must enter your specific GitHub Organization Name under Config settings at the top of the Python script file (for example, `Imageomics`)
+- 2. You must enter your specific Google Sheet ID under Config settings at the top of the Python script file (for example, if the URL is `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit?gid=0#gid=0`, then `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc` is the Google Sheet ID)
+- 3. You must enter your specific Google Sheet Section Name. This can be found at the bottom of your Google Sheet (for example, `Sheet1`)
+
