@@ -274,6 +274,9 @@ def update_google_sheet(df):
         }
     )
 
+    def get_column_index(df, col_name):
+        return df.columns.get_loc(col_name)
+
     red_columns = {
         "README",
         "License",
@@ -281,6 +284,17 @@ def update_google_sheet(df):
         "Package Requirements",
         "CITATION"
     }
+
+    ranges = []
+    for col in red_columns:
+        col_index = get_column_index(df, col)
+        ranges.append({
+            "sheetId": SPREADSHEET_ID,
+            "startRowIndex": 1,
+            "endRowIndex": len(df) + 1,
+            "startColumnIndex": col_index,
+            "endColumnIndex": col_index + 1
+        })
 
     orange_columns = {
         ".zenodo.json",
@@ -294,20 +308,23 @@ def update_google_sheet(df):
 
     rules = []
 
-    for idx, col_name in enumerate(header, start=1):
-        # Red No’s
+    # Build conditional formatting rules
+    for col_name in df.columns:
+        col_index = get_column_index(col_name)
+        if col_index is None:
+            continue
+
+        # Only color columns listed in red_columns or orange_columns
         if col_name in red_columns:
             rules.append({
                 "addConditionalFormatRule": {
                     "rule": {
-                        "ranges": [
-                            {
-                                "sheetId": sheet.id,
-                                "startRowIndex": HEADER_ROW_INDEX,
-                                "startColumnIndex": idx - 1,
-                                "endColumnIndex": idx
-                            }
-                        ],
+                        "ranges": [{
+                            "sheetId": sheet.id,
+                            "startRowIndex": HEADER_ROW_INDEX,
+                            "startColumnIndex": col_index,
+                            "endColumnIndex": col_index + 1
+                        }],
                         "booleanRule": {
                             "condition": {
                                 "type": "TEXT_EQ",
@@ -322,19 +339,16 @@ def update_google_sheet(df):
                 }
             })
 
-        # Orange No’s
         if col_name in orange_columns:
             rules.append({
                 "addConditionalFormatRule": {
                     "rule": {
-                        "ranges": [
-                            {
-                                "sheetId": sheet.id,
-                                "startRowIndex": HEADER_ROW_INDEX,
-                                "startColumnIndex": idx - 1,
-                                "endColumnIndex": idx
-                            }
-                        ],
+                        "ranges": [{
+                            "sheetId": sheet.id,
+                            "startRowIndex": HEADER_ROW_INDEX,
+                            "startColumnIndex": col_index,
+                            "endColumnIndex": col_index + 1
+                        }],
                         "booleanRule": {
                             "condition": {
                                 "type": "TEXT_EQ",
