@@ -285,6 +285,7 @@ def update_google_sheet(df):
 
     orange_columns = {
         ".zenodo.json",
+        "CONTRIBUTING.md"
         "Website Reference",
         "Dataset",
         "Model",
