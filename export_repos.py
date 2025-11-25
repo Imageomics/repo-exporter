@@ -274,8 +274,11 @@ def update_google_sheet(df):
         }
     )
 
-    def get_column_index(df, col_name):
-        return df.columns.get_loc(col_name)
+    def get_column_index(col_name: str):
+        try:
+            return header.index(col_name)
+        except ValueError:
+            return None  # column not found
 
     red_columns = {
         "README",
@@ -284,17 +287,6 @@ def update_google_sheet(df):
         "Package Requirements",
         "CITATION"
     }
-
-    ranges = []
-    for col in red_columns:
-        col_index = get_column_index(df, col)
-        ranges.append({
-            "sheetId": SPREADSHEET_ID,
-            "startRowIndex": 1,
-            "endRowIndex": len(df) + 1,
-            "startColumnIndex": col_index,
-            "endColumnIndex": col_index + 1
-        })
 
     orange_columns = {
         ".zenodo.json",
@@ -308,20 +300,22 @@ def update_google_sheet(df):
 
     rules = []
 
-    # Build conditional formatting rules
-    for col_name in df.columns:
-        col_index = get_column_index(col_name)
-        if col_index is None:
-            continue
+    # Only loop over columns that need formatting
+    for col_set, color in [(red_columns, {"red": 1, "green": 0.5, "blue": 0.5}),
+                        (orange_columns, {"red": 1, "green": 0.8, "blue": 0.4})]:
 
-        # Only color columns listed in red_columns or orange_columns
-        if col_name in red_columns:
+        for col_name in col_set:
+            col_index = get_column_index(col_name)
+            if col_index is None:
+                continue  # skip missing columns
+
             rules.append({
                 "addConditionalFormatRule": {
                     "rule": {
                         "ranges": [{
                             "sheetId": sheet.id,
-                            "startRowIndex": HEADER_ROW_INDEX,
+                            "startRowIndex": HEADER_ROW_INDEX,           # start after header
+                            "endRowIndex": HEADER_ROW_INDEX + len(df),   # only data rows
                             "startColumnIndex": col_index,
                             "endColumnIndex": col_index + 1
                         }],
@@ -331,31 +325,7 @@ def update_google_sheet(df):
                                 "values": [{"userEnteredValue": "No"}]
                             },
                             "format": {
-                                "backgroundColor": {"red": 1, "green": 0.5, "blue": 0.5}
-                            }
-                        }
-                    },
-                    "index": 0
-                }
-            })
-
-        if col_name in orange_columns:
-            rules.append({
-                "addConditionalFormatRule": {
-                    "rule": {
-                        "ranges": [{
-                            "sheetId": sheet.id,
-                            "startRowIndex": HEADER_ROW_INDEX,
-                            "startColumnIndex": col_index,
-                            "endColumnIndex": col_index + 1
-                        }],
-                        "booleanRule": {
-                            "condition": {
-                                "type": "TEXT_EQ",
-                                "values": [{"userEnteredValue": "No"}]
-                            },
-                            "format": {
-                                "backgroundColor": {"red": 1, "green": 0.8, "blue": 0.4}
+                                "backgroundColor": color
                             }
                         }
                     },
