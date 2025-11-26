@@ -1,13 +1,16 @@
-cff-version: 1.2.0
-title: "Repository Exporter"
 abstract: "A utility tool that automatically collects and exports metadata from all repositories in a GitHub organization. It allows to export them into a consolidated spreadsheet with details such as repo descriptions, last updated date, top contributors, model links, and activity to support auditing and workflow analysis."
-version: "1.0.0"
-license: MIT
-message: "If you use this software, please cite it using the information below."
 authors:
   - family-names: Radhakrishnan
     given-names: Balaji
   - family-names: Campolongo
     given-names: "Elizabeth G."
+cff-version: 1.2.0
 date-released: 
+keywords:
+  - imageomics
+license: MIT
+message: "If you use this software, please cite it using the information below."
 repository-code: https://github.com/Imageomics/repo-exporter
+title: "Repository Exporter"
+version: "1.0.0"
+type: software
