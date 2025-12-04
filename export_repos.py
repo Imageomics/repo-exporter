@@ -3,6 +3,7 @@ import pandas as pd
 from github import Github, GithubException, Auth
 from tqdm import tqdm
 from datetime import datetime, timedelta, timezone
+import yaml
 import time
 import re
 import gspread
@@ -14,7 +15,7 @@ SPREADSHEET_ID = "15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc"
 SHEET_NAME = "Sheet1"
 
 # Helper Functions
-def has_file(repo, *paths: str):
+def has_file(repo, *paths: str) -> str:
     for path in paths:
         try:
             if repo.get_contents(path):
@@ -22,28 +23,28 @@ def has_file(repo, *paths: str):
         except GithubException:
             continue
     return "No"
-    
-def has_readme(repo):
+
+def has_readme(repo) -> str:
     try:
         if repo.get_readme():
             return "Yes"
     except GithubException:
         return "No"
 
-def has_license(repo):
+def has_license(repo) -> str:
     try:
         if repo.get_license():
             return "Yes"
     except GithubException:
         return "No"
         
-def get_num_branches(repo):
+def get_num_branches(repo) -> int | str:
     try:
         return repo.get_branches().totalCount
     except:
         return "N/A"
     
-def get_repo_creator(repo):
+def get_repo_creator(repo) -> str:
     try:
         commits = repo.get_commits()
         first_commit = commits.reversed[0]
@@ -91,10 +92,35 @@ def is_inactive(repo) -> str:
     except Exception:
         return "No"
 
-def has_doi(readme: str) -> str:
+def has_doi(repo) -> str:
     try:
-        if "zenodo.org/badge" in readme or "doi.org" in readme:
+        content_file = repo.get_contents("CITATION.cff")
+        citation = content_file.decoded_content.decode("utf-8")
+
+        data = yaml.safe_load(citation)
+        if not isinstance(data, dict):
+            return "No"
+
+        # Case 1: top-level doi
+        # Example:
+        # doi: <value>
+        if "doi" in data and isinstance(data["doi"], str) and data["doi"].strip(): # check .strip() to ensure value isnt empty string/spaces
             return "Yes"
+
+        # Case 2: identifiers: with type=doi
+        # Example:
+        # identifiers:
+        #   - type: doi
+        #     value: <value>
+        identifiers = data.get("identifiers", [])
+        if isinstance(identifiers, list):
+            for identifier in identifiers:
+                if isinstance(identifier, dict) and identifier.get("type", "").lower() == "doi":
+                    # Must have a value field or similar and not be empty space
+                    if "value" in identifier and isinstance(identifier["value"], str) and identifier["value"].strip():
+                        return "Yes"
+
+        # DOIs in references should NOT count
         return "No"
     except Exception:
         return "No"
@@ -119,7 +145,7 @@ def get_dataset(readme: str, repo_name: str) -> str:
     except Exception:
         return "No"
 
-def get_model(readme, homepage) -> str:
+def get_model(readme: str, homepage: str) -> str:
     try:
         # Check for Hugging Face model link in README
         hf_pattern = r"https?://huggingface\.co/imageomics/[A-Za-z0-9_\-./]+"
@@ -154,7 +180,7 @@ def get_primary_language(repo) -> str:
     except Exception:
         return "N/A"
 
-def get_associated_paper(readme) -> str:
+def get_associated_paper(readme: str) -> str:
     try:
         patterns = [
             r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
@@ -178,7 +204,7 @@ def get_associated_paper(readme) -> str:
         return "No"
     
     
-def get_repo_info(repo):
+def get_repo_info(repo) -> dict[str, str | int]:
     try:
         readme_content_lower = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
     except Exception:
@@ -200,6 +226,7 @@ def get_repo_info(repo):
         "CITATION": has_file(repo, "CITATION.cff"),
         ".zenodo.json": has_file(repo, ".zenodo.json"),
         "CONTRIBUTING.md": has_file(repo, "CONTRIBUTING.md"),
+        "Copilot Instructions": has_file(repo, "copilot-instructions.md"),
         "Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
         "Forks": "Yes" if repo.fork else "No",
@@ -211,11 +238,11 @@ def get_repo_info(repo):
         "DOI for GitHub Repo": has_doi(readme_content_lower),
     }
 
-def extract_display_name(val):
+def extract_display_name(val: str) -> str:
     match = re.search(r'"([^"]+)"\)$', val) # regex to extract the repo-name from "=HYPERLINK(..., "repo-name")"
     return match.group(1) if match else val
 
-def update_google_sheet(df):
+def update_google_sheet(df: pd.DataFrame) -> None:
     # Authenticate Google API
     creds_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
 
