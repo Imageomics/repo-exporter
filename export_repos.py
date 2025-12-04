@@ -107,17 +107,28 @@ def has_doi(repo) -> str:
         if "doi" in data and isinstance(data["doi"], str) and data["doi"].strip(): # check .strip() to ensure value isnt empty string/spaces
             return "Yes"
 
-        # Case 2: identifiers: with type=doi
-        # Example:
-        # identifiers:
-        #   - type: doi
-        #     value: <value>
+        
         identifiers = data.get("identifiers", [])
         if isinstance(identifiers, list):
             for identifier in identifiers:
+
+                # Case 2: identifiers: with type=doi
+                # Example:
+                # identifiers:
+                #   - type: doi
+                #     value: <value>
                 if isinstance(identifier, dict) and identifier.get("type", "").lower() == "doi":
                     # Must have a value field or similar and not be empty space
                     if "value" in identifier and isinstance(identifier["value"], str) and identifier["value"].strip():
+                        return "Yes"
+                    
+                # Case 3: identifiers: with doi: <value>
+                # Example:
+                # identifiers:
+                #   - doi: <value>
+                if isinstance(identifier, dict) and "doi" in identifier:
+                    val = identifier["doi"]
+                    if isinstance(val, str) and val.strip():
                         return "Yes"
 
         # DOIs in references should NOT count
@@ -226,7 +237,7 @@ def get_repo_info(repo) -> dict[str, str | int]:
         "CITATION": has_file(repo, "CITATION.cff"),
         ".zenodo.json": has_file(repo, ".zenodo.json"),
         "CONTRIBUTING.md": has_file(repo, "CONTRIBUTING.md"),
-        "Copilot Instructions": has_file(repo, "copilot-instructions.md"),
+        "Copilot Instructions": has_file(repo, "AGENTS.md"),
         "Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
         "Forks": "Yes" if repo.fork else "No",

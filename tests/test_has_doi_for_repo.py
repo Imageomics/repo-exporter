@@ -28,8 +28,7 @@ def test_top_level_doi():
     repo = FakeRepo(citation)
     assert has_doi(repo) == "Yes"
 
-
-def test_identifiers_doi():
+def test_identifiers_type_doi():
     citation = """
     title: Test
     identifiers:
@@ -39,6 +38,14 @@ def test_identifiers_doi():
     repo = FakeRepo(citation)
     assert has_doi(repo) == "Yes"
 
+def test_identifiers_doi():
+    citation = """
+    title: Test
+    identifiers:
+      - doi: "10.9999/zenodo.10000000"
+    """
+    repo = FakeRepo(citation)
+    assert has_doi(repo) == "Yes"
 
 def test_references_dont_count():
     citation = """
@@ -49,7 +56,6 @@ def test_references_dont_count():
     repo = FakeRepo(citation)
     assert has_doi(repo) == "No"
 
-
 def test_no_doi():
     citation = """
     title: Test
@@ -57,7 +63,6 @@ def test_no_doi():
     """
     repo = FakeRepo(citation)
     assert has_doi(repo) == "No"
-
 
 def test_missing_citation_file():
     class NoCitationRepo:
