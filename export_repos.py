@@ -97,6 +97,11 @@ def has_doi(repo) -> str:
         content_file = repo.get_contents("CITATION.cff")
         citation = content_file.decoded_content.decode("utf-8")
 
+        print("\n--- DEBUG FOR REPO:", repo.full_name, "---")
+        print("Type of content_file:", type(content_file))
+        print("Raw decoded citation:\n", repr(citation))
+        print("--- END DEBUG ---\n")
+
         data = yaml.safe_load(citation)
         if not isinstance(data, dict):
             return "No"
@@ -133,7 +138,8 @@ def has_doi(repo) -> str:
 
         # DOIs in references should NOT count
         return "No"
-    except Exception:
+    except Exception as e:
+        print("ERROR in has_doi for repo:", repo.full_name, "->", e)
         return "No"
         
 def get_dataset(readme: str, repo_name: str) -> str:
@@ -272,14 +278,22 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     HEADER_ROW_INDEX = 2
     header = sheet.row_values(HEADER_ROW_INDEX)
 
+    # Find 
+    try: 
+        repo_col_index = header.index("Repository Name")
+    except ValueError:
+        raise ValueError('Sheet is missing "Repository Name" column')
+
     # Build a dict of repo name -> index
     existing = sheet.get_all_values()
     data_rows = existing[HEADER_ROW_INDEX:]
     name_to_row = {}
     for offset, row in enumerate(data_rows, start=HEADER_ROW_INDEX + 1):
-        if len(row) > 0:
-            sheet_repo_name = extract_display_name(row[0]) # hardcoded to check for "Repository Name" column in row 0
-            name_to_row[sheet_repo_name] = offset
+        if len(row) <= repo_col_index: # if row of data fetched is missing repo name column, ignore the row
+            continue
+
+        sheet_repo_name = extract_display_name(row[repo_col_index]) # hardcoded to check for "Repository Name" column in row 0
+        name_to_row[sheet_repo_name] = offset
 
     batch_body = []
     for _, row in df.iterrows():
@@ -302,6 +316,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 
             batch_body.append({
                 "range": cell,
+                "majorDimension": "ROWS",
                 "values": [[value]]  # single cell update
             })
 
@@ -329,6 +344,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     orange_columns = {
         ".zenodo.json",
         "CONTRIBUTING.md",
+        "Copilot Instructions",
         "Website Reference",
         "Dataset",
         "Model",
