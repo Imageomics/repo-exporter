@@ -239,7 +239,7 @@ def get_repo_info(repo) -> dict[str, str | int]:
         "README": has_readme(repo),
         "License": has_license(repo),
         ".gitignore": has_file(repo, ".gitignore"),
-        "Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml"),
+        "Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml", "pyproject.toml"),
         "CITATION": has_file(repo, "CITATION.cff"),
         ".zenodo.json": has_file(repo, ".zenodo.json"),
         "CONTRIBUTING": has_file(repo, "CONTRIBUTING.md"),
