@@ -134,7 +134,6 @@ def has_doi(repo) -> str:
         # DOIs in references should NOT count
         return "No"
     except Exception as e:
-        print("ERROR in has_doi for repo:", repo.name, "->", e)
         return "No"
         
 def get_dataset(readme: str, repo_name: str) -> str:
