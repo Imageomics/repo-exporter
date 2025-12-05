@@ -1,4 +1,4 @@
-abstract: "A utility tool that automatically collects and exports metadata from all repositories in a GitHub organization. It allows to export them into a consolidated spreadsheet with details such as repo descriptions, last updated date, top contributors, model links, and activity to support auditing and workflow analysis."
+abstract: "A utility tool that automatically collects and exports metadata from all repositories in a GitHub organization and saves it to a color-coded Google Sheet. It facilitates export into a consolidated spreadsheet with details such as repo descriptions, last updated date, top contributors, model links, and checks for expected files to support auditing and inventory analysis."
 authors:
   - family-names: Radhakrishnan
     given-names: Balaji
