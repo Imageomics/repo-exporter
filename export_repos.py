@@ -252,7 +252,7 @@ def get_repo_info(repo) -> dict[str, str | int]:
         "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
         "Model": get_model(readme_content_lower, repo.homepage),
         "Paper Association": get_associated_paper(readme_content_lower),
-        "DOI for GitHub Repo": has_doi(readme_content_lower),
+        "DOI for GitHub Repo": has_doi(repo),
     }
 
 def extract_display_name(val: str) -> str:
