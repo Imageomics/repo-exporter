@@ -156,7 +156,7 @@ def get_dataset(readme: str, repo_name: str) -> str:
     except Exception:
         return "No"
 
-def get_model(readme: str, homepage: str) -> str:
+def get_model(readme: str) -> str:
     try:
         # Check for Hugging Face model link in README
         hf_pattern = r"https?://huggingface\.co/imageomics/[A-Za-z0-9_\-./]+"
@@ -165,17 +165,6 @@ def get_model(readme: str, homepage: str) -> str:
         if hf_match:
             url = hf_match.group(0).rstrip(").],};:>\"'")
             return f'=HYPERLINK("{url}", "Yes")'
-
-        # Check for arXiv link in About section on GitHub (repo.homepage)
-        if homepage:
-            homepage = homepage.strip().lower()
-
-            arxiv_pattern = r"https?://arxiv\.org/[A-Za-z0-9_\-./]+"
-            arxiv_match = re.search(arxiv_pattern, homepage)
-
-            if arxiv_match:
-                url = arxiv_match.group(0).rstrip(").],};:>\"'")
-                return f'=HYPERLINK("{url}", "Yes")'
 
         return "No"
     except Exception:
