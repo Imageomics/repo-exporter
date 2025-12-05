@@ -4,10 +4,21 @@ authors:
     given-names: Balaji
   - family-names: Campolongo
     given-names: "Elizabeth G."
+    orcid: "https://orcid.org/0000-0003-0846-2413"
 cff-version: 1.2.0
-date-released: 
+date-released: "2025-12-05"
+identifiers:
+  - description: "The GitHub release URL of tag v1.0.0."
+    type: URL
+    value: "https://github.com/Imageomics/repo-exporter/releases/tag/v1.0.0"
+  - description: "The GitHub URL of the commit tagged with v1.0.0."
+    type: URL
+    value: 
 keywords:
   - imageomics
+  - "GitHub"
+  - APIs
+  - inventory
 license: MIT
 message: "If you use this software, please cite it using the information below."
 repository-code: https://github.com/Imageomics/repo-exporter

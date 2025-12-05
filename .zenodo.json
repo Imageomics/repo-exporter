@@ -1,0 +1,29 @@
+{
+    "creators": [
+      {
+          "name": "Campolongo, Elizabeth G.",
+          "orcid": "https://orcid.org/0000-0003-0846-2413",
+          "affiliation": "The Ohio State University"
+      },
+      {
+          "name": "Radhakrishnan, Balaji",
+          "affiliation": "The Ohio State University"
+      }
+    ],
+    "description": "<p>A Python script that collects key info (Name, description, creation date, last updated date, contributors, etc.) from all repos in a GitHub organization and saves it to a color-coded Google Sheet file of choice.</p>",
+    "keywords": [
+      "imageomics",
+      "GitHub",
+      "APIs",
+      "inventory"
+    ],
+    "title": "Repository Exporter",
+    "version": "1.0.0",
+    "license": "MIT",
+    "publication_date": "2025-12-05",
+    "grants": [
+        {
+            "id": "021nxhr62::2118240"
+        }
+    ] 
+}

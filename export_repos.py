@@ -97,11 +97,6 @@ def has_doi(repo) -> str:
         content_file = repo.get_contents("CITATION.cff")
         citation = content_file.decoded_content.decode("utf-8")
 
-        print("\n--- DEBUG FOR REPO:", repo.name, "---")
-        print("Type of content_file:", type(content_file))
-        print("Raw decoded citation:\n", repr(citation))
-        print("--- END DEBUG ---\n")
-
         data = yaml.safe_load(citation)
         if not isinstance(data, dict):
             return "No"
