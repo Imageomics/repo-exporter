@@ -182,7 +182,7 @@ def get_primary_language(repo) -> str:
 
 def get_associated_paper(readme: str) -> str:
     try:
-        patterns = [
+        url_patterns = [
             r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
             r"https?://doi\.org/[A-Za-z0-9_\-./]+",
             r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+",
@@ -192,13 +192,19 @@ def get_associated_paper(readme: str) -> str:
             r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
         ]
 
-        for pattern in patterns:
-            match = re.search(pattern, readme)
-            if match:
-                url = match.group(0)
+        # checks for [<name>](<url>)
+        markdown_link_pattern = r"\[([^\]]+)\]\((.*?)\)"
 
-                url = url.rstrip(").],};:>\"'")
-                return f'=HYPERLINK("{url}", "Yes")'
+        for label, url in re.findall(markdown_link_pattern, readme):
+            # Only accept label == "paper" or "arXiv" (case-insensitive)
+            if label.strip().lower() not in {"paper", "arxiv"}:
+                continue
+
+            # Check if URL matches a paper source
+            for pattern in url_patterns:
+                if re.search(pattern, url):
+                    cleaned = url.rstrip(").],};:>\"'")
+                    return f'=HYPERLINK("{cleaned}", "Yes")'
         return "No"
     except Exception:
         return "No"
