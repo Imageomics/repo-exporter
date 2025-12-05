@@ -242,8 +242,8 @@ def get_repo_info(repo) -> dict[str, str | int]:
         "Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml"),
         "CITATION": has_file(repo, "CITATION.cff"),
         ".zenodo.json": has_file(repo, ".zenodo.json"),
-        "CONTRIBUTING.md": has_file(repo, "CONTRIBUTING.md"),
-        "Copilot Instructions": has_file(repo, "AGENTS.md"),
+        "CONTRIBUTING": has_file(repo, "CONTRIBUTING.md"),
+        "AGENTS": has_file(repo, "AGENTS.md"),
         "Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
         "Forks": "Yes" if repo.fork else "No",
@@ -343,8 +343,8 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 
     orange_columns = {
         ".zenodo.json",
-        "CONTRIBUTING.md",
-        "Copilot Instructions",
+        "CONTRIBUTING",
+        "AGENTS",
         "Website Reference",
         "Dataset",
         "Model",
