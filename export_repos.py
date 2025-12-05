@@ -239,7 +239,7 @@ def get_repo_info(repo) -> dict[str, str | int]:
         "Inactive": is_inactive(repo),
         "Website Reference": f'=HYPERLINK("{repo.homepage}", "Yes")' if repo.homepage else "No",
         "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
-        "Model": get_model(readme_content_lower, repo.homepage),
+        "Model": get_model(readme_content_lower),
         "Paper Association": get_associated_paper(readme_content_lower),
         "DOI for GitHub Repo": has_doi(repo),
     }
