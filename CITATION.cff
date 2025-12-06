@@ -13,7 +13,7 @@ identifiers:
     value: "https://github.com/Imageomics/repo-exporter/releases/tag/v1.0.0"
   - description: "The GitHub URL of the commit tagged with v1.0.0."
     type: URL
-    value: 
+    value: "https://github.com/Imageomics/repo-exporter/commit/c25f2e4757ceaf2032745f4c9f807cfa5e51ac74"
 keywords:
   - imageomics
   - "GitHub"
@@ -25,3 +25,4 @@ repository-code: https://github.com/Imageomics/repo-exporter
 title: "Repository Exporter"
 version: "1.0.0"
 type: software
+doi: "10.5281/zenodo.17835081"
