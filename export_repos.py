@@ -2,6 +2,8 @@ import os
 import pandas as pd
 from github import Github, GithubException, Auth
 from tqdm import tqdm
+from datetime import datetime, timedelta, timezone
+import yaml
 import time
 import re
 import gspread
@@ -9,12 +11,11 @@ from google.oauth2.service_account import Credentials
 
 # Config
 ORG_NAME = "Imageomics"
-OUTPUT_FILE = f"{ORG_NAME}_repo_info.xlsx"
 SPREADSHEET_ID = "15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc"
 SHEET_NAME = "Sheet1"
 
 # Helper Functions
-def has_file(repo, *paths: str):
+def has_file(repo, *paths: str) -> str:
     for path in paths:
         try:
             if repo.get_contents(path):
@@ -22,28 +23,28 @@ def has_file(repo, *paths: str):
         except GithubException:
             continue
     return "No"
-    
-def has_readme(repo):
+
+def has_readme(repo) -> str:
     try:
         if repo.get_readme():
             return "Yes"
     except GithubException:
         return "No"
 
-def has_license(repo):
+def has_license(repo) -> str:
     try:
         if repo.get_license():
             return "Yes"
     except GithubException:
         return "No"
         
-def get_num_branches(repo):
+def get_num_branches(repo) -> int | str:
     try:
         return repo.get_branches().totalCount
     except:
         return "N/A"
     
-def get_repo_creator(repo):
+def get_repo_creator(repo) -> str:
     try:
         commits = repo.get_commits()
         first_commit = commits.reversed[0]
@@ -79,34 +80,68 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
     except Exception:
         return "N/A"
     
+def is_inactive(repo) -> str:
+    try:
+        updated = repo.updated_at
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+
+        one_year_ago = datetime.now(timezone.utc) - timedelta(days=365)
+
+        return "Yes" if updated < one_year_ago else "No"
+    except Exception:
+        return "No"
+
 def has_doi(repo) -> str:
     try:
-        file = repo.get_contents("CITATION.cff")
-        content = file.decoded_content.decode("utf-8", errors="ignore")
-        if re.search(r"doi\s*:\s*10\.\d{4,9}/[-._;()/:A-Z0-9]+", content, re.IGNORECASE):
-            return "Yes"
-        return "No"
-    except GithubException:
-        # Check for Zenodo DOI badge in README as fallback
-        try:
-            readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
-            if "zenodo.org/badge" in readme or "doi.org" in readme:
-                return "Yes"
-            return "No"
-        except Exception:
-            return "No"
-        
-def get_dataset(repo) -> str:
-    try:
-        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+        content_file = repo.get_contents("CITATION.cff")
+        citation = content_file.decoded_content.decode("utf-8")
 
+        data = yaml.safe_load(citation)
+        if not isinstance(data, dict):
+            return "No"
+
+        # Case 1: top-level doi
+        # Example:
+        # doi: <value>
+        if "doi" in data and isinstance(data["doi"], str) and data["doi"].strip(): # check .strip() to ensure value isnt empty string/spaces
+            return "Yes"
+
+        
+        identifiers = data.get("identifiers", [])
+        if isinstance(identifiers, list):
+            for identifier in identifiers:
+
+                # Case 2: identifiers: with type=doi
+                # Example:
+                # identifiers:
+                #   - type: doi
+                #     value: <value>
+                if isinstance(identifier, dict) and identifier.get("type", "").lower() == "doi":
+                    # Must have a value field or similar and not be empty space
+                    if "value" in identifier and isinstance(identifier["value"], str) and identifier["value"].strip():
+                        return "Yes"
+                    
+                # Case 3: identifiers: with doi: <value>
+                # Example:
+                # identifiers:
+                #   - doi: <value>
+                if isinstance(identifier, dict) and "doi" in identifier:
+                    val = identifier["doi"]
+                    if isinstance(val, str) and val.strip():
+                        return "Yes"
+
+        # DOIs in references should NOT count
+        return "No"
+    except Exception as e:
+        return "No"
+        
+def get_dataset(readme: str, repo_name: str) -> str:
+    try:
         patterns = [
-            r"https?://zenodo\.org/[^\s]+",
-            r"https?://figshare\.com/[^\s]+",
-            r"https?://www\.kaggle\.com/[^\s]+",
             r"https?://huggingface\.co/datasets/[^\s]+",
-            r"https?://data\.[^\s]+",
-            r"https?://imageomics\.github\.io/[^\s]+",
+            rf"https?://github\.com/imageomics/{repo_name}/tree/main/data[^\s]*",
+            r"https?://huggingface\.co/collections/[^\s]+",
         ]
 
         for pattern in patterns:
@@ -121,41 +156,16 @@ def get_dataset(repo) -> str:
     except Exception:
         return "No"
 
-def get_model(repo) -> str:
+def get_model(readme: str) -> str:
     try:
-        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+        # Check for Hugging Face model link in README
+        hf_pattern = r"https?://huggingface\.co/imageomics/[A-Za-z0-9_\-./]+"
+        hf_match = re.search(hf_pattern, readme)
 
-        pattern = r"https?://huggingface\.co/imageomics/[A-Za-z0-9_\-./]+"
-
-        match = re.search(pattern, readme)
-        if match:
-            url = match.group(0)
-
-            url = url.rstrip(").],};:>\"'")  # remove common trailing characters
-
+        if hf_match:
+            url = hf_match.group(0).rstrip(").],};:>\"'")
             return f'=HYPERLINK("{url}", "Yes")'
-        return "No"
-    except Exception:
-        return "No"
-    
-def get_associated_paper(repo) -> str:
-    try:
-        readme = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
 
-        patterns = [
-            r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
-            r"https?://doi\.org/[A-Za-z0-9_\-./]+",
-            r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+",
-            r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+",
-            r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+",
-            r"https?://ieeexplore\.ieee\.org/[A-Za-z0-9_\-./]+",
-            r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, readme)
-            if match:
-                return f'=HYPERLINK("{match.group(0)}", "Yes")'
         return "No"
     except Exception:
         return "No"
@@ -169,8 +179,43 @@ def get_primary_language(repo) -> str:
         return max(languages, key=languages.get)
     except Exception:
         return "N/A"
+
+def get_associated_paper(readme: str) -> str:
+    try:
+        url_patterns = [
+            r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
+            r"https?://doi\.org/[A-Za-z0-9_\-./]+",
+            r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+",
+            r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+",
+            r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+",
+            r"https?://ieeexplore\.ieee\.org/[A-Za-z0-9_\-./]+",
+            r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
+        ]
+
+        # checks for [<name>](<url>)
+        markdown_link_pattern = r"\[([^\]]+)\]\((.*?)\)"
+
+        for label, url in re.findall(markdown_link_pattern, readme):
+            # Only accept label == "paper" or "arXiv" (case-insensitive)
+            if label.strip().lower() not in {"paper", "arxiv"}:
+                continue
+
+            # Check if URL matches a paper source
+            for pattern in url_patterns:
+                if re.search(pattern, url):
+                    cleaned = url.rstrip(").],};:>\"'")
+                    return f'=HYPERLINK("{cleaned}", "Yes")'
+        return "No"
+    except Exception:
+        return "No"
     
-def get_repo_info(repo):
+    
+def get_repo_info(repo) -> dict[str, str | int]:
+    try:
+        readme_content_lower = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
+    except Exception:
+        readme_content_lower = ""
+
     return {
         "Repository Name": f'=HYPERLINK("{repo.html_url}", "{repo.name}")',
         "Description": repo.description or "N/A",
@@ -183,23 +228,27 @@ def get_repo_info(repo):
         "README": has_readme(repo),
         "License": has_license(repo),
         ".gitignore": has_file(repo, ".gitignore"),
-        "Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml"),
+        "Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml", "pyproject.toml"),
         "CITATION": has_file(repo, "CITATION.cff"),
         ".zenodo.json": has_file(repo, ".zenodo.json"),
+        "CONTRIBUTING": has_file(repo, "CONTRIBUTING.md"),
+        "AGENTS": has_file(repo, "AGENTS.md"),
         "Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
+        "Forks": "Yes" if repo.fork else "No",
+        "Inactive": is_inactive(repo),
         "Website Reference": f'=HYPERLINK("{repo.homepage}", "Yes")' if repo.homepage else "No",
-        "Dataset": get_dataset(repo),
-        "Model": get_model(repo),
-        "Paper Association": get_associated_paper(repo),
+        "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
+        "Model": get_model(readme_content_lower),
+        "Paper Association": get_associated_paper(readme_content_lower),
         "DOI for GitHub Repo": has_doi(repo),
     }
 
-def extract_display_name(val):
+def extract_display_name(val: str) -> str:
     match = re.search(r'"([^"]+)"\)$', val) # regex to extract the repo-name from "=HYPERLINK(..., "repo-name")"
     return match.group(1) if match else val
 
-def update_google_sheet(df):
+def update_google_sheet(df: pd.DataFrame) -> None:
     # Authenticate Google API
     creds_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
 
@@ -218,14 +267,22 @@ def update_google_sheet(df):
     HEADER_ROW_INDEX = 2
     header = sheet.row_values(HEADER_ROW_INDEX)
 
+    # Find 
+    try: 
+        repo_col_index = header.index("Repository Name")
+    except ValueError:
+        raise ValueError('Sheet is missing "Repository Name" column')
+
     # Build a dict of repo name -> index
     existing = sheet.get_all_values()
     data_rows = existing[HEADER_ROW_INDEX:]
     name_to_row = {}
     for offset, row in enumerate(data_rows, start=HEADER_ROW_INDEX + 1):
-        if len(row) > 0:
-            sheet_repo_name = extract_display_name(row[0]) # hardcoded to check for "Repository Name" column in row 0
-            name_to_row[sheet_repo_name] = offset
+        if len(row) <= repo_col_index: # if row of data fetched is missing repo name column, ignore the row
+            continue
+
+        sheet_repo_name = extract_display_name(row[repo_col_index]) # hardcoded to check for "Repository Name" column in row 0
+        name_to_row[sheet_repo_name] = offset
 
     batch_body = []
     for _, row in df.iterrows():
@@ -248,6 +305,7 @@ def update_google_sheet(df):
 
             batch_body.append({
                 "range": cell,
+                "majorDimension": "ROWS",
                 "values": [[value]]  # single cell update
             })
 
@@ -258,32 +316,67 @@ def update_google_sheet(df):
         }
     )
 
-    # Red color coding for No
-    rule = {
-        "addConditionalFormatRule": {
-            "rule": {
-                "ranges": [
-                    { "sheetId": sheet.id }  # Apply to entire sheet
-                ],
-                "booleanRule": {
-                    "condition": {
-                        "type": "TEXT_EQ",
-                        "values": [{"userEnteredValue": "No"}]
-                    },
-                    "format": {
-                        "backgroundColor": {
-                            "red": 1,
-                            "green": 0.5,
-                            "blue": 0.5
-                        }
-                    }
-                },
-            },
-            "index": 0
-        }
+    def get_column_index(col_name: str):
+        try:
+            return header.index(col_name)
+        except ValueError:
+            return None  # column not found
+
+    red_columns = {
+        "README",
+        "License",
+        ".gitignore",
+        "Package Requirements",
+        "CITATION"
     }
 
-    sheet.spreadsheet.batch_update({"requests": [rule]})
+    orange_columns = {
+        ".zenodo.json",
+        "CONTRIBUTING",
+        "AGENTS",
+        "Website Reference",
+        "Dataset",
+        "Model",
+        "Paper Association",
+        "DOI for GitHub Repo"
+    }
+
+    rules = []
+
+    # Only loop over columns that need formatting
+    for col_set, color in [(red_columns, {"red": 1, "green": 0.5, "blue": 0.5}),
+                        (orange_columns, {"red": 1, "green": 0.8, "blue": 0.4})]:
+
+        for col_name in col_set:
+            col_index = get_column_index(col_name)
+            if col_index is None:
+                continue  # skip missing columns
+
+            rules.append({
+                "addConditionalFormatRule": {
+                    "rule": {
+                        "ranges": [{
+                            "sheetId": sheet.id,
+                            "startRowIndex": HEADER_ROW_INDEX,           # start after header
+                            "endRowIndex": HEADER_ROW_INDEX + len(df),   # only data rows
+                            "startColumnIndex": col_index,
+                            "endColumnIndex": col_index + 1
+                        }],
+                        "booleanRule": {
+                            "condition": {
+                                "type": "TEXT_EQ",
+                                "values": [{"userEnteredValue": "No"}]
+                            },
+                            "format": {
+                                "backgroundColor": color
+                            }
+                        }
+                    },
+                    "index": 0
+                }
+            })
+
+    sheet.spreadsheet.batch_update({"requests": rules})
 # --------
 
 def main():
@@ -308,7 +401,6 @@ def main():
     repos = list(org.get_repos(type=REPO_TYPE))
     data = []
 
-
     tqdm_kwargs = {}
     if os.environ.get("CI") == "true":
         tqdm_kwargs = {"mininterval": 1, "dynamic_ncols": False, "leave": False}
@@ -332,7 +424,7 @@ def main():
     df.sort_values(by="Repository Name", inplace=True)
 
     update_google_sheet(df)
-    print(f"Finished fetching info for {len(df)} repositories from {ORG_NAME} organization to {OUTPUT_FILE}")
+    print(f"Finished fetching info for {len(df)} repositories from {ORG_NAME} organization")
 
     elapsed = time.time() - start_time
     minutes, seconds = divmod(int(elapsed), 60)

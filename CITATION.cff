@@ -1,0 +1,27 @@
+abstract: "A utility tool that automatically collects and exports metadata from all repositories in a GitHub organization and saves it to a color-coded Google Sheet. It facilitates export into a consolidated spreadsheet with details such as repo descriptions, last updated date, top contributors, model links, and checks for expected files to support auditing and inventory analysis."
+authors:
+  - family-names: Radhakrishnan
+    given-names: Balaji
+  - family-names: Campolongo
+    given-names: "Elizabeth G."
+    orcid: "https://orcid.org/0000-0003-0846-2413"
+cff-version: 1.2.0
+date-released: "2025-12-05"
+identifiers:
+  - description: "The GitHub release URL of tag v1.0.0."
+    type: URL
+    value: "https://github.com/Imageomics/repo-exporter/releases/tag/v1.0.0"
+  - description: "The GitHub URL of the commit tagged with v1.0.0."
+    type: URL
+    value: 
+keywords:
+  - imageomics
+  - "GitHub"
+  - APIs
+  - inventory
+license: MIT
+message: "If you use this software, please cite it using the information below."
+repository-code: https://github.com/Imageomics/repo-exporter
+title: "Repository Exporter"
+version: "1.0.0"
+type: software
