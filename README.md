@@ -28,12 +28,7 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
     pip install -r requirements.txt
     ```
 
-3. Run the script:
-    ```
-    python export_repos.py
-    ```
-
-4. Enter your GitHub Personal Access Token
+3. Enter your GitHub Personal Access Token
   
    To create one with permissions for both private and public repositories (public repository read-access only is enabled by default without adminstrator approval):
    
@@ -48,7 +43,7 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
    6. Click **Generate token** and **copy it** (make sure to store it somewhere safe for future use).
    **Note:** The token must be approved by the organization administrator before accessing private repositories.
 
-5. Create a Google Cloud Console Service Account and give it permission to use in the repository and in the Google sheet
+4. Create a Google Cloud Console Service Account and give it permission to use in the repository and in the Google sheet
 
    1. Go to https://console.cloud.google.com/
    2. Under "IAM & Admin", create a **new project** and name it **inventory**
@@ -59,8 +54,29 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
    8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
    9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
 
+5. Finally, run the GitHub Actions workflow to run the script
+
+   1. Go to https://github.com/Imageomics/repo-exporter/actions
+   2. Click **Update Metadata for GitHub Repository Sheet**
+   3. Click **Run workflow**, with branch as **Branch: main**, with selection **all** and finally press **Run workflow**
+
 ### Important Notes (required for the script to work):
 - 1. You must enter your specific GitHub Organization Name under Config settings at the top of the Python script file (for example, `Imageomics`)
 - 2. You must enter your specific Google Sheet ID under Config settings at the top of the Python script file (for example, if the URL is `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit?gid=0#gid=0`, then `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc` is the Google Sheet ID)
 - 3. You must enter your specific Google Sheet Section Name. This can be found at the bottom of your Google Sheet (for example, `Sheet1`)
 
+---
+
+## Testing
+
+To run the unit tests for the code locally
+
+1. Clone this repository:
+    ```
+    git clone https://github.com/Imageomics/repo-exporter.git
+    cd repo-exporter
+    ```
+2. Run the unit tests locally using pytest:
+   ```
+   python -m pytest -q
+   ```
