@@ -91,9 +91,9 @@ Now update the script with [your GitHub Organization name](https://github.com/Im
 ## Important Notes
 
  Key edits to ensure the script functions properly for _your organization_:
-  1. You must enter your specific GitHub Organization Name under Config settings at the top of the Python script file (for example, `Imageomics`)
-  2. You must enter your specific Google Sheet ID under Config settings at the top of the Python script file (for example, if the URL is `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit?gid=0#gid=0`, then `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc` is the Google Sheet ID)
-  3. You must enter your specific Google Sheet Section Name. This can be found at the bottom of your Google Sheet (for example, `Sheet1`)
+  1. You must enter your specific [GitHub Organization Name](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L13) under Config settings at the top of the Python script file (for example, `Imageomics`)
+  2. You must enter your specific Google Sheet ID under Config settings at the top of the Python script file (for example, if the URL is `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit?gid=0#gid=0`, then `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc` is the [Google Sheet ID](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L14))
+  3. You must enter your specific [Google Sheet Section Name](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L15). This can be found at the bottom of your Google Sheet (for example, `Sheet1`)
 
 ---
 
