@@ -61,9 +61,9 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
    3. Click **Run workflow**, with branch as **Branch: main**, with selection **all** and finally press **Run workflow**
 
 ### Important Notes (required for the script to work):
-- 1. You must enter your specific GitHub Organization Name under Config settings at the top of the Python script file (for example, `Imageomics`)
-- 2. You must enter your specific Google Sheet ID under Config settings at the top of the Python script file (for example, if the URL is `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit?gid=0#gid=0`, then `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc` is the Google Sheet ID)
-- 3. You must enter your specific Google Sheet Section Name. This can be found at the bottom of your Google Sheet (for example, `Sheet1`)
+  1. You must enter your specific GitHub Organization Name under Config settings at the top of the Python script file (for example, `Imageomics`)
+  2. You must enter your specific Google Sheet ID under Config settings at the top of the Python script file (for example, if the URL is `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit?gid=0#gid=0`, then `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc` is the Google Sheet ID)
+  3. You must enter your specific Google Sheet Section Name. This can be found at the bottom of your Google Sheet (for example, `Sheet1`)
 
 ---
 
