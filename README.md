@@ -40,7 +40,9 @@ The workflow is set to run automatically run early morning on every Monday, howe
    7. Navigate to `https://github.com/<gh-org-name>/repo-exporter/settings/secrets/actions` and click **New repository secret** and name it **GH_TOKEN** and copy paste the token into the **Secret** section and click **Add secret**
    **Note:** The token must be approved by the organization administrator before accessing private repositories.
 
-4. Create a Google Cloud Console Service Account and give it permission to use in the repository and in the Google sheet
+### Set up Google Cloud Service Account Access
+
+Instructions to create a Google Cloud Console Service Account and give it permission to use in the repository and in the Google sheet:
 
    1. Go to https://console.cloud.google.com/
    2. Under "IAM & Admin", create a **new project** and name it **inventory**
