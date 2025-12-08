@@ -2,6 +2,18 @@
 
 A Python script that gathers metadata for all repositories in a GitHub organization and automatically exports the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
 
+## Contents
+- [Features](#features)  
+- [Usage](#usage)  
+- [Set up your own GitHub Actions workflow](#set-up-your-own-github-actions-workflow)  
+  - [Create a GitHub Personal Access Token](#create-a-github-personal-access-token)  
+  - [Set up Google Cloud Service Account Access](#set-up-google-cloud-service-account-access)  
+- [Run repo exporter locally](#run-repo-exporter-locally)  
+- [Important Notes](#important-notes)  
+- [Testing](#testing)
+
+---
+
 ## Features
 - Fetches all repositories in an organization
 - Collects key details:
@@ -24,9 +36,9 @@ The workflow runs automatically each week (9am UTC on Mondays); however, you can
 
 ## Set up your own GitHub Actions workflow
 
-3. Enter your GitHub Personal Access Token
+### Create a GitHub Personal Access Token
   
-   To create one with permissions for both private and public repositories (public repository read-access only is enabled by default without adminstrator approval):
+  To create one with permissions for both private and public repositories (public repository read-access only is enabled by default without adminstrator approval):
    
    1. Go to [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens)
    2. Click **Generate new token → Fine-grained token**
@@ -44,14 +56,14 @@ The workflow runs automatically each week (9am UTC on Mondays); however, you can
 
 Instructions to create a Google Cloud Console Service Account and give it permission to use in the repository and in the Google sheet:
 
-   1. Go to https://console.cloud.google.com/
-   2. Under "IAM & Admin", create a **new project** and name it **inventory**
-   3. Go to https://console.cloud.google.com/iam-admin/serviceaccounts, if you have multiple projects you'll need to **select the project** that you just made if it hasn't already been selected
-   4. Create a **service account**, named **Imageomics**, with description: "Repo checklist automation account" and finally press **Done** (You do not need to add any Permissions or Principals with access)
-   5. Click on the **service account email** -> **Keys** -> **Add key** -> **Create new key** and select **JSON** then finally click **Create**
-   7. Go to https://github.com/Imageomics/repo-exporter/settings/secrets/actions and click **New repository secret** and name it **GOOGLE_SERVICE_ACCOUNT_JSON** and copy paste the entire contents of the JSON file into the **Secret** section and click **Add secret**
-   8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
-   9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
+ 1. Go to https://console.cloud.google.com/
+ 2. Under "IAM & Admin", create a **new project** and name it **inventory**
+ 3. Go to https://console.cloud.google.com/iam-admin/serviceaccounts, if you have multiple projects you'll need to **select the project** that you just made if it hasn't already been selected
+ 4. Create a **service account**, named **Imageomics**, with description: "Repo checklist automation account" and finally press **Done** (You do not need to add any Permissions or Principals with access)
+ 5. Click on the **service account email** -> **Keys** -> **Add key** -> **Create new key** and select **JSON** then finally click **Create**
+ 7. Go to https://github.com/Imageomics/repo-exporter/settings/secrets/actions and click **New repository secret** and name it **GOOGLE_SERVICE_ACCOUNT_JSON** and copy paste the entire contents of the JSON file into the **Secret** section and click **Add secret**
+ 8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
+ 9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
 
 Now update the script with [your GitHub Organization name](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L13) and the [desired spreadsheet ID](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L14), then the script can be run through the GitHub Actions workflow by following the [Usage Instructions](#usage) for your repository.
 
