@@ -16,7 +16,7 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
 - For **Standard Files** highlights **No** data cell values with red cell colors and for **Recommended Files** and **Filters** highlights **No** data cell values with orange cell colors 
 
 ## Usage
-The workflow is set to run automatically run early morning on every Monday, however you can also run the GitHub Actions workflow manually:
+The workflow runs automatically each week (9am UTC on Mondays); however, you can also run the GitHub Actions workflow manually:
 
    1. Go to the [Actions tab](https://github.com/Imageomics/repo-exporter/actions)
    2. Click **Update Metadata for GitHub Repository Sheet**
