@@ -37,7 +37,7 @@ The workflow is set to run automatically run early morning on every Monday, howe
       - **Contents** -> Read-only
       - **Adminstration** -> Read-only
    6. Click **Generate token** and **copy it** (make sure to store it somewhere safe for future use).
-   7. Go to https://github.com/Imageomics/repo-exporter/settings/secrets/actions and click **New repository secret** and name it **GH_TOKEN** and copy paste the token into the **Secret** section and click **Add secret**
+   7. Navigate to `https://github.com/<gh-org-name>/repo-exporter/settings/secrets/actions` and click **New repository secret** and name it **GH_TOKEN** and copy paste the token into the **Secret** section and click **Add secret**
    **Note:** The token must be approved by the organization administrator before accessing private repositories.
 
 4. Create a Google Cloud Console Service Account and give it permission to use in the repository and in the Google sheet
