@@ -16,17 +16,13 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
 - For **Standard Files** highlights **No** data cell values with red cell colors and for **Recommended Files** and **Filters** highlights **No** data cell values with orange cell colors 
 
 ## Usage
+The workflow is set to run automatically run early morning on every Monday, however you can also run the GitHub Actions workflow manually:
 
-1. Clone this repository:
-    ```
-    git clone https://github.com/Imageomics/repo-exporter.git
-    cd repo-exporter
-    ```
+   1. Go to https://github.com/Imageomics/repo-exporter/actions
+   2. Click **Update Metadata for GitHub Repository Sheet**
+   3. Click **Run workflow**, with branch as **Branch: main**, with selection **all** and finally press **Run workflow**
 
-2. Install Python dependencies:
-    ```
-    pip install -r requirements.txt
-    ```
+## Setup your own GitHub Actions workflow
 
 3. Enter your GitHub Personal Access Token
   
@@ -41,6 +37,7 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
       - **Contents** -> Read-only
       - **Adminstration** -> Read-only
    6. Click **Generate token** and **copy it** (make sure to store it somewhere safe for future use).
+   7. Go to https://github.com/Imageomics/repo-exporter/settings/secrets/actions and click **New repository secret** and name it **GH_TOKEN** and copy paste the token into the **Secret** section and click **Add secret**
    **Note:** The token must be approved by the organization administrator before accessing private repositories.
 
 4. Create a Google Cloud Console Service Account and give it permission to use in the repository and in the Google sheet
@@ -60,6 +57,39 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
    2. Click **Update Metadata for GitHub Repository Sheet**
    3. Click **Run workflow**, with branch as **Branch: main**, with selection **all** and finally press **Run workflow**
 
+Alternatively, you can run the script locally too
+   
+1. Clone this repository:
+    ```
+    git clone https://github.com/Imageomics/repo-exporter.git
+    cd repo-exporter
+    ```
+
+2. Create and activate Conda environment:
+   ```
+   conda create -n repo-exporter python -y
+   conda activate repo-exporter
+   ```
+    
+3. Add required environment variables into your Conda environment and reload environment:
+    ```
+    conda env config vars set GH_TOKEN="<your-token-here>"
+    conda env config vars set GOOGLE_CREDENTIALS_PATH="/path/to/service_account.json"
+
+    conda deactivate
+    conda activate repo-exporter
+    ```
+
+4. Install Python dependencies:
+    ```
+    pip install -r requirements.txt
+    ```
+    
+5. Run the program
+    ```
+    python export_repos.py
+    ```
+
 ### Important Notes (required for the script to work):
   1. You must enter your specific GitHub Organization Name under Config settings at the top of the Python script file (for example, `Imageomics`)
   2. You must enter your specific Google Sheet ID under Config settings at the top of the Python script file (for example, if the URL is `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit?gid=0#gid=0`, then `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc` is the Google Sheet ID)
@@ -72,11 +102,23 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
 To run the unit tests for the code locally
 
 1. Clone this repository:
-    ```
-    git clone https://github.com/Imageomics/repo-exporter.git
-    cd repo-exporter
-    ```
-2. Run the unit tests locally using pytest:
+   ```
+   git clone https://github.com/Imageomics/repo-exporter.git
+   cd repo-exporter
+   ```
+
+2. Create and activate Conda environment:
+   ```
+   conda create --name repo-exporter python -y
+   conda activate repo-exporter
+   ```
+
+3. Install Python dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+   
+4. Run the unit tests locally using pytest:
    ```
    python -m pytest -q
    ```
