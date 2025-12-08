@@ -99,26 +99,7 @@ Alternatively, you can run the script locally too
 
 ## Testing
 
-To run the unit tests for the code locally
-
-1. Clone this repository:
-   ```
-   git clone https://github.com/Imageomics/repo-exporter.git
-   cd repo-exporter
-   ```
-
-2. Create and activate Conda environment:
-   ```
-   conda create --name repo-exporter python -y
-   conda activate repo-exporter
-   ```
-
-3. Install Python dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-   
-4. Run the unit tests locally using pytest:
-   ```
+Follow the [local install instructions](#run-repo-exporter-locally), then run the following in your `repo-exporter` environment:
+   ```console
    python -m pytest -q
    ```
