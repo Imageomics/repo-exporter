@@ -57,7 +57,7 @@ The workflow is set to run automatically run early morning on every Monday, howe
    2. Click **Update Metadata for GitHub Repository Sheet**
    3. Click **Run workflow**, with branch as **Branch: main**, with selection **all** and finally press **Run workflow**
 
-Alternatively, you can run the script locally too
+## Run repo exporter locally
    
 1. Clone this repository:
     ```
