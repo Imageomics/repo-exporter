@@ -22,7 +22,7 @@ The workflow is set to run automatically run early morning on every Monday, howe
    2. Click **Update Metadata for GitHub Repository Sheet**
    3. Click **Run workflow**, with branch as **Branch: main**, with selection **all** and finally press **Run workflow**
 
-## Setup your own GitHub Actions workflow
+## Set up your own GitHub Actions workflow
 
 3. Enter your GitHub Personal Access Token
   
