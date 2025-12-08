@@ -36,6 +36,8 @@ The workflow runs automatically each week (9am UTC on Mondays); however, you can
 
 ## Set up your own GitHub Actions workflow
 
+To use this script within your own GitHub organization, first fork this repo, then follow the setup steps below to ensure proper access.
+
 ### Create a GitHub Personal Access Token
   
   To create one with permissions for both private and public repositories (public repository read-access only is enabled by default without adminstrator approval):
@@ -61,7 +63,7 @@ Instructions to create a Google Cloud Console Service Account and give it permis
  3. Go to https://console.cloud.google.com/iam-admin/serviceaccounts, if you have multiple projects you'll need to **select the project** that you just made if it hasn't already been selected
  4. Create a **service account**, named **Imageomics**, with description: "Repo checklist automation account" and finally press **Done** (You do not need to add any Permissions or Principals with access)
  5. Click on the **service account email** -> **Keys** -> **Add key** -> **Create new key** and select **JSON** then finally click **Create**
- 7. Go to https://github.com/Imageomics/repo-exporter/settings/secrets/actions and click **New repository secret** and name it **GOOGLE_SERVICE_ACCOUNT_JSON** and copy paste the entire contents of the JSON file into the **Secret** section and click **Add secret**
+ 7. Go to `https://github.com/<gh-org-name>/repo-exporter/settings/secrets/actions` and click **New repository secret** and name it **GOOGLE_SERVICE_ACCOUNT_JSON** and copy paste the entire contents of the JSON file into the **Secret** section and click **Add secret**
  8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
  9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
 
