@@ -53,11 +53,7 @@ Instructions to create a Google Cloud Console Service Account and give it permis
    8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
    9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
 
-5. Finally, run the GitHub Actions workflow to run the script
-
-   1. Go to https://github.com/Imageomics/repo-exporter/actions
-   2. Click **Update Metadata for GitHub Repository Sheet**
-   3. Click **Run workflow**, with branch as **Branch: main**, with selection **all** and finally press **Run workflow**
+Now update the script with [your GitHub Organization name](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L13) and the [desired spreadsheet ID](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L14), then the script can be run through the GitHub Actions workflow by following the [Usage Instructions](#usage) for your repository.
 
 ## Run repo exporter locally
    
