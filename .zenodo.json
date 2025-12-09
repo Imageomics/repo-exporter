@@ -18,9 +18,9 @@
       "inventory"
     ],
     "title": "Repository Exporter",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "license": "MIT",
-    "publication_date": "2025-12-05",
+    "publication_date": "2025-12-09",
     "grants": [
         {
             "id": "021nxhr62::2118240"
