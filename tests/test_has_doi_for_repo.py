@@ -1,5 +1,5 @@
 import pytest
-from export_repos import has_doi
+from gh_repo_exporter import has_doi
 
 # --- Fake GitHub objects ---
 

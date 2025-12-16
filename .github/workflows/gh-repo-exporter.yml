@@ -1,0 +1,47 @@
+name: Update Metadata for GitHub Repository Sheet
+
+on:
+  schedule:
+           # ┌──────────── restricted to minute (0-59)
+           # │ ┌────────── restricted to hour (0-23)
+           # │ │ ┌──────── restricted to day of month (1-31)
+           # │ │ │ ┌────── restricted to month (1-12)
+           # │ │ │ │ ┌──── restricted to day of week (0-6, 0=Sunday)
+           # │ │ │ │ │    * means doesn't restrict anything
+    - cron: "0 9 * * 1" # Runs once every Monday at 9 AM UTC
+  workflow_dispatch:
+    inputs:
+      repo_type:
+        description: "Which group of repos to export?"
+        required: false
+        type: choice
+        default: all
+        options:
+          - private
+          - all
+
+jobs:
+  update-sheet:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.x"
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Write Google credentials
+      run: printf "%s" '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service_account.json
+
+    - name: Run script
+      env:
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        GOOGLE_CREDENTIALS_PATH: service_account.json
+        REPO_TYPE: ${{ github.event.inputs.repo_type || 'all' }}
+      run: python export_repos.py
