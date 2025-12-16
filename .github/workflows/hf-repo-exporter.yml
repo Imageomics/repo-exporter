@@ -1,6 +1,7 @@
 name: Update Metadata for GitHub Repository Sheet
 
 on:
+  workflow_dispatch:
   schedule:
            # ┌──────────── restricted to minute (0-59)
            # │ ┌────────── restricted to hour (0-23)
@@ -9,7 +10,6 @@ on:
            # │ │ │ │ ┌──── restricted to day of week (0-6, 0=Sunday)
            # │ │ │ │ │    * means doesn't restrict anything
     - cron: "0 9 * * 1" # Runs once every Monday at 9 AM UTC
-  workflow_dispatch:
 
 jobs:
   update-sheet:
