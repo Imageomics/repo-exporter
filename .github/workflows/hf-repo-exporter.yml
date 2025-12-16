@@ -1,4 +1,4 @@
-name: Update Metadata for GitHub Repository Sheet
+name: Update Metadata for Hugging Face Repository Sheet
 
 on:
   workflow_dispatch:
