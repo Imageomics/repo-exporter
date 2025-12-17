@@ -155,20 +155,16 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     red_columns = {
         "README",
         "License",
-        ".gitignore",
-        "Package Requirements",
-        "CITATION"
+        "Visibility",
+        "Inactive",
+        "Homepage", 
+        "Repo",
+        "Paper",
+        "Associated data, models, or spaces",
     }
 
     orange_columns = {
-        ".zenodo.json",
-        "CONTRIBUTING",
-        "AGENTS",
-        "Website Reference",
-        "Dataset",
-        "Model",
-        "Paper Association",
-        "DOI for GitHub Repo"
+        "DOI"
     }
 
     rules = []
