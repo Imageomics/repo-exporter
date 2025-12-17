@@ -61,8 +61,9 @@ To use this script within your own GitHub organization, first fork this repo, th
 
   1. Go to [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
   2. Click on **New Token** and name it **repo-exporter**
-  3. For permissions select:
-      - **Read**
+  3. For permissions select **Fine-grained**:
+      - Specify the desired organization (under **Org permissions**)
+      - Under **Repositories**, select "Read access to contents of all repos in selected organizations"
   4. Click **Generate** and **copy it** (make sure to store it somewhere safe for future use)
   5. Navigate to `https://github.com/<gh-org-name>/repo-exporter/settings/secrets/actions` and click **New repository secret** and name it **HF_TOKEN** and copy paste the token into the **Secret** section and click **Add secret** 
 
