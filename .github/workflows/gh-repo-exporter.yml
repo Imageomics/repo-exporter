@@ -44,4 +44,4 @@ jobs:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         GOOGLE_CREDENTIALS_PATH: service_account.json
         REPO_TYPE: ${{ github.event.inputs.repo_type || 'all' }}
-      run: python export_repos.py
+      run: python gh_repo_exporter.py
