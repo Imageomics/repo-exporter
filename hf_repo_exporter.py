@@ -80,6 +80,19 @@ def get_top_contributors(api, repo_id, repo_type) -> str:
         # Optional: tqdm.write(f"Error for {repo_id}: {e}")
         return ORG_NAME
 
+def get_open_pr_count(api, repo_id, repo_type) -> int:
+    try:
+        # Fetch discussions filtered by pull_requests only
+        discussions = api.get_repo_discussions(
+            repo_id=repo_id, 
+            repo_type=repo_type
+        )
+        # Count how many are pull requests AND are currently open
+        open_prs = [d for d in discussions if d.is_pull_request and d.status == "open"]
+        return len(open_prs)
+    except Exception:
+        return 0
+
 def get_license(repo) -> str:
     # 1. cardData
     try:
@@ -140,42 +153,64 @@ def get_model_card_field(repo, key: str) -> str:
     
 def get_associated_datasets(repo) -> str:
     try:
-        datasets = [tag.replace("dataset:", "") for tag in repo.tags if tag.startswith("dataset:")]
+        # Looking for tags like 'dataset:user/repo'
+        datasets = [tag.replace("dataset:", "") for tag in getattr(repo, "tags", []) if tag.startswith("dataset:")]
         return ", ".join(datasets) if datasets else "No"
     except Exception:
         return "No"
-    
+
 def get_associated_models(api, repo, repo_type) -> str:
-    found = [tag.replace("model:", "") for tag in getattr(repo, "tags", []) if tag.startswith("model:")]
-    
-    # If it's a dataset, search for models that use this dataset
+    found = []
+    repo_id = getattr(repo, 'id', str(repo))
+
     if repo_type == "dataset":
+        tqdm.write(f"--- Searching Models for Dataset: {repo_id} ---")
         try:
-            related_models = api.list_models(filter=f"datasets:{repo.id}")
-            for m in related_models:
-                if m.id not in found:
-                    found.append(m.id)
-        except Exception:
-            pass
-            
+            # Again, using 'search' to find any model mentioning this dataset
+            related_models = list(api.list_models(search=repo_id))
+            if related_models:
+                found = [m.id for m in related_models if m.id != repo_id]
+                tqdm.write(f"   [Search] Found {len(found)} models")
+        except Exception as e:
+            tqdm.write(f"   [Search] Error: {e}")
+
     return ", ".join(found) if found else "No"
+
+def get_associated_spaces(api, repo_id) -> str:
+    found = set()
     
-def get_associated_spaces(api, repo, repo_type) -> str:
-    # 1. Check direct tags in the model card (Upstream)
-    found = [tag.replace("space:", "") for tag in getattr(repo, "tags", []) if tag.startswith("space:")]
+    # Ensure we are using the clean string ID
+    clean_id = repo_id.id if hasattr(repo_id, 'id') else str(repo_id)
     
-    # 2. If it's a model, search for Spaces that use this model (Downstream)
-    if repo_type == "model":
-        try:
-            # Search for spaces that list this model ID
-            related_spaces = api.list_spaces(filter=f"models:{repo.id}")
-            for s in related_spaces:
-                if s.id not in found:
-                    found.append(s.id)
-        except Exception:
-            pass
+    try:
+        # 1. Broad Metadata Search
+        # We search specifically for the ID in the 'models' metadata field
+        # Note: We use list() to ensure the generator is fully exhausted
+        spaces_by_model = list(api.list_spaces(filter=f"models:{clean_id}"))
+        for s in spaces_by_model:
+            found.add(s.id)
             
-    return ", ".join(found) if found else "No"
+        # 2. String-based Search (The "Catch-all")
+        # This finds spaces that mention it but didn't use the standard YAML format
+        spaces_by_search = list(api.list_spaces(search=clean_id))
+        for s in spaces_by_search:
+            found.add(s.id)
+
+        # 3. Handle specific Org-level associations
+        # Sometimes spaces are linked but not indexed under the ID
+        # Let's filter out the self-reference
+        if clean_id in found:
+            found.remove(clean_id)
+
+    except Exception as e:
+        tqdm.write(f"Error for {clean_id}: {e}")
+
+    if not found:
+        return "No"
+    
+    # Sort and format
+    sorted_found = sorted(list(found))
+    return ", ".join(sorted_found)
 
 def get_doi(repo) -> str:
     try:
@@ -224,9 +259,6 @@ def get_repo_info(api, repo, repo_type: str) -> dict[str, str | int]:
     # 1. Download README once
     readme_text = ""
     try:
-        # Debug print
-        tqdm.write(f"--- Debugging README for: {repo.id} ---")
-        
         path = hf_hub_download(
             repo_id=repo.id, 
             filename="README.md", 
@@ -255,7 +287,7 @@ def get_repo_info(api, repo, repo_type: str) -> dict[str, str | int]:
         "Created By": get_author(api, repo.id, repo_type),
         "Top 4 Contributors/Curators": get_top_contributors(api, repo.id, repo_type),
         "Likes": getattr(repo, "likes", "N/A"),
-        "# of Open PRs": "test",
+        "# of Open PRs": get_open_pr_count(api, repo.id, repo_type),
         "README": "Yes" if getattr(repo, "cardData", False) else "No",
         "License": get_license(repo),
         "Visibility": "Private" if getattr(repo, "private", False) else "Public",
@@ -265,7 +297,7 @@ def get_repo_info(api, repo, repo_type: str) -> dict[str, str | int]:
         "Paper": extract_link_from_text(readme_text, "Paper"),
         "Associated Datasets": get_associated_datasets(repo),
         "Associated Models": get_associated_models(api, repo, repo_type),
-        "Associated Spaces": get_associated_spaces(api, repo, repo_type),
+        "Associated Spaces": get_associated_spaces(api, repo),
         "DOI": get_doi(repo), 
     }
 
@@ -363,10 +395,13 @@ def update_google_sheet(df: pd.DataFrame) -> None:
         "License",
         "Homepage", 
         "Repo",
-        "Paper",
+        "Paper"
     }
 
-    orange_columns = {
+    yellow_columns = {
+        "Associated Datasets",
+        "Associated Models",
+        "Associated Spaces",
         "DOI"
     }
 
@@ -374,7 +409,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 
     # Only loop over columns that need formatting
     for col_set, color in [(red_columns, {"red": 1, "green": 0.5, "blue": 0.5}),
-                        (orange_columns, {"red": 1, "green": 0.8, "blue": 0.4})]:
+                        (yellow_columns, {"red": 1, "green": 0.8, "blue": 0.4})]:
 
         for col_name in col_set:
             col_index = get_column_index(col_name)
