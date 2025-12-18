@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 import time
 import os
 import re
-import yaml
+from collections import Counter
 
 # Config
 ORG_NAME = "imageomics"
@@ -23,6 +23,62 @@ def get_repo_url(repo, repo_type: str) -> str:
         return f"https://huggingface.co/spaces/{repo.id}"
     else: # model
         return f"https://huggingface.co/{repo.id}"
+
+def get_author(api, repo_id, repo_type) -> str:
+    try:
+        # Fetch all commits
+        commits = api.list_repo_commits(repo_id=repo_id, repo_type=repo_type)
+        if not commits:
+            return ORG_NAME
+
+        # The last item in the list is the earliest commit (the creation)
+        first_commit = commits[-1]
+        
+        if hasattr(first_commit, 'authors') and first_commit.authors:
+            first_author = first_commit.authors[0]
+            
+            # Use our string vs object logic from before
+            if isinstance(first_author, str):
+                return first_author
+            
+            # If it's an object, check for user handle then display name
+            return getattr(first_author, 'user', getattr(first_author, 'name', ORG_NAME))
+            
+        return ORG_NAME
+    except Exception:
+        return ORG_NAME
+
+def get_top_contributors(api, repo_id, repo_type) -> str:
+    try:
+        commits = api.list_repo_commits(repo_id=repo_id, repo_type=repo_type)
+        
+        all_handles = []
+        for c in commits:
+            authors = getattr(c, 'authors', [])
+            for author in authors:
+                # If author is a string (as shown in your logs), use it.
+                # If it's an object, try to get .user or .name
+                if isinstance(author, str):
+                    all_handles.append(author)
+                else:
+                    handle = getattr(author, 'user', getattr(author, 'name', None))
+                    if handle:
+                        all_handles.append(str(handle))
+            
+        # Filter out the Org name and the web-flow bot
+        bots_and_orgs = {ORG_NAME.lower(), "web-flow"}
+        filtered = [n for n in all_handles if str(n).lower() not in bots_and_orgs]
+
+        if not filtered:
+            return ORG_NAME
+
+        counts = Counter(filtered)
+        # Get top 4 most common contributors
+        top_4 = [name for name, count in counts.most_common(4)]
+        return ", ".join(top_4)
+    except Exception as e:
+        # Optional: tqdm.write(f"Error for {repo_id}: {e}")
+        return ORG_NAME
 
 def get_license(repo) -> str:
     # 1. cardData
@@ -71,95 +127,10 @@ def is_inactive(repo) -> str:
         return "Yes" if last_modified < one_year_ago else "No"
     except Exception:
         return "N/A"
-    
-def get_homepage_link(repo, repo_type: str) -> str:
-    try:
-        card_data = getattr(repo, "cardData", None)
-        if isinstance(card_data, dict) and card_data.get("homepage"):
-            return f'=HYPERLINK("{card_data.get("homepage")}", "Homepage")'
-    except Exception:
-        pass
-    
-    # Check README for homepage URLs
-    try:
-        readme_path = hf_hub_download(
-            repo_id=repo.id,
-            filename="README.md",
-            repo_type=repo_type,
-            token=os.getenv("HF_TOKEN")
-        )
-        with open(readme_path, 'r', encoding='utf-8') as f:
-            readme_text = f.read()
-        match = re.search(r'Homepage:\s*(https?://[^\s\n)]+)', readme_text, re.IGNORECASE)
-        if match:
-            return f'=HYPERLINK("{match.group(1)}", "Homepage")'
-    except Exception:
-        pass
-    
-    return "No"
-
-def get_repo_link(repo, repo_type: str) -> str:
-    try:
-        card_data = getattr(repo, "cardData", None)
-        if isinstance(card_data, dict):
-            for key in ("repository", "repo", "github_repo"):
-                url = card_data.get(key)
-                if url and url.startswith("http"):
-                    return f'=HYPERLINK("{url}", "Repository")'
-    except Exception:
-        pass
-    
-    # Check README for github/repo URLs
-    try:
-        from huggingface_hub import hf_hub_download
-        readme_path = hf_hub_download(
-            repo_id=repo.id,
-            filename="README.md",
-            repo_type=repo_type,
-            token=os.getenv("HF_TOKEN")
-        )
-        with open(readme_path, 'r', encoding='utf-8') as f:
-            readme_text = f.read()
-        match = re.search(r'(https?://(?:github\.com|gitlab\.com)[^\s\n)}\]]+)', readme_text, re.IGNORECASE)
-        if match:
-            url = match.group(1).rstrip('*`[]()]}')
-            return f'=HYPERLINK("{url}", "Repository")'
-    except Exception:
-        pass
-    
-    return "No"
-
-def get_paper_link(repo, repo_type: str) -> str:
-    try:
-        card_data = getattr(repo, "cardData", None)
-        if isinstance(card_data, dict) and card_data.get("paper"):
-            return f'=HYPERLINK("{card_data.get("paper")}", "Paper")'
-    except Exception:
-        pass
-    
-    # Check README for arxiv/paper URLs
-    try:
-        from huggingface_hub import hf_hub_download
-        readme_path = hf_hub_download(
-            repo_id=repo.id,
-            filename="README.md",
-            repo_type=repo_type,
-            token=os.getenv("HF_TOKEN")
-        )
-        with open(readme_path, 'r', encoding='utf-8') as f:
-            readme_text = f.read()
-        match = re.search(r'(https?://(?:arxiv\.org|doi\.org)[^\s\n)}\]]+)', readme_text, re.IGNORECASE)
-        if match:
-            url = match.group(1).rstrip('*`[]()]}')
-            return f'=HYPERLINK("{url}", "Paper")'
-    except Exception:
-        pass
-    
-    return "No"
 
 def get_model_card_field(repo, key: str) -> str:
     try:
-        value = repo.cardData.get(key, "")
+        value = repo.card_data.get(key, "")
         # Convert to string if it's a list or other type
         if isinstance(value, list):
             return ", ".join(str(v) for v in value)
@@ -167,24 +138,44 @@ def get_model_card_field(repo, key: str) -> str:
     except Exception:
         return "N/A"
     
-def get_associated_assets(repo) -> str:
+def get_associated_datasets(repo) -> str:
     try:
-        related = [tag for tag in repo.tags if tag.startswith(("dataset:", "model:", "space:"))]
-        return ", ".join(related)
+        datasets = [tag.replace("dataset:", "") for tag in repo.tags if tag.startswith("dataset:")]
+        return ", ".join(datasets) if datasets else "No"
     except Exception:
-        return "N/A"
+        return "No"
     
-def clean_description(desc: str) -> str:
-    if not desc:
-        return "N/A"
+def get_associated_models(api, repo, repo_type) -> str:
+    found = [tag.replace("model:", "") for tag in getattr(repo, "tags", []) if tag.startswith("model:")]
     
-    # remove HTML tags
-    desc = re.sub(r"<[^>]+>", "", desc)
-
-    # collapse multiple newlines/tabs/spaces into a single space
-    desc = re.sub(r"\s+", " ", desc)
-
-    return desc.strip()
+    # If it's a dataset, search for models that use this dataset
+    if repo_type == "dataset":
+        try:
+            related_models = api.list_models(filter=f"datasets:{repo.id}")
+            for m in related_models:
+                if m.id not in found:
+                    found.append(m.id)
+        except Exception:
+            pass
+            
+    return ", ".join(found) if found else "No"
+    
+def get_associated_spaces(api, repo, repo_type) -> str:
+    # 1. Check direct tags in the model card (Upstream)
+    found = [tag.replace("space:", "") for tag in getattr(repo, "tags", []) if tag.startswith("space:")]
+    
+    # 2. If it's a model, search for Spaces that use this model (Downstream)
+    if repo_type == "model":
+        try:
+            # Search for spaces that list this model ID
+            related_spaces = api.list_spaces(filter=f"models:{repo.id}")
+            for s in related_spaces:
+                if s.id not in found:
+                    found.append(s.id)
+        except Exception:
+            pass
+            
+    return ", ".join(found) if found else "No"
 
 def get_doi(repo) -> str:
     try:
@@ -196,7 +187,52 @@ def get_doi(repo) -> str:
 
     return "No"
 
-def get_repo_info(repo, repo_type: str) -> dict[str, str | int]:
+def extract_link_from_text(text, label):
+    if not text:
+        return "No"
+
+    # 1. THE AGGRESSIVE SEARCH
+    # We look for the Label, a colon, and then we specifically look for an http(s) link.
+    # This ignores leading spaces/bullets and stops at the end of the URL.
+    url_pattern = rf"{label}:\s*(https?://[^\s\)\"\'\>]+)"
+    match = re.search(url_pattern, text, re.IGNORECASE)
+    
+    if match:
+        url = match.group(1).strip().rstrip('.,)]')
+        return f'=HYPERLINK("{url}", "{label}")'
+
+    # 2. FALLBACK: Look for the label followed by ANY text (for non-URL repos)
+    text_pattern = rf"{label}:\s*([^\r\n]+)"
+    match = re.search(text_pattern, text, re.IGNORECASE)
+    if match:
+        content = match.group(1).strip()
+        # Clean up markdown junk
+        content = re.sub(r'[*_`\[\]]', '', content)
+        if content.lower() not in ["no", "n/a", "none", ""]:
+            return content
+
+    return "No"
+
+def get_repo_info(api, repo, repo_type: str) -> dict[str, str | int]:
+
+    # 1. Download README once
+    readme_text = ""
+    try:
+        # Debug print
+        tqdm.write(f"--- Debugging README for: {repo.id} ---")
+        
+        path = hf_hub_download(
+            repo_id=repo.id, 
+            filename="README.md", 
+            repo_type=repo_type,
+            token=os.getenv("HF_TOKEN")
+        )
+        with open(path, 'r', encoding='utf-8') as f:
+            readme_text = f.read()
+        
+    except Exception as e:
+        tqdm.write(f"!!! Failed to download README for {repo.id}: {e}")
+
     if repo_type == "dataset":
         display_id = f"datasets/{repo.id}"
     elif repo_type == "space":
@@ -207,21 +243,23 @@ def get_repo_info(repo, repo_type: str) -> dict[str, str | int]:
     return {
         "Repository Name": f'=HYPERLINK("{get_repo_url(repo, repo_type)}", "{display_id}")',
         "Repository Type": repo_type,
-        "Description": clean_description(getattr(repo, "description", "")),
+        "Description": get_model_card_field(repo, "model_description") or "N/A",
         "Date Created": repo.created_at.strftime("%Y-%m-%d") if getattr(repo, "created_at", False) else "N/A",
         "Last Updated": repo.lastModified.strftime("%Y-%m-%d") if getattr(repo, "lastModified", False) else "N/A",
-        "Created By": repo.author,
-        "Top 4 Contributors/Curators": "test",
+        "Created By": get_author(api, repo.id, repo_type),
+        "Top 4 Contributors/Curators": get_top_contributors(api, repo.id, repo_type),
         "Likes": getattr(repo, "likes", "N/A"),
         "# of Open PRs": "test",
         "README": "Yes" if getattr(repo, "cardData", False) else "No",
         "License": get_license(repo),
         "Visibility": "Private" if getattr(repo, "private", False) else "Public",
         "Inactive": is_inactive(repo),
-        "Homepage": get_homepage_link(repo, repo_type), 
-        "Repo": get_repo_link(repo, repo_type),
-        "Paper": get_paper_link(repo, repo_type),
-        "Associated data, models, or spaces": get_associated_assets(repo),
+        "Homepage": extract_link_from_text(readme_text, "Homepage"), 
+        "Repo": extract_link_from_text(readme_text, "Repository"),
+        "Paper": extract_link_from_text(readme_text, "Paper"),
+        "Associated Datasets": get_associated_datasets(repo),
+        "Associated Models": get_associated_models(api, repo, repo_type),
+        "Associated Spaces": get_associated_spaces(api, repo, repo_type),
         "DOI": get_doi(repo), 
     }
 
@@ -317,12 +355,9 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     red_columns = {
         "README",
         "License",
-        "Visibility",
-        "Inactive",
         "Homepage", 
         "Repo",
         "Paper",
-        "Associated data, models, or spaces",
     }
 
     orange_columns = {
@@ -406,7 +441,7 @@ def main():
 
     for repo, repo_type in tqdm(repos, desc=f"Fetching HF repos from {ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
-            info = get_repo_info(repo, repo_type)
+            info = get_repo_info(api, repo, repo_type)
             data.append(info)
             tqdm.write(f"Fetched info for /{repo.id}")
         except Exception as e:
