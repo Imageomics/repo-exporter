@@ -361,7 +361,6 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     red_columns = {
         "README",
         "License",
-        "Homepage", 
         "Repo",
         "Paper",
     }
