@@ -110,10 +110,25 @@ Now update the script with [your GitHub Organization name](https://github.com/Im
     pip install -r requirements.txt
     ```
     
-5. Run the program
-    ```
-    python export_repos.py
-    ```
+5. Run the exporters
+
+   You can run **either exporter individually** or **both**, depending on your needs:
+
+    - **Run only the GitHub repository exporter**
+      ```
+      python gh_repo_exporter.py
+      ```
+
+    - **Run only the Hugging Face repository exporter**
+      ```
+      python hf_repo_exporter.py
+      ```
+
+    - **Run both exporters (wait for one to finish before running the other)**
+      ```
+      python hf_repo_exporter.py
+      python gh_repo_exporter.py
+      ```
 
 ## Important Notes
 
