@@ -191,26 +191,32 @@ def extract_link_from_text(text, label):
     if not text:
         return "No"
 
-    # 1. THE AGGRESSIVE SEARCH
-    # We look for the Label, a colon, and then we specifically look for an http(s) link.
-    # This ignores leading spaces/bullets and stops at the end of the URL.
-    url_pattern = rf"{label}:\s*(https?://[^\s\)\"\'\>]+)"
-    match = re.search(url_pattern, text, re.IGNORECASE)
+    # Pattern to find 'Label: ...' anywhere in the text
+    # Added \b to ensure we match the exact word
+    pattern = rf"\b{label}\b:\s*([^\r\n]+)"
+    match = re.search(pattern, text, re.IGNORECASE)
     
     if match:
-        url = match.group(1).strip().rstrip('.,)]')
-        return f'=HYPERLINK("{url}", "{label}")'
-
-    # 2. FALLBACK: Look for the label followed by ANY text (for non-URL repos)
-    text_pattern = rf"{label}:\s*([^\r\n]+)"
-    match = re.search(text_pattern, text, re.IGNORECASE)
-    if match:
         content = match.group(1).strip()
-        # Clean up markdown junk
-        content = re.sub(r'[*_`\[\]]', '', content)
-        if content.lower() not in ["no", "n/a", "none", ""]:
-            return content
+        # Remove common markdown junk: *, _, `, [, ]
+        content = re.sub(r'[*_`\[\]]', '', content).strip()
+        
+        # Filter out placeholders
+        if content.upper() in ["N/A", "NONE", "", "NULL", "TBA", "COMING SOON", "IN PROGRESS", "-->"]:
+            return "No"
 
+        # If it contains an http link, create a clean HYPERLINK formula
+        if "http" in content.lower():
+            url_match = re.search(r'(https?://[^\s)]+)', content)
+            if url_match:
+                url = url_match.group(1).rstrip('.,)]')
+                # Use the text before the '(' as the label, or the default label
+                display_text = content.split('(')[0].strip() or label
+                # Double up quotes for Google Sheets formula safety
+                display_text = display_text.replace('"', '""')
+                return f'=HYPERLINK("{url}", "{display_text}")'
+        
+        return content
     return "No"
 
 def get_repo_info(api, repo, repo_type: str) -> dict[str, str | int]:
