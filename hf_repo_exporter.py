@@ -237,7 +237,7 @@ def extract_link_from_text(text, label):
         content = re.sub(r'[*_`\[\]]', '', content).strip()
         
         # Filter out placeholders
-        if content.upper() in ["N/A", "NONE", "", "NULL", "TBA", "COMING SOON", "IN PROGRESS", "-->"]:
+        if content.upper() in ["N/A", "NONE", "", "NULL", "TBA", "COMING SOON", "IN PROGRESS", "TBD", "-->"]:
             return "No"
 
         # If it contains an http link, create a clean HYPERLINK formula
