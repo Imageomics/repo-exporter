@@ -214,10 +214,23 @@ def get_associated_spaces(api, repo_id) -> str:
 
 def get_doi(repo) -> str:
     try:
-        for tag in repo.tags:
-            if tag.startswith("doi:"):
-                return tag.replace("doi:", "")
-    except Exception:
+        # 1. Check if the DOI is a direct attribute
+        if hasattr(repo, 'doi') and repo.doi:
+            return str(repo.doi).replace("doi:", "")
+
+        # 2. Check the metadata dictionary if it exists
+        if hasattr(repo, 'card_data') and repo.card_data:
+            doi = repo.card_data.get('doi')
+            if doi:
+                return str(doi).replace("doi:", "")
+
+        # 3. Fallback to the tags loop (for manually tagged DOIs)
+        if hasattr(repo, 'tags') and repo.tags:
+            for tag in repo.tags:
+                if isinstance(tag, str) and tag.lower().startswith("doi:"):
+                    return tag.replace("doi:", "").replace("DOI:", "")
+                    
+    except Exception as e:
         pass
 
     return "No"
