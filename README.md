@@ -6,7 +6,8 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
 - [Features](#features)  
 - [Usage](#usage)  
 - [Set up your own GitHub Actions workflow](#set-up-your-own-github-actions-workflow)  
-  - [Create a GitHub Personal Access Token](#create-a-github-personal-access-token)  
+  - [Create a GitHub Personal Access Token](#create-a-github-personal-access-token)
+  - [Create a Hugging Face Token](#create-a-hugging-face-token)   
   - [Set up Google Cloud Service Account Access](#set-up-google-cloud-service-account-access)  
 - [Run repo exporter locally](#run-repo-exporter-locally)  
 - [Important Notes](#important-notes)  
@@ -42,17 +43,29 @@ To use this script within your own GitHub organization, first fork this repo, th
   
   To create one with permissions for both private and public repositories (public repository read-access only is enabled by default without adminstrator approval):
    
-   1. Go to [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens)
-   2. Click **Generate new token → Fine-grained token**
-   3. Under **Resource owner**, select the **organization** you want to access.
-   4. Under **Repository access**, choose **All repositories**.
-   5. Under **Permissions** select **Repositories** and set:
+  1. Go to [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens)
+  2. Click **Generate new token -> Fine-grained token**
+  3. Under **Resource owner**, select the **organization** you want to access.
+  4. Under **Repository access**, choose **All repositories**.
+  5. Under **Permissions** select **Repositories** and set:
       - **Metadata** -> Read-only 
       - **Contents** -> Read-only
       - **Adminstration** -> Read-only
-   6. Click **Generate token** and **copy it** (make sure to store it somewhere safe for future use).
-   7. Navigate to `https://github.com/<gh-org-name>/repo-exporter/settings/secrets/actions` and click **New repository secret** and name it **GH_TOKEN** and copy paste the token into the **Secret** section and click **Add secret**
-   **Note:** The token must be approved by the organization administrator before accessing private repositories.
+  6. Click **Generate token** and **copy it** (make sure to store it somewhere safe for future use).
+  7. Navigate to `https://github.com/<gh-org-name>/repo-exporter/settings/secrets/actions` and click **New repository secret** and name it **GH_TOKEN** and copy paste the token into the **Secret** section and click **Add secret**
+  **Note:** The token must be approved by the organization administrator before accessing private repositories.
+
+### Create a Hugging Face Token
+
+  To create one with permissions for both private and public repositoriesL
+
+  1. Go to [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+  2. Click on **New Token** and name it **repo-exporter**
+  3. For permissions select **Fine-grained**:
+      - Specify the desired organization (under **Org permissions**)
+      - Under **Repositories**, select "Read access to contents of all repos in selected organizations"
+  4. Click **Generate** and **copy it** (make sure to store it somewhere safe for future use)
+  5. Navigate to `https://github.com/<gh-org-name>/repo-exporter/settings/secrets/actions` and click **New repository secret** and name it **HF_TOKEN** and copy paste the token into the **Secret** section and click **Add secret** 
 
 ### Set up Google Cloud Service Account Access
 
@@ -97,10 +110,25 @@ Now update the script with [your GitHub Organization name](https://github.com/Im
     pip install -r requirements.txt
     ```
     
-5. Run the program
-    ```
-    python export_repos.py
-    ```
+5. Run the exporters
+
+   You can run **either exporter individually** or **both**, depending on your needs:
+
+    - **Run only the GitHub repository exporter**
+      ```
+      python gh_repo_exporter.py
+      ```
+
+    - **Run only the Hugging Face repository exporter**
+      ```
+      python hf_repo_exporter.py
+      ```
+
+    - **Run both exporters (wait for one to finish before running the other)**
+      ```
+      python hf_repo_exporter.py
+      python gh_repo_exporter.py
+      ```
 
 ## Important Notes
 
