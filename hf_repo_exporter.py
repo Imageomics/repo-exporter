@@ -151,8 +151,7 @@ def get_card_field(repo, keys: list) -> str:
                     return ", ".join(str(v) for v in value)
                 return str(value) if value else ""
     except Exception:
-        pass
-    return "N/A"
+        return "N/A"
 def get_associated_datasets(repo) -> str:
     try:
         # Looking for tags like 'dataset:user/repo'
