@@ -141,13 +141,15 @@ def is_inactive(repo) -> str:
     except Exception:
         return "N/A"
 
-def get_model_card_field(repo, key: str) -> str:
+def get_card_field(repo, keys: list) -> str:
     try:
-        value = repo.card_data.get(key, "")
-        # Convert to string if it's a list or other type
-        if isinstance(value, list):
-            return ", ".join(str(v) for v in value)
-        return str(value) if value else ""
+        for key in keys:
+            value = repo.card_data.get(key, "")
+            if value:
+                # Convert to string if it's a list or other type
+                if isinstance(value, list):
+                    return ", ".join(str(v) for v in value)
+                return str(value) if value else ""
     except Exception:
         return "N/A"
     
@@ -294,7 +296,7 @@ def get_repo_info(api, repo, repo_type: str) -> dict[str, str | int]:
     return {
         "Repository Name": f'=HYPERLINK("{get_repo_url(repo, repo_type)}", "{display_id}")',
         "Repository Type": repo_type,
-        "Description": get_model_card_field(repo, "model_description") or "N/A",
+        "Description": get_card_field(repo, ["model_description", "description"]) or "N/A",
         "Date Created": repo.created_at.strftime("%Y-%m-%d") if getattr(repo, "created_at", False) else "N/A",
         "Last Updated": repo.lastModified.strftime("%Y-%m-%d") if getattr(repo, "lastModified", False) else "N/A",
         "Created By": get_author(api, repo.id, repo_type),
