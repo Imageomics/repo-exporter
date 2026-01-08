@@ -141,7 +141,7 @@ def is_inactive(repo) -> str:
     except Exception:
         return "N/A"
 
-def get_model_card_field(repo, keys: list) -> str:
+def get_card_field(repo, keys: list) -> str:
     try:
         for key in keys:
             value = repo.card_data.get(key, "")
