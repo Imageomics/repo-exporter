@@ -95,7 +95,7 @@ def is_inactive(repo) -> str:
     
 def is_valid_doi(doi: str | None) -> bool:
     """
-    Validates whether a string is a properly formatted DOI. 
+    Validates whether a string is a properly formatted Zenodo DOI for a Github repo. 
     
     Returns True if DOI is valid, False otherwise.
     """
@@ -105,13 +105,14 @@ def is_valid_doi(doi: str | None) -> bool:
         return False
     
     doi = doi.strip()
+    doi_lower = doi.lower() 
 
     # Expected DOI format: 10.<4+ digits>/<suffix>
     if not re.match(r"^10\.\d{4,}/\S+$", doi, re.IGNORECASE):
         return False
     
-    # Must be a known repo DOI — either Zenodo (GitHub) or HF (Hugging Face)
-    if "zenodo" not in doi_lower and "/hf/" not in doi_lower:
+    # Must be a known repo DOI; Zenodo is used for Github repos (GitHub) 
+    if "zenodo" not in doi_lower:
         return False
     
     return True
