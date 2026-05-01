@@ -157,17 +157,20 @@ def has_doi(repo) -> str:
                 
                 if identifier.get("type", "").lower() == "doi":
                     val = identifier.get("value")
-                    if is_valid_doi(val):
-                        return "Yes"
-                    
+       
                 # Case 3: direct "doi" field inside identifier, e.g.
                 # identifiers:
                 #   - doi: 10.xxxx/xxxx
                 
-                val = identifier.get("doi")
+                elif "doi" in identifier:
+                    val = identifier.get("doi")
+
+                else:
+                    continue
+                
                 if is_valid_doi(val):
                     return "Yes"
-
+                
         # If no valid DOI found
         return "No"
     

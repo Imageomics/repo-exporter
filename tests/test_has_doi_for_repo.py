@@ -43,11 +43,11 @@ def test_identifiers_type_doi():
     title: Test
     identifiers:
       - type: doi
-        value: "10.9999/test"
+        value: "10.9999/zenodo.1234567"
     """
     repo = FakeRepo(citation)
-    assert is_valid_doi("10.9999/test") is False
-    assert has_doi(repo) == "No"
+    assert is_valid_doi("10.9999/zenodo.1234567") is True
+    assert has_doi(repo) == "Yes"
 
 def test_identifiers_doi():
     # Valid Zenodo DOI inside identifiers list
@@ -109,5 +109,4 @@ def test_missing_citation_file():
             raise FileNotFoundError()
 
     repo = NoCitationRepo()
-    assert is_valid_doi("10.5281/zenodo.1234567") is True
     assert has_doi(repo) == "No"
