@@ -140,7 +140,7 @@ def has_doi(repo) -> str:
         
         doi = data.get("doi")
         if is_valid_doi(doi):
-            return "Yes"
+            return "https://doi.org/" + doi
         
         identifiers = data.get("identifiers", [])
         
@@ -169,7 +169,7 @@ def has_doi(repo) -> str:
                     continue
                 
                 if is_valid_doi(val):
-                    return "Yes"
+                    return "https://doi.org/" + val
                 
         # If no valid DOI found
         return "No"
