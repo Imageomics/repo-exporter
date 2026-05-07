@@ -29,6 +29,7 @@ def test_top_level_doi():
     repo = FakeRepo(citation)
     assert is_valid_doi("10.5281/zenodo.11288083") is True
     assert has_doi(repo) == "https://doi.org/10.5281/zenodo.11288083"
+    assert has_doi(repo) == "https://doi.org/10.5281/zenodo.11288083"
 
 def test_empty_doi_returns_no():
     # Empty DOI should be invalid
@@ -49,6 +50,7 @@ def test_identifiers_type_doi():
     assert is_valid_doi("10.9999/zenodo.1234567") is True
     assert has_doi(repo) == "https://doi.org/10.9999/zenodo.1234567"
 
+
 def test_identifiers_doi():
     # Valid Zenodo DOI inside identifiers list
     citation = """
@@ -58,7 +60,7 @@ def test_identifiers_doi():
     """
     repo = FakeRepo(citation)
     assert is_valid_doi("10.9999/zenodo.10000000") is True
-    assert has_doi(repo) == "https://doi.org/10.9999/zenodo.10000000"   
+    assert has_doi(repo) == "https://doi.org/10.9999/zenodo.10000000"    
     
 def test_arxiv_doi_returns_no():
     # arXiv DOI is not a repo DOI
