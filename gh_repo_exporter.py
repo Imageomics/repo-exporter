@@ -92,8 +92,40 @@ def is_inactive(repo) -> str:
         return "Yes" if updated < one_year_ago else "No"
     except Exception:
         return "No"
+    
+def is_valid_doi(doi: str | None) -> bool:
+    """
+    Validates whether a string is a properly formatted repo DOI and from the expected issuer (Zenodo).
+    
+    Returns True if DOI is valid, False otherwise.
+    """
+    
+    # Make sure input is a string
+    if not doi or not isinstance(doi, str):
+        return False
+    
+    doi = doi.strip()
+    doi_lower = doi.lower() 
+
+    # Expected DOI format: 10.<4+ digits>/<suffix>
+    if not re.match(r"^10\.\d{4,}/\S+$", doi, re.IGNORECASE):
+        return False
+    
+    # Must be a known repo DOI; Zenodo is used for Github repos.
+    if "zenodo" not in doi_lower:
+        return False
+    
+    return True
+
 
 def has_doi(repo) -> str:
+    """
+    Checks whether a repo contains a valid DOI in its CITATION.cff file. 
+    
+    Returns "Yes" if a valid DOI is found, otherwise "No"
+    """
+    
+    # Retrieving CITATION.cff file from repo
     try:
         content_file = repo.get_contents("CITATION.cff")
         citation = content_file.decoded_content.decode("utf-8")
@@ -103,38 +135,47 @@ def has_doi(repo) -> str:
             return "No"
 
         # Case 1: top-level doi
-        # Example:
-        # doi: <value>
-        if "doi" in data and isinstance(data["doi"], str) and data["doi"].strip(): # check .strip() to ensure value isnt empty string/spaces
-            return "Yes"
-
+        # e.g.
+        # doi: 10.xxxx/xxxx
+        
+        doi = data.get("doi")
+        if is_valid_doi(doi):
+            return "https://doi.org/" + doi
         
         identifiers = data.get("identifiers", [])
+        
         if isinstance(identifiers, list):
             for identifier in identifiers:
-
-                # Case 2: identifiers: with type=doi
-                # Example:
+                
+                if not isinstance(identifier, dict):
+                    continue
+                
+                # Case 2: "type:: doi" with "value" # in identifiers field, e.g.
                 # identifiers:
                 #   - type: doi
-                #     value: <value>
-                if isinstance(identifier, dict) and identifier.get("type", "").lower() == "doi":
-                    # Must have a value field or similar and not be empty space
-                    if "value" in identifier and isinstance(identifier["value"], str) and identifier["value"].strip():
-                        return "Yes"
-                    
-                # Case 3: identifiers: with doi: <value>
-                # Example:
+                #     value: 10.xxxx/xxxx
+                
+                if identifier.get("type", "").lower() == "doi":
+                    val = identifier.get("value")
+       
+                # Case 3: direct "doi" field inside identifier, e.g.
                 # identifiers:
-                #   - doi: <value>
-                if isinstance(identifier, dict) and "doi" in identifier:
-                    val = identifier["doi"]
-                    if isinstance(val, str) and val.strip():
-                        return "Yes"
+                #   - doi: 10.xxxx/xxxx
+                
+                elif "doi" in identifier:
+                    val = identifier.get("doi")
 
-        # DOIs in references should NOT count
+                else:
+                    continue
+                
+                if is_valid_doi(val):
+                    return "https://doi.org/" + val
+                
+        # If no valid DOI found
         return "No"
-    except Exception as e:
+    
+    except Exception:
+        # if CITATION.cff file doesn't exist or any parsing error occurs, return "No" 
         return "No"
         
 def get_dataset(readme: str, repo_name: str) -> str:
