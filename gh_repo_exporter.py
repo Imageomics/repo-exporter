@@ -58,11 +58,11 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
     try:
         # Keep repeatedly fetching stats since it may take time for GitHub to fetch that data
         stats = None
-        for _ in range(5):
+        for _ in range(3):
             stats = repo.get_stats_contributors()
             if stats:
                 break
-            time.sleep(2)
+            time.sleep(20)
 
         if not stats:
             return "N/A"
