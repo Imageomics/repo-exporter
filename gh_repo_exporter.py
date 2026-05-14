@@ -47,10 +47,8 @@ def get_num_branches(repo) -> int | str:
     
 def get_repo_creator(repo) -> str:
     try:
-        commits = repo.get_commits()
-        first_commit = commits.reversed[0]
-        author = first_commit.author
-        return f"{author.name} ({author.login})" if author else "N/A"
+        owner = repo.owner
+        return f"{owner.name} ({owner.login})" if owner else "N/A"
     except Exception:
         return "N/A"
     
