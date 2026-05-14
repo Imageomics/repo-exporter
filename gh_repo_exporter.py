@@ -232,7 +232,7 @@ def get_primary_language(repo) -> str:
     except Exception:
         return "N/A"
 
-def get_associated_paper(readme: str) -> str:
+def get_associated_paper(readme: str, homepage: str | None = None) -> str:
     try:
         url_patterns = [
             r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
@@ -247,6 +247,7 @@ def get_associated_paper(readme: str) -> str:
         # checks for [<name>](<url>)
         markdown_link_pattern = r"\[([^\]]+)\]\((.*?)\)"
 
+        # Check README for paper-associated links
         for label, url in re.findall(markdown_link_pattern, readme):
             # Only accept label == "paper" or "arXiv" (case-insensitive)
             if label.strip().lower() not in {"paper", "arxiv"}:
@@ -256,6 +257,13 @@ def get_associated_paper(readme: str) -> str:
             for pattern in url_patterns:
                 if re.search(pattern, url):
                     cleaned = url.rstrip(").],};:>\"'")
+                    return f'=HYPERLINK("{cleaned}", "Yes")'
+                
+        # Check About section URL as fallback  
+        if homepage:
+            for pattern in url_patterns:
+                if re.search(pattern, homepage, re.IGNORECASE):
+                    cleaned = homepage.rstrip(").],};:>\"'")
                     return f'=HYPERLINK("{cleaned}", "Yes")'
         return "No"
     except Exception:
@@ -292,7 +300,7 @@ def get_repo_info(repo) -> dict[str, str | int]:
         "Website Reference": f'=HYPERLINK("{repo.homepage}", "Yes")' if repo.homepage else "No",
         "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
         "Model": get_model(readme_content_lower),
-        "Paper Association": get_associated_paper(readme_content_lower),
+        "Paper Association": get_associated_paper(readme_content_lower, repo.homepage),
         "DOI for GitHub Repo": has_doi(repo),
     }
 
