@@ -15,6 +15,16 @@ ORG_NAME = "Imageomics"
 SPREADSHEET_ID = "15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc"
 SHEET_NAME = "Sheet1"
 
+# Package requirement files to check
+PACKAGE_REQUIREMENT_FILES = [
+    # Python 
+    "requirements.txt", "environment.yaml", "environment.yml", "pyproject.toml",
+    # R
+    "DESCRIPTION", "renv.lock", "packrat/packrat.lock",
+    # JavaScript / HTML
+    "package.json", "package-lock.json", "yarn.lock", "bower.json",
+]
+
 # Helper Functions
 def has_file(repo, *paths: str) -> str:
     for path in paths:
@@ -270,7 +280,7 @@ def get_repo_info(repo) -> dict[str, str | int]:
         "README": has_readme(repo),
         "License": has_license(repo),
         ".gitignore": has_file(repo, ".gitignore"),
-        "Package Requirements": has_file(repo, "requirements.txt", "environment.yaml", "environment.yml", "pyproject.toml"),
+        "Package Requirements": has_file(repo, *PACKAGE_REQUIREMENT_FILES),
         "CITATION": has_file(repo, "CITATION.cff"),
         ".zenodo.json": has_file(repo, ".zenodo.json"),
         "CONTRIBUTING": has_file(repo, "CONTRIBUTING.md"),
