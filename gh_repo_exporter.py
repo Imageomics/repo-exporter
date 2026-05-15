@@ -55,13 +55,30 @@ def get_num_branches(repo) -> int | str:
     except:
         return "N/A"
     
-def get_repo_creator(repo) -> str:
+def get_repo_creator(repo, existing_df: pd.DataFrame = None) -> str:
     try:
+        
+         # Check if repo already exists in sheet. If so, reuse existing value instead of slow search
+        if existing_df is not None and not existing_df.empty:
+            repo_name = repo.name
+            date_created = repo.created_at.strftime("%Y-%m-%d")
+            match = existing_df[
+                (existing_df["Repository Name"] == repo_name) &
+                (existing_df["Date Created"] == date_created)
+            ]
+            if not match.empty:
+                existing_creator = match.iloc[0]["Created By"]
+                if existing_creator and existing_creator != "N/A":
+                    return existing_creator
+        
+        # Repo not found in sheet, fetch creator from commit history      
         commits = repo.get_commits()
         first_commit = commits.reversed[0]
         author = first_commit.author
         return f"{author.name} ({author.login})" if author else "N/A"
-    except Exception:
+    
+    except Exception as e:
+        print(f"Warning: Could not determine creator for {repo.name}: {e}")
         return "N/A"
     
 def get_top_contributors(repo, top_n: int = 4) -> str:
@@ -270,7 +287,7 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
         return "No"
     
     
-def get_repo_info(repo) -> dict[str, str | int]:
+def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int]:
     try:
         readme_content_lower = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
     except Exception:
@@ -281,7 +298,7 @@ def get_repo_info(repo) -> dict[str, str | int]:
         "Description": repo.description or "N/A",
         "Date Created": repo.created_at.strftime("%Y-%m-%d"),
         "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
-        "Created By": get_repo_creator(repo),
+        "Created By": get_repo_creator(repo, existing_df),
         "Top 4 Contributors (lines of code changes)": get_top_contributors(repo, 4),
         "Stars": repo.stargazers_count,
         "# of Branches": get_num_branches(repo),
@@ -460,6 +477,43 @@ def main():
     REPO_TYPE = os.getenv("REPO_TYPE")
     repos = list(org.get_repos(type=REPO_TYPE))
     data = []
+    
+    # Load repo name, date created, and created by columns from existing sheet before fetching repo 
+    # to avoid recomputing "Created By" for repos already in the sheet
+    
+    existing_df = pd.DataFrame()
+
+    try:
+        creds_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
+
+        creds = Credentials.from_service_account_file(
+            creds_path,
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"
+            ]
+        )
+
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+
+        all_values = sheet.get_all_values()
+
+        if len(all_values) > 2:
+            headers = all_values[1]
+            rows = all_values[2:]
+
+            full_df = pd.DataFrame(rows, columns=headers)
+
+            existing_df = full_df[
+                ["Repository Name", "Date Created", "Created By"]
+            ]
+            
+            existing_df["Repository Name"] = (existing_df["Repository Name"].apply(extract_display_name)
+            )
+
+    except Exception as e:
+        print(f"Warning: Could not load existing sheet data: {e}")
 
     tqdm_kwargs = {}
     if os.environ.get("CI") == "true":
@@ -467,7 +521,7 @@ def main():
 
     for repo in tqdm(repos, desc=f"Fetching repositories from {ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
-            info = get_repo_info(repo)
+            info = get_repo_info(repo, existing_df)
             data.append(info)
             tqdm.write(f"Fetched info for /{repo.name} repo")
         except Exception as e:
