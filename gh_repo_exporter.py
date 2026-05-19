@@ -509,8 +509,7 @@ def main():
                 ["Repository Name", "Date Created", "Created By"]
             ].copy()
             
-            existing_df["Repository Name"] = (existing_df["Repository Name"].apply(extract_display_name)
-            )
+            existing_df["Repository Name"] = existing_df["Repository Name"].apply(extract_display_name)
 
     except Exception as e:
         print(f"Warning: Could not load existing sheet data: {e}")
