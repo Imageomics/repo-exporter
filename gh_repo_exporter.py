@@ -63,10 +63,8 @@ def get_repo_creator(repo, existing_df: pd.DataFrame = None) -> str:
             repo_name = repo.name
             date_created = repo.created_at.strftime("%Y-%m-%d")
             match = existing_df.loc[
-            match = existing_df.loc[
                 (existing_df["Repository Name"] == repo_name) &
                 (existing_df["Date Created"] == date_created)
-            ].copy()
             ].copy()
             if not match.empty:
                 existing_creator = match.iloc[0]["Created By"]
@@ -510,7 +508,6 @@ def main():
 
             existing_df = full_df[
                 ["Repository Name", "Date Created", "Created By"]
-            ].copy()
             ].copy()
             
             existing_df["Repository Name"] = existing_df["Repository Name"].apply(extract_display_name)
