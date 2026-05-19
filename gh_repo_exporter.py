@@ -62,10 +62,10 @@ def get_repo_creator(repo, existing_df: pd.DataFrame = None) -> str:
         if existing_df is not None and not existing_df.empty:
             repo_name = repo.name
             date_created = repo.created_at.strftime("%Y-%m-%d")
-            match = existing_df[
+            match = existing_df.loc[
                 (existing_df["Repository Name"] == repo_name) &
                 (existing_df["Date Created"] == date_created)
-            ]
+            ].copy()
             if not match.empty:
                 existing_creator = match.iloc[0]["Created By"]
                 if existing_creator and existing_creator != "N/A":
