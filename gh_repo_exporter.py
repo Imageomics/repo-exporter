@@ -507,7 +507,7 @@ def main():
 
             existing_df = full_df[
                 ["Repository Name", "Date Created", "Created By"]
-            ]
+            ].copy()
             
             existing_df["Repository Name"] = (existing_df["Repository Name"].apply(extract_display_name)
             )
