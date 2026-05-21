@@ -83,28 +83,17 @@ def get_repo_creator(repo, existing_df: pd.DataFrame = None) -> str:
     
 def get_top_contributors(repo, top_n: int = 4) -> str:
     try:
-        # Keep repeatedly fetching stats since it may take time for GitHub to fetch that data
-        stats = None
-        for _ in range(3):
-            stats = repo.get_stats_contributors()
-            if stats:
+        # Fetch top 4 contributors sorted by commit count using get_contributors()
+        contributors = repo.get_contributors()
+        top_n_contributors = []
+
+        for i, contributor in enumerate(contributors):
+            if i >= top_n:
                 break
-            time.sleep(20)
-
-        if not stats:
-            return "N/A"
-        
-        contributors = []
-        for contributor in stats:
+            top_n_contributors.append(f"{contributor.name} ({contributor.login})")
             
-            total_additions = sum(week.a for week in contributor.weeks)
-            total_deletions = sum(week.d for week in contributor.weeks)
-            total_changes = total_additions + total_deletions
+        return ", ".join(top_n_contributors) if top_n_contributors else "N/A"
 
-            contributors.append((contributor.author.name, contributor.author.login, total_changes))
-
-        top_n_contributors = sorted(contributors, key=lambda x: x[2], reverse=True)[:top_n] # sort and take the top N results
-        return ", ".join([f"{name} ({login})" for name, login, _ in top_n_contributors])
     except Exception:
         return "N/A"
     
@@ -299,7 +288,7 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         "Date Created": repo.created_at.strftime("%Y-%m-%d"),
         "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
         "Created By": get_repo_creator(repo, existing_df),
-        "Top 4 Contributors (lines of code changes)": get_top_contributors(repo, 4),
+        "Top 4 Contributors (commits)": get_top_contributors(repo, 4),
         "Stars": repo.stargazers_count,
         "# of Branches": get_num_branches(repo),
         "README": has_readme(repo),
@@ -490,8 +479,8 @@ def main():
         creds = Credentials.from_service_account_file(
             creds_path,
             scopes=[
-                "https://www.googleapis.com/auth/spreadsheets",
-                "https://www.googleapis.com/auth/drive"
+               "https://www.googleapis.com/auth/spreadsheets",
+               "https://www.googleapis.com/auth/drive"
             ]
         )
 
@@ -519,6 +508,8 @@ def main():
     if os.environ.get("CI") == "true":
         tqdm_kwargs = {"mininterval": 1, "dynamic_ncols": False, "leave": False}
 
+    print(f"Existing sheet data shape: {existing_df.shape}")
+    
     for repo in tqdm(repos, desc=f"Fetching repositories from {ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
             info = get_repo_info(repo, existing_df)
