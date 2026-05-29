@@ -262,7 +262,7 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
         # Check About section URL as fallback  
         if homepage:
             for pattern in url_patterns:
-                if re.search(pattern, homepage, re.IGNORECASE):
+                if re.search(pattern, homepage.lower(), re.IGNORECASE):
                     cleaned = homepage.rstrip(").],};:>\"'")
                     return f'=HYPERLINK("{cleaned}", "Yes")'
         return "No"
@@ -282,11 +282,11 @@ def get_website_reference(homepage: str | None) -> str:
             "doi.org",
         ]
         
-        for pattern in external_patterns:
-            if pattern in homepage.lower():
-                return "No"
+        if any(pattern in homepage.lower() for pattern in external_patterns):
+            return "No"
         
-        return f'=HYPERLINK("{homepage}", "Yes")'
+        cleaned = homepage.rstrip(").],};:>\"'")
+        return f'=HYPERLINK("{cleaned}", "Yes")'
     except Exception:
         return "No"
        
