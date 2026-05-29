@@ -263,6 +263,7 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
         if homepage:
             for pattern in url_patterns:
                 if re.search(pattern, homepage.lower(), re.IGNORECASE):
+                if re.search(pattern, homepage, re.IGNORECASE):
                     cleaned = homepage.rstrip(").],};:>\"'")
                     return f'=HYPERLINK("{cleaned}", "Yes")'
         return "No"
