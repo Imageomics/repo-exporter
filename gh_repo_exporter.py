@@ -255,7 +255,7 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
 
             # Check if URL matches a paper source
             for pattern in url_patterns:
-                if re.search(pattern, url):
+                if re.search(pattern, url, re.IGNORECASE):
                     cleaned = url.rstrip(").],};:>\"'")
                     return f'=HYPERLINK("{cleaned}", "Yes")'
                 
