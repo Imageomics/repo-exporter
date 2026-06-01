@@ -378,7 +378,27 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
     except Exception:
         return "No"
     
-    
+def get_website_reference(homepage: str | None) -> str:
+    try:
+        if not homepage:
+            return "No"
+        
+        # Return "No" if homepage is a paper, dataset, or model link instead of an actual website
+        external_patterns = [
+            "arxiv.org",
+            "huggingface.co",
+            "hf.co",
+            "doi.org",
+        ]
+        
+        if any(pattern in homepage.lower() for pattern in external_patterns):
+            return "No"
+        
+        cleaned = homepage.rstrip(").],};:>\"'")
+        return f'=HYPERLINK("{cleaned}", "Yes")'
+    except Exception:
+        return "No"
+     
 def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int]:
     try:
         readme_content_lower = repo.get_readme().decoded_content.decode("utf-8", errors="ignore").lower()
@@ -406,7 +426,7 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         "Visibility": "Private" if repo.private else "Public",
         "Forks": "Yes" if repo.fork else "No",
         "Inactive": is_inactive(repo),
-        "Website Reference": f'=HYPERLINK("{repo.homepage}", "Yes")' if repo.homepage else "No",
+        "Website Reference": get_website_reference(repo.homepage),
         "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
         "Model": get_model(readme_content_lower),
         "Paper Association": get_associated_paper(readme_content_lower, repo.homepage),
