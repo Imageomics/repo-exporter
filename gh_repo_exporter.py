@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 import time
 import os
 import re
+import requests
 
 # Config
 ORG_NAME = "Imageomics"
@@ -80,22 +81,124 @@ def get_repo_creator(repo, existing_df: pd.DataFrame = None) -> str:
     except Exception as e:
         print(f"Warning: Could not determine creator for {repo.name}: {e}")
         return "N/A"
-    
-def get_top_contributors(repo, top_n: int = 4) -> str:
+  
+def get_top_contributors_graphql(repo_full_name: str, top_n: int = 4) -> str:
+    # Fallback method using GraphQL API to get top contributors by lines of code changes 
     try:
-        # Fetch top 4 contributors sorted by commit count using get_contributors()
-        contributors = repo.get_contributors()
-        top_n_contributors = []
+        token = os.getenv("GH_TOKEN")
+        if not token:
+            return "N/A"
+        
+        contributors = {}
+        cursor = None
+        headers = {
+            "Authorization": f"bearer {token}",
+            "Content-Type": "application/json"
+        }
+        owner, repo_name = repo_full_name.split("/")
 
-        for i, contributor in enumerate(contributors):
-            if i >= top_n:
+        while True:
+            after = f', after: "{cursor}"' if cursor else ""
+            query = f"""
+            {{
+              repository(owner: "{owner}", name: "{repo_name}") {{
+                defaultBranchRef {{
+                  target {{
+                    ... on Commit {{
+                      history(first: 100{after}) {{
+                        pageInfo {{
+                          hasNextPage
+                          endCursor
+                        }}
+                        nodes {{
+                          additions
+                          deletions
+                          author {{
+                            name
+                            user {{
+                              login
+                            }}
+                          }}
+                        }}
+                      }}
+                    }}
+                  }}
+                }}
+              }}
+            }}
+            """
+
+            response = requests.post(
+                "https://api.github.com/graphql",
+                json={"query": query},
+                headers=headers
+            )
+
+            data = response.json()
+
+            if "errors" in data:
+                return "N/A"
+
+            repository = data["data"]["repository"]
+            if not repository:
+                return "N/A"
+
+            default_branch = repository["defaultBranchRef"]
+            if not default_branch:
+                return "N/A"
+
+            history = default_branch["target"]["history"]
+
+            for commit in history["nodes"]:
+                author = commit["author"]
+                if author and author["user"]:
+                    name = author["user"]["login"]
+                else:
+                    name = author["name"] or "Unknown"
+
+                changes = (commit["additions"] or 0) + (commit["deletions"] or 0)
+                contributors[name] = contributors.get(name, 0) + changes
+
+            if not history["pageInfo"]["hasNextPage"]:
                 break
-            top_n_contributors.append(f"{contributor.name} ({contributor.login})")
-            
-        return ", ".join(top_n_contributors) if top_n_contributors else "N/A"
+
+            cursor = history["pageInfo"]["endCursor"]
+
+        sorted_contributors = sorted(contributors.items(), key=lambda x: x[1], reverse=True)
+        return ", ".join([name for name, _ in sorted_contributors[:top_n]]) or "N/A"
 
     except Exception:
         return "N/A"
+
+def get_top_contributors(repo, top_n: int = 4) -> str:
+    try:
+        # Primary approach using get_stats_contributors() for lines of code ranking
+        stats = None
+        for _ in range(3):
+            stats = repo.get_stats_contributors()
+            if stats:
+                break
+            time.sleep(20)
+
+        if not stats:
+            # Fallback: use GraphQL API if get_stats_contributors() fails
+            tqdm.write(f"  Falling back to GraphQL for {repo.name}...")
+            return get_top_contributors_graphql(repo.full_name, top_n)
+
+        contributors = []
+        for contributor in stats:
+            total_additions = sum(week.a for week in contributor.weeks)
+            total_deletions = sum(week.d for week in contributor.weeks)
+            total_changes = total_additions + total_deletions
+            contributors.append((contributor.author.name, contributor.author.login, total_changes))
+
+        top_n_contributors = sorted(contributors, key=lambda x: x[2], reverse=True)[:top_n]
+        return ", ".join([f"{name} ({login})" for name, login, _ in top_n_contributors])
+
+    except Exception:
+        # Fallback: use GraphQL API if get_stats_contributors() raises an exception
+        tqdm.write(f"  Falling back to GraphQL for {repo.name}...")
+        return get_top_contributors_graphql(repo.full_name, top_n)
     
 def is_inactive(repo) -> str:
     try:
@@ -288,7 +391,7 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         "Date Created": repo.created_at.strftime("%Y-%m-%d"),
         "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
         "Created By": get_repo_creator(repo, existing_df),
-        "Top 4 Contributors (commits)": get_top_contributors(repo, 4),
+        "Top 4 Contributors (lines of code changes)": get_top_contributors(repo, 4),
         "Stars": repo.stargazers_count,
         "# of Branches": get_num_branches(repo),
         "README": has_readme(repo),
