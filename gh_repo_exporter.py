@@ -9,7 +9,6 @@ from datetime import datetime, timedelta, timezone
 import time
 import os
 import re
-import requests
 
 # Config
 ORG_NAME = "Imageomics"
@@ -81,94 +80,6 @@ def get_repo_creator(repo, existing_df: pd.DataFrame = None) -> str:
     except Exception as e:
         print(f"Warning: Could not determine creator for {repo.name}: {e}")
         return "N/A"
-  
-def get_top_contributors_graphql(repo_full_name: str, top_n: int = 4) -> str:
-    # Fallback method using GraphQL API to get top contributors by lines of code changes 
-    try:
-        token = os.getenv("GH_TOKEN")
-        if not token:
-            return "N/A"
-        
-        contributors = {}
-        cursor = None
-        headers = {
-            "Authorization": f"bearer {token}",
-            "Content-Type": "application/json"
-        }
-        owner, repo_name = repo_full_name.split("/")
-
-        while True:
-            after = f', after: "{cursor}"' if cursor else ""
-            query = f"""
-            {{
-              repository(owner: "{owner}", name: "{repo_name}") {{
-                defaultBranchRef {{
-                  target {{
-                    ... on Commit {{
-                      history(first: 100{after}) {{
-                        pageInfo {{
-                          hasNextPage
-                          endCursor
-                        }}
-                        nodes {{
-                          additions
-                          deletions
-                          author {{
-                            name
-                            user {{
-                              login
-                            }}
-                          }}
-                        }}
-                      }}
-                    }}
-                  }}
-                }}
-              }}
-            }}
-            """
-
-            response = requests.post(
-                "https://api.github.com/graphql",
-                json={"query": query},
-                headers=headers
-            )
-
-            data = response.json()
-
-            if "errors" in data:
-                return "N/A"
-
-            repository = data["data"]["repository"]
-            if not repository:
-                return "N/A"
-
-            default_branch = repository["defaultBranchRef"]
-            if not default_branch:
-                return "N/A"
-
-            history = default_branch["target"]["history"]
-
-            for commit in history["nodes"]:
-                author = commit["author"]
-                if author and author["user"]:
-                    name = author["user"]["login"]
-                else:
-                    name = author["name"] or "Unknown"
-
-                changes = (commit["additions"] or 0) + (commit["deletions"] or 0)
-                contributors[name] = contributors.get(name, 0) + changes
-
-            if not history["pageInfo"]["hasNextPage"]:
-                break
-
-            cursor = history["pageInfo"]["endCursor"]
-
-        sorted_contributors = sorted(contributors.items(), key=lambda x: x[1], reverse=True)
-        return ", ".join([name for name, _ in sorted_contributors[:top_n]]) or "N/A"
-
-    except Exception:
-        return "N/A"
 
 def get_top_contributors(repo, top_n: int = 4) -> str:
     try:
@@ -181,9 +92,9 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
             time.sleep(20)
 
         if not stats:
-            # Fallback: use GraphQL API if get_stats_contributors() fails
-            tqdm.write(f"  Falling back to GraphQL for {repo.name}...")
-            return get_top_contributors_graphql(repo.full_name, top_n)
+            # Fallback: use commit-based approach if get_stats_contributors() fails
+            tqdm.write(f"  Falling back to commit-based for {repo.name}...")
+            return get_top_contributors_commits(repo, top_n)
 
         contributors = []
         for contributor in stats:
@@ -196,9 +107,26 @@ def get_top_contributors(repo, top_n: int = 4) -> str:
         return ", ".join([f"{name} ({login})" for name, login, _ in top_n_contributors])
 
     except Exception:
-        # Fallback: use GraphQL API if get_stats_contributors() raises an exception
-        tqdm.write(f"  Falling back to GraphQL for {repo.name}...")
-        return get_top_contributors_graphql(repo.full_name, top_n)
+        # Fallback: use commit-based approach if get_stats_contributors() raises an exception
+        tqdm.write(f"  Falling back to commit-based for {repo.name}...")
+        return get_top_contributors_commits(repo, top_n)
+
+def get_top_contributors_commits(repo, top_n: int = 4) -> str:
+    # Fallback method using commit count when get_stats_contributors() fails
+    try:
+        contributors = repo.get_contributors()
+        top_n_contributors = []
+
+        for i, contributor in enumerate(contributors):
+            if i >= top_n:
+                break
+            top_n_contributors.append(f"{contributor.name} ({contributor.login})")
+
+        result = ", ".join(top_n_contributors) if top_n_contributors else "N/A"
+        return f"{result} (commit-based)" if result != "N/A" else "N/A"
+
+    except Exception:
+        return "N/A"
     
 def is_inactive(repo) -> str:
     try:
@@ -364,7 +292,7 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
 
             # Check if URL matches a paper source
             for pattern in url_patterns:
-                if re.search(pattern, url):
+                if re.search(pattern, url, re.IGNORECASE):
                     cleaned = url.rstrip(").],};:>\"'")
                     return f'=HYPERLINK("{cleaned}", "Yes")'
                 
