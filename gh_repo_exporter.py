@@ -67,9 +67,11 @@ def get_repo_creator(repo, existing_df: pd.DataFrame = None) -> str:
                 (existing_df["Date Created"] == date_created)
             ].copy()
             if not match.empty:
-                existing_creator = match.iloc[0]["Created By"]
-                if existing_creator and existing_creator != "N/A":
-                    return existing_creator
+                existing_creator = match.iloc[0].get("Created By")
+                if isinstance(existing_creator, str):
+                    existing_creator = existing_creator.strip()
+                    if existing_creator and existing_creator != "N/A":
+                        return existing_creator
         
         # Repo not found in sheet, fetch creator from commit history      
         commits = repo.get_commits()
