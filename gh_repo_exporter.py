@@ -555,7 +555,9 @@ def main():
             rows = all_values[2:]
 
             full_df = pd.DataFrame(rows, columns=headers)
-
+            existing_df = full_df[
+                    ["Repository Name", "Date Created", "Created By"]
+            ].copy()
             existing_df["Repository Name"] = existing_df["Repository Name"].apply(
                 lambda v: extract_display_name(v) if isinstance(v, str) else ""
             )
