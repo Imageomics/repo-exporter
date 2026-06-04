@@ -73,10 +73,18 @@ def get_repo_creator(repo, existing_df: pd.DataFrame = None) -> str:
                     if existing_creator and existing_creator != "N/A":
                         return existing_creator
         
-        # Repo not found in sheet, fetch creator from commit history      
+        # Repo not found in sheet, fetch creator from commit history
         commits = repo.get_commits()
-        first_commit = commits.reversed[0]
-        author = first_commit.author
+        total = commits.totalCount
+        if not total:
+            return "N/A"
+
+        # Avoid loading the entire history into memory: fetch only the last page.
+        per_page = getattr(getattr(repo, "_requester", None), "per_page", 30) or 30
+        last_page = (total - 1) // per_page
+        oldest_page = commits.get_page(last_page)
+        oldest_commit = oldest_page[-1] if oldest_page else None
+        author = oldest_commit.author if oldest_commit else None
         return f"{author.name} ({author.login})" if author else "N/A"
     
     except Exception as e:
@@ -548,11 +556,9 @@ def main():
 
             full_df = pd.DataFrame(rows, columns=headers)
 
-            existing_df = full_df[
-                ["Repository Name", "Date Created", "Created By"]
-            ].copy()
-            
-            existing_df["Repository Name"] = existing_df["Repository Name"].apply(extract_display_name)
+            existing_df["Repository Name"] = existing_df["Repository Name"].apply(
+                lambda v: extract_display_name(v) if isinstance(v, str) else ""
+            )
 
     except Exception as e:
         print(f"Warning: Could not load existing sheet data: {e}")
