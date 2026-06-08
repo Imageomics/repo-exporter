@@ -59,7 +59,11 @@ def get_repo_creator(repo, existing_df: pd.DataFrame = None) -> str:
     try:
         
          # Check if repo already exists in sheet. If so, reuse existing value instead of slow search
-        if existing_df is not None and not existing_df.empty:
+        if (
+            existing_df is not None
+            and not existing_df.empty
+            and {"Repository Name", "Date Created", "Created By"}.issubset(existing_df.columns)
+            ):
             repo_name = repo.name
             date_created = repo.created_at.strftime("%Y-%m-%d")
             match = existing_df.loc[
@@ -88,7 +92,7 @@ def get_repo_creator(repo, existing_df: pd.DataFrame = None) -> str:
         return f"{author.name} ({author.login})" if author else "N/A"
     
     except Exception as e:
-        print(f"Warning: Could not determine creator for {repo.name}: {e}")
+        tqdm.write(f"Warning: Could not determine creator for {repo.name}: {e}")
         return "N/A"
 
 def get_top_contributors(repo, top_n: int = 4) -> str:

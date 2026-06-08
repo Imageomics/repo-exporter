@@ -51,10 +51,8 @@ class TestGetRepoCreator(unittest.TestCase):
         Mimics what you'd get from reading a CSV with these columns.
         """
         return pd.DataFrame(rows, columns=["Repository Name", "Date Created", "Created By"])
-
-    # ------------------------------------------------------------------
+    
     # Cache-hit path: repo already exists in the sheet
-    # ------------------------------------------------------------------
 
     def test_returns_cached_creator_when_repo_in_sheet(self):
         # If the repo name + date match a sheet row with a valid creator,
@@ -100,9 +98,7 @@ class TestGetRepoCreator(unittest.TestCase):
 
         self.assertEqual(result, "Dave (dave42)")
 
-    # ------------------------------------------------------------------
     # Fallback path: repo not in the sheet at all
-    # ------------------------------------------------------------------
 
     def test_fetches_from_commits_when_repo_not_in_sheet(self):
         # Repo is absent from existing_df entirely — must hit commit history.
@@ -132,6 +128,21 @@ class TestGetRepoCreator(unittest.TestCase):
         result = get_repo_creator(repo, existing_df)
 
         self.assertEqual(result, "Grace (grace)")
+        
+    def test_falls_back_to_commits_when_existing_df_missing_columns(self):
+        # DataFrame exists but has wrong column names (e.g. bad sheet export).
+        # Should fall through to commit history, not raise or return "N/A" silently.
+        existing_df = pd.DataFrame([{"Repo": "my-repo", "Created": "2024-03-01"}])
+        repo = self._make_mock_repo("my-repo", "2024-03-01")
+        commits = self._make_commits_mock("Henry", "henry99")
+        repo.get_commits.return_value = commits
+        repo._requester = MagicMock()
+        repo._requester.per_page = 30
+
+        result = get_repo_creator(repo, existing_df)
+
+        self.assertEqual(result, "Henry (henry99)")
+        repo.get_commits.assert_called()
 
     def test_correct_last_page_index_is_requested(self):
         # Critical math check: with 95 commits and 30 per page,
