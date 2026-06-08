@@ -156,7 +156,7 @@ class TestGetRepoCreator(unittest.TestCase):
 
         result = get_repo_creator(repo, None)
         
-        self.assertEquals(result, "Dave (dave)")
+        self.assertEqual(result, "Dave (dave)")
 
         expected_page = (total - 1) // per_page  # = 3
         commits.get_page.assert_called_once_with(expected_page)
