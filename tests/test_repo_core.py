@@ -154,13 +154,15 @@ class TestGetRepoCreator(unittest.TestCase):
         repo._requester = MagicMock()
         repo._requester.per_page = per_page
 
-        get_repo_creator(repo, None)
+        result = get_repo_creator(repo, None)
+        
+        self.assertEquals(result, "Dave (dave)")
 
         expected_page = (total - 1) // per_page  # = 3
         commits.get_page.assert_called_once_with(expected_page)
 
     def test_returns_na_when_commit_author_is_none(self):
-        # Oldest commit has no author (e.g. deleted GitHub account).
+        # Oldest commit has no author (e.g. deleted GitHub account or user changed their GitHub name/display name).
         existing_df = self._dummy_existing_df([])
         repo = self._make_mock_repo("ghost-repo", "2024-01-01")
 
