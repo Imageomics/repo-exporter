@@ -366,7 +366,7 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         "AGENTS": has_file(repo, "AGENTS.md"),
         "Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
-        "Fork": "Yes" if repo.fork else "No",
+        "Has Forks": repo.forks_count if repo.forks_count > 0 else "No",
         "Archived": "Yes" if repo.archived else "No",
         "Inactive": is_inactive(repo),
         "Website Reference": get_website_reference(repo.homepage),
