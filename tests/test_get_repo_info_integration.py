@@ -194,8 +194,6 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
         languages={},
         forks_count=0,
         private=True,
-        fork=True,
-        archived=True,
     )
     repo.get_license.side_effect = GithubException(404, "Not Found", None)
 
@@ -208,11 +206,33 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["CITATION"] == "No"
     assert result["Language"] == "N/A"
     assert result["Visibility"] == "Private"
-    assert result["Is Fork"] == "Yes"
     assert result["Has Forks"] == "No"
-    assert result["Archived"] == "Yes"
     assert result["Website Reference"] == "No"
     assert result["Dataset"] == "No"
     assert result["Model"] == "No"
     assert result["Paper Association"] == "No"
     assert result["DOI for GitHub Repo"] == "No"
+
+def test_get_repo_info_forked_and_archived_repo():
+    """Intermediate case: a public, non-bare repo that is also a fork and
+    archived. Keeps 'Is Fork' / 'Archived' isolated from the bare/private
+    repo's edge cases."""
+    repo = make_mock_repo(
+        name="forked-archived-project",
+        readme_content=FULL_README,
+        files={
+            ".gitignore": "*.pyc",
+            "requirements.txt": "pandas\n",
+        },
+        fork=True,
+        archived=True,
+    )
+
+    result = exporter.get_repo_info(repo, existing_df=None)
+
+    assert result["Visibility"] == "Public"
+    assert result["Is Fork"] == "Yes"
+    assert result["Archived"] == "Yes"
+    # Sanity check the rest of the row is still populated normally.
+    assert result["README"] == "Yes"
+    assert result["Dataset"] == '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-data", "Yes")'
