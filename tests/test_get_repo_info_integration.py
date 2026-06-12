@@ -213,6 +213,7 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Paper Association"] == "No"
     assert result["DOI for GitHub Repo"] == "No"
 
+
 def test_get_repo_info_forked_and_archived_repo():
     """Intermediate case: a public, non-bare repo that is also a fork and
     archived. Keeps 'Is Fork' / 'Archived' isolated from the bare/private
@@ -227,6 +228,7 @@ def test_get_repo_info_forked_and_archived_repo():
         fork=True,
         archived=True,
     )
+    repo.get_license.side_effect = GithubException(404, "Not Found", None)
 
     result = exporter.get_repo_info(repo, existing_df=None)
 
@@ -236,3 +238,12 @@ def test_get_repo_info_forked_and_archived_repo():
     # Sanity check the rest of the row is still populated normally.
     assert result["README"] == "Yes"
     assert result["Dataset"] == '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-data", "Yes")'
+    assert result["Model"] == '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "Yes")'
+    assert result["Paper Association"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")'
+    # Files/citation not provided to this repo should report "No".
+    assert result["License"] == "No"
+    assert result["CITATION"] == "No"
+    assert result[".zenodo.json"] == "No"
+    assert result["CONTRIBUTING"] == "No"
+    assert result["AGENTS"] == "No"
+    assert result["DOI for GitHub Repo"] == "No"
