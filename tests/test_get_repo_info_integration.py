@@ -182,8 +182,7 @@ def test_get_repo_info_matches_expected_output():
 
 
 def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
-    """A repo missing optional files/links should yield 'No'/'N/A' fallbacks
-    (and have the same set of keys as the full repo)."""
+    """A repo missing optional files/links should yield 'No'/'N/A' fallbacks"""
     repo = make_mock_repo(
         name="bare-repo",
         description=None,
@@ -211,6 +210,9 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Dataset"] == "No"
     assert result["Model"] == "No"
     assert result["Paper Association"] == "No"
+    assert result[".zenodo.json"] == "No"
+    assert result["CONTRIBUTING"] == "No"
+    assert result["AGENTS"] == "No"
     assert result["DOI for GitHub Repo"] == "No"
 
 
@@ -235,6 +237,8 @@ def test_get_repo_info_forked_and_archived_repo():
     assert result["Visibility"] == "Public"
     assert result["Is Fork"] == "Yes"
     assert result["Archived"] == "Yes"
+    assert result[".gitignore"] == "Yes"
+    assert result["Package Requirements"] == "Yes"
     # Sanity check the rest of the row is still populated normally.
     assert result["README"] == "Yes"
     assert result["Dataset"] == '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-data", "Yes")'
