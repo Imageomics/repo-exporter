@@ -93,7 +93,6 @@ def make_mock_api(
 
     return api
 
-
 FULL_README = """\
 ---
 license: mit
@@ -135,9 +134,9 @@ def test_get_repo_info_matches_expected_output():
         "License": "mit",
         "Visibility": "Public",
         "Inactive": "No",
-        "Homepage": '=HYPERLINK("https://example.org/cool-dataset", "Homepage")',
-        "Repo": '=HYPERLINK("https://github.com/Imageomics/cool-dataset", "Repository")',
-        "Paper": '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Paper")',
+        "Homepage": '=HYPERLINK("https://example.org/cool-dataset", "https://example.org/cool-dataset")',
+        "Repo": '=HYPERLINK("https://github.com/Imageomics/cool-dataset", "https://github.com/Imageomics/cool-dataset")',
+        "Paper": '=HYPERLINK("https://arxiv.org/abs/1234.5678", "https://arxiv.org/abs/1234.5678")',
         "Associated Datasets": "imageomics/cool-data",
         "Associated Models": "No",
         "Associated Spaces": "imageomics/cool-space",
@@ -152,7 +151,8 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     repo = make_mock_repo(
         repo_id="imageomics/bare-repo",
         description=None,
-        last_modified=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        # Recent enough that is_inactive() returns "No" (within the last year)
+        last_modified=datetime(2025, 12, 1, tzinfo=timezone.utc),
         private=True,
         likes=0,
         card_data={},
@@ -172,7 +172,7 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Repository Type"] == "model"
     assert result["Description"] == "N/A"
     assert result["Date Created"] == "2022-01-01"
-    assert result["Last Updated"] == "2024-01-01"
+    assert result["Last Updated"] == "2025-12-01"
     assert result["Created By"] == "imageomics"
     assert result["Top 4 Contributors/Curators"] == "imageomics"
     assert result["Likes"] == 0
@@ -217,9 +217,9 @@ def test_get_repo_info_space_type_and_inactive_repo():
     assert result["License"] == "mit"
     assert result["Visibility"] == "Public"
     assert result["Inactive"] == "Yes"
-    assert result["Homepage"] == '=HYPERLINK("https://example.org/cool-dataset", "Homepage")'
-    assert result["Repo"] == '=HYPERLINK("https://github.com/Imageomics/cool-dataset", "Repository")'
-    assert result["Paper"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Paper")'
+    assert result["Homepage"] == '=HYPERLINK("https://example.org/cool-dataset", "https://example.org/cool-dataset")'
+    assert result["Repo"] == '=HYPERLINK("https://github.com/Imageomics/cool-dataset", "https://github.com/Imageomics/cool-dataset")'
+    assert result["Paper"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "https://arxiv.org/abs/1234.5678")'
     assert result["Associated Datasets"] == "No"
     assert result["Associated Models"] == "No"
     assert result["Associated Spaces"] == "No"
