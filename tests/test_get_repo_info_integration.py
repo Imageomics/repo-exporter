@@ -182,7 +182,7 @@ def test_get_repo_info_matches_expected_output():
 
 
 def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
-    """A repo missing optional files/links should yield 'No'/'N/A' fallbacks"""
+    """A repo missing optional files/links should yield 'No'/'N/A' fallbacks."""
     repo = make_mock_repo(
         name="bare-repo",
         description=None,
@@ -199,20 +199,23 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     result = exporter.get_repo_info(repo, existing_df=None)
 
     assert result["Description"] == "N/A"
+    assert result["Top 4 Contributors (lines of code changes)"] == "Jane Doe (janedoe), John Smith (jsmith)"
+    assert result["README"] == "Yes"
     assert result["License"] == "No"
     assert result[".gitignore"] == "No"
     assert result["Package Requirements"] == "No"
     assert result["CITATION"] == "No"
+    assert result[".zenodo.json"] == "No"
+    assert result["CONTRIBUTING"] == "No"
+    assert result["AGENTS"] == "No"
     assert result["Language"] == "N/A"
     assert result["Visibility"] == "Private"
     assert result["Has Forks"] == "No"
+    assert result["Archived"] == "No"
     assert result["Website Reference"] == "No"
     assert result["Dataset"] == "No"
     assert result["Model"] == "No"
     assert result["Paper Association"] == "No"
-    assert result[".zenodo.json"] == "No"
-    assert result["CONTRIBUTING"] == "No"
-    assert result["AGENTS"] == "No"
     assert result["DOI for GitHub Repo"] == "No"
 
 
@@ -234,20 +237,22 @@ def test_get_repo_info_forked_and_archived_repo():
 
     result = exporter.get_repo_info(repo, existing_df=None)
 
-    assert result["Visibility"] == "Public"
-    assert result["Is Fork"] == "Yes"
-    assert result["Archived"] == "Yes"
+    assert result["Description"] == "A cool research project"
+    assert result["Top 4 Contributors (lines of code changes)"] == "Jane Doe (janedoe), John Smith (jsmith)"
+    assert result["README"] == "Yes"
+    assert result["License"] == "No"
     assert result[".gitignore"] == "Yes"
     assert result["Package Requirements"] == "Yes"
-    # Sanity check the rest of the row is still populated normally.
-    assert result["README"] == "Yes"
-    assert result["Dataset"] == '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-data", "Yes")'
-    assert result["Model"] == '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "Yes")'
-    assert result["Paper Association"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")'
-    # Files/citation not provided to this repo should report "No".
-    assert result["License"] == "No"
     assert result["CITATION"] == "No"
     assert result[".zenodo.json"] == "No"
     assert result["CONTRIBUTING"] == "No"
     assert result["AGENTS"] == "No"
+    assert result["Visibility"] == "Public"
+    assert result["Is Fork"] == "Yes"
+    assert result["Has Forks"] == 2
+    assert result["Archived"] == "Yes"
+    assert result["Website Reference"] == '=HYPERLINK("https://example.org/cool-project", "Yes")'
+    assert result["Dataset"] == '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-data", "Yes")'
+    assert result["Model"] == '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "Yes")'
+    assert result["Paper Association"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")'
     assert result["DOI for GitHub Repo"] == "No"
