@@ -3,7 +3,7 @@ Integration test for hf_repo_exporter.get_repo_info().
 
 Builds mocked Hugging Face repo and API objects (no network calls) and checks
 get_repo_info() against a frozen "golden" expected dict, so that
-refactoring (splitting modules, moving into src/repo-exporter, etc.)
+refactoring (splitting modules, moving into src/repo_exporter, etc.)
 doesn't silently change the exported data.
 """
 
