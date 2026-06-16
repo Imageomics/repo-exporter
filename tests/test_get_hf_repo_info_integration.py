@@ -54,10 +54,7 @@ def make_mock_repo(
     tags=None,
     doi_attr=None,
 ):
-    """Build a MagicMock that mimics a huggingface_hub repo info object."""
-    if last_modified is None:
-        last_modified = datetime.now(timezone.utc) - timedelta(days=3)
-
+    
     repo = MagicMock()
     repo.id = repo_id
     repo.created_at = created_at
