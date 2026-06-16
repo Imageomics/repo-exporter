@@ -7,7 +7,7 @@ refactoring (splitting modules, moving into src/repo_exporter, etc.)
 doesn't silently change the exported data.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
@@ -84,9 +84,10 @@ def make_mock_api(
     api = MagicMock()
 
     # Newest commit first, oldest last — get_author uses commits[-1] for the creator,
-    # so janedoe must be last. get_top_contributors iterates all commits in order, so
-    # with equal commit counts Counter preserves insertion order: jsmith comes first.
+    # so janedoe must be last. To avoid tie-order ambiguity in Counter.most_common(),
+    # give jsmith strictly more commits than janedoe.
     api.list_repo_commits.return_value = commits if commits is not None else [
+        FakeCommit("jsmith"),
         FakeCommit("jsmith"),
         FakeCommit("janedoe"),
     ]
