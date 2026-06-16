@@ -1,204 +1,213 @@
 """
-Integration test for hf_repo_exporter.get_repo_info().
+Integration test for gh_repo_exporter.get_repo_info().
 
-Builds mocked HuggingFace repo and API objects (no network calls) and checks
+Builds a mocked GitHub Repository object (no network calls) and checks
 get_repo_info() against a frozen "golden" expected dict, so that
 refactoring (splitting modules, moving into src/repo_exporter, etc.)
 doesn't silently change the exported data.
 """
 
-<<<<<<< Updated upstream
-from datetime import datetime, timezone
-from unittest.mock import MagicMock
-=======
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, mock_open, patch
->>>>>>> Stashed changes
+from unittest.mock import MagicMock
 
-import hf_repo_exporter as exporter
+from github import GithubException
+
+import gh_repo_exporter as exporter
+
+
+class FakeContentFile:
+    def __init__(self, text: str):
+        self.decoded_content = text.encode("utf-8")
 
 
 class FakeAuthor:
-    def __init__(self, user: str):
-        self.user = user
+    def __init__(self, name: str, login: str):
+        self.name = name
+        self.login = login
 
 
-class FakeCommit:
-    def __init__(self, user: str):
-        self.authors = [FakeAuthor(user)]
+class FakeWeek:
+    def __init__(self, a: int, d: int):
+        self.a = a
+        self.d = d
 
 
-class FakeDiscussion:
-    def __init__(self, *, is_pull_request: bool, status: str):
-        self.is_pull_request = is_pull_request
-        self.status = status
+class FakeContributorStats:
+    def __init__(self, name: str, login: str, additions: int, deletions: int):
+        self.author = FakeAuthor(name, login)
+        self.weeks = [FakeWeek(additions, deletions)]
 
 
 def make_mock_repo(
     *,
-    repo_id="imageomics/cool-dataset",
-    description="A cool research dataset",
+    name="cool-project",
+    description="A cool research project",
     created_at=datetime(2022, 1, 1, tzinfo=timezone.utc),
-<<<<<<< Updated upstream
-    updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    updated_at=None,
     stars=10,
     branches=3,
-=======
-    last_modified=None,
->>>>>>> Stashed changes
     private=False,
-    likes=42,
-    card_data=None,
-    tags=None,
-    doi_attr=None,
+    fork=False,
+    forks_count=2,
+    archived=False,
+    homepage="https://example.org/cool-project",
+    languages=None,
+    readme_content="",
+    files=None,
+    citation_yaml=None,
+    creator=("Jane Doe", "janedoe"),
 ):
-<<<<<<< Updated upstream
     """Build a MagicMock that mimics a PyGithub Repository object."""
-=======
-    """Build a MagicMock that mimics a huggingface_hub repo info object."""
-    if last_modified is None:
-        last_modified = datetime.now(timezone.utc) - timedelta(days=3)
+    if updated_at is None:
+        updated_at = datetime.now(timezone.utc) - timedelta(days=3)
 
->>>>>>> Stashed changes
     repo = MagicMock()
-    repo.id = repo_id
+    repo.name = name
+    repo.description = description
     repo.created_at = created_at
-    repo.lastModified = last_modified
+    repo.updated_at = updated_at
+    repo.stargazers_count = stars
     repo.private = private
-    repo.likes = likes
-    repo.tags = tags if tags is not None else []
-    repo.doi = doi_attr
-    # Explicitly set to None so get_license() doesn't pick up a truthy MagicMock
-    repo.license = None
+    repo.fork = fork
+    repo.forks_count = forks_count
+    repo.archived = archived
+    repo.homepage = homepage
+    repo.html_url = f"https://github.com/Imageomics/{name}"
 
-    _card_data = card_data if card_data is not None else {"license": "mit", "description": description}
-    repo.cardData = _card_data
-    repo.card_data = _card_data
+    branches_mock = MagicMock()
+    branches_mock.totalCount = branches
+    repo.get_branches.return_value = branches_mock
+
+    repo.get_languages.return_value = (
+        languages if languages is not None else {"Python": 1000, "Shell": 10}
+    )
+
+    if readme_content is not None:
+        repo.get_readme.return_value = FakeContentFile(readme_content)
+    else:
+        repo.get_readme.side_effect = GithubException(404, "Not Found", None)
+
+    repo.get_license.return_value = MagicMock()
+
+    files = files or {}
+
+    def get_contents(path, *args, **kwargs):
+        if path == "CITATION.cff" and citation_yaml is not None:
+            return FakeContentFile(citation_yaml)
+        if path in files:
+            return FakeContentFile(files[path])
+        raise GithubException(404, "Not Found", None)
+
+    repo.get_contents.side_effect = get_contents
+
+    name_, login_ = creator
+    oldest_commit = MagicMock()
+    oldest_commit.author = FakeAuthor(name_, login_)
+    commits_mock = MagicMock()
+    commits_mock.totalCount = 1
+    commits_mock.get_page.return_value = [oldest_commit]
+    repo.get_commits.return_value = commits_mock
+    repo._requester = MagicMock(per_page=30)
+
+    repo.get_stats_contributors.return_value = [
+        FakeContributorStats("Jane Doe", "janedoe", 500, 50),
+        FakeContributorStats("John Smith", "jsmith", 200, 20),
+    ]
 
     return repo
 
 
-def make_mock_api(
-    *,
-    commits=None,
-    open_pr_count=1,
-    associated_spaces=None,
-    associated_models=None,
-):
-    """Build a MagicMock that mimics a HfApi object for the functions under test."""
-    api = MagicMock()
+FULL_README = """
+# Cool Project
 
-    # Newest commit first, oldest last — get_author uses commits[-1] for the creator,
-    # so janedoe must be last. get_top_contributors iterates all commits in order, so
-    # with equal commit counts Counter preserves insertion order: jsmith comes first.
-    api.list_repo_commits.return_value = commits if commits is not None else [
-        FakeCommit("jsmith"),
-        FakeCommit("janedoe"),
-    ]
+This is a research repo.
 
-    fake_prs = [FakeDiscussion(is_pull_request=True, status="open")] * open_pr_count
-    api.get_repo_discussions.return_value = fake_prs
+[Paper](https://arxiv.org/abs/1234.5678)
 
-    api.list_spaces.return_value = (
-        [MagicMock(id=s) for s in associated_spaces] if associated_spaces is not None else []
-    )
-    api.list_models.return_value = (
-        [MagicMock(id=m) for m in associated_models] if associated_models is not None else []
-    )
+Dataset: https://huggingface.co/datasets/imageomics/cool-data
+Model: https://huggingface.co/imageomics/cool-model
+"""
 
-    return api
-
-
-# extract_link_from_text uses content.split('(')[0].strip() or label for the display
-# text. With "Label: https://url" format (no parentheses), the URL itself is the
-# display text since split('(')[0] returns the full URL which is truthy.
-FULL_README = """\
----
-license: mit
----
-
-# Cool Dataset
-
-Homepage: https://example.org/cool-dataset
-Repository: https://github.com/Imageomics/cool-dataset
-Paper: https://arxiv.org/abs/1234.5678
+FULL_CITATION = """
+cff-version: 1.2.0
+title: Cool Project
+doi: 10.5281/zenodo.1234567
 """
 
 
 def test_get_repo_info_matches_expected_output():
-    """Golden test: a fully-populated dataset repo should produce this exact row."""
+    """Golden test: a fully-populated repo should produce this exact row."""
     repo = make_mock_repo(
-        tags=["dataset:imageomics/cool-data", "doi:10.5281/zenodo.1234567"],
-    )
-    api = make_mock_api(
-        open_pr_count=2,
-        associated_spaces=["imageomics/cool-space"],
+        readme_content=FULL_README,
+        files={
+            ".gitignore": "*.pyc",
+            "requirements.txt": "pandas\n",
+            ".zenodo.json": "{}",
+            "CONTRIBUTING.md": "How to contribute",
+            "AGENTS.md": "Agent instructions",
+        },
+        citation_yaml=FULL_CITATION,
     )
 
-    with patch("hf_repo_exporter.hf_hub_download", return_value="/fake/README.md"), \
-         patch("builtins.open", mock_open(read_data=FULL_README)):
-        result = exporter.get_repo_info(api, repo, "dataset")
+    result = exporter.get_repo_info(repo, existing_df=None)
 
     expected = {
-        "Repository Name": '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-dataset", "datasets/imageomics/cool-dataset")',
-        "Repository Type": "dataset",
-        "Description": "A cool research dataset",
+        "Repository Name": '=HYPERLINK("https://github.com/Imageomics/cool-project", "cool-project")',
+        "Description": "A cool research project",
         "Date Created": "2022-01-01",
-<<<<<<< Updated upstream
-        "Last Updated": "2026-01-01",
+        "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
         "Created By": "Jane Doe (janedoe)",
         "Top 4 Contributors (lines of code changes)": "Jane Doe (janedoe), John Smith (jsmith)",
         "Stars": 10,
         "# of Branches": 3,
-=======
-        "Last Updated": repo.lastModified.strftime("%Y-%m-%d"),
-        "Created By": "janedoe",
-        "Top 4 Contributors/Curators": "jsmith, janedoe",
-        "Likes": 42,
-        "# of Open PRs": 2,
->>>>>>> Stashed changes
         "README": "Yes",
-        "License": "mit",
+        "License": "Yes",
+        ".gitignore": "Yes",
+        "Package Requirements": "Yes",
+        "CITATION": "Yes",
+        ".zenodo.json": "Yes",
+        "CONTRIBUTING": "Yes",
+        "AGENTS": "Yes",
+        "Language": "Python",
         "Visibility": "Public",
+        "Is Fork": "No",
+        "Has Forks": 2,
+        "Archived": "No",
         "Inactive": "No",
-        "Homepage": '=HYPERLINK("https://example.org/cool-dataset", "https://example.org/cool-dataset")',
-        "Repo": '=HYPERLINK("https://github.com/Imageomics/cool-dataset", "https://github.com/Imageomics/cool-dataset")',
-        "Paper": '=HYPERLINK("https://arxiv.org/abs/1234.5678", "https://arxiv.org/abs/1234.5678")',
-        "Associated Datasets": "imageomics/cool-data",
-        "Associated Models": "No",
-        "Associated Spaces": "imageomics/cool-space",
-        "DOI": "10.5281/zenodo.1234567",
+        "Website Reference": '=HYPERLINK("https://example.org/cool-project", "Yes")',
+        "Dataset": '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-data", "Yes")',
+        "Model": '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "Yes")',
+        "Paper Association": '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")',
+        "DOI for GitHub Repo": "https://doi.org/10.5281/zenodo.1234567",
     }
 
     assert result == expected
 
 
 def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
-    """A repo missing optional metadata/links should yield 'No'/'N/A' fallbacks."""
+    """A repo missing optional files/links should yield 'No'/'N/A' fallbacks."""
     repo = make_mock_repo(
-        repo_id="imageomics/bare-repo",
+        name="bare-repo",
         description=None,
-        # Recent enough that is_inactive() returns "No" (within the last year)
-        last_modified=datetime(2025, 12, 1, tzinfo=timezone.utc),
+        homepage=None,
+        readme_content="Just a plain readme with nothing special.",
+        files={},
+        citation_yaml=None,
+        languages={},
+        forks_count=0,
         private=True,
-<<<<<<< Updated upstream
-=======
-        likes=0,
-        card_data={},
-        tags=[],
-        doi_attr=None,
+        updated_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
-    api = make_mock_api(
-        commits=[],
-        open_pr_count=0,
->>>>>>> Stashed changes
-    )
+    repo.get_license.side_effect = GithubException(404, "Not Found", None)
 
-    with patch("hf_repo_exporter.hf_hub_download", return_value="/fake/README.md"), \
-         patch("builtins.open", mock_open(read_data="Just a plain readme with nothing special.")):
-        result = exporter.get_repo_info(api, repo, "model")
+    result = exporter.get_repo_info(repo, existing_df=None)
 
-<<<<<<< Updated upstream
+    assert result["Repository Name"] == '=HYPERLINK("https://github.com/Imageomics/bare-repo", "bare-repo")'
+    assert result["Date Created"] == "2022-01-01"
+    assert result["Last Updated"] == "2024-01-01"
+    assert result["Created By"] == "Jane Doe (janedoe)"
+    assert result["Stars"] == 10
+    assert result["# of Branches"] == 3
     assert result["Description"] == "N/A"
     assert result["Top 4 Contributors (lines of code changes)"] == "Jane Doe (janedoe), John Smith (jsmith)"
     assert result["README"] == "Yes"
@@ -211,8 +220,10 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["AGENTS"] == "No"
     assert result["Language"] == "N/A"
     assert result["Visibility"] == "Private"
+    assert result["Is Fork"] == "No"
     assert result["Has Forks"] == "No"
     assert result["Archived"] == "No"
+    assert result["Inactive"] == "Yes"
     assert result["Website Reference"] == "No"
     assert result["Dataset"] == "No"
     assert result["Model"] == "No"
@@ -233,80 +244,35 @@ def test_get_repo_info_forked_and_archived_repo():
         },
         fork=True,
         archived=True,
+        updated_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
     repo.get_license.side_effect = GithubException(404, "Not Found", None)
 
     result = exporter.get_repo_info(repo, existing_df=None)
 
+    assert result["Repository Name"] == '=HYPERLINK("https://github.com/Imageomics/forked-archived-project", "forked-archived-project")'
+    assert result["Date Created"] == "2022-01-01"
+    assert result["Last Updated"] == "2024-01-01"
+    assert result["Created By"] == "Jane Doe (janedoe)"
+    assert result["Stars"] == 10
+    assert result["# of Branches"] == 3
     assert result["Description"] == "A cool research project"
     assert result["Top 4 Contributors (lines of code changes)"] == "Jane Doe (janedoe), John Smith (jsmith)"
     assert result["README"] == "Yes"
-=======
-    assert result["Repository Name"] == '=HYPERLINK("https://huggingface.co/imageomics/bare-repo", "imageomics/bare-repo")'
-    assert result["Repository Type"] == "model"
-    assert result["Description"] == "N/A"
-    assert result["Date Created"] == "2022-01-01"
-    assert result["Last Updated"] == "2025-12-01"
-    assert result["Created By"] == "imageomics"
-    assert result["Top 4 Contributors/Curators"] == "imageomics"
-    assert result["Likes"] == 0
-    assert result["# of Open PRs"] == 0
-    assert result["README"] == "No"
->>>>>>> Stashed changes
     assert result["License"] == "No"
-    assert result["Visibility"] == "Private"
-    assert result["Inactive"] == "No"
-    assert result["Homepage"] == "No"
-    assert result["Repo"] == "No"
-    assert result["Paper"] == "No"
-    assert result["Associated Datasets"] == "No"
-    assert result["Associated Models"] == "No"
-    assert result["Associated Spaces"] == "No"
-    assert result["DOI"] == "No"
-
-
-def test_get_repo_info_space_type_and_inactive_repo():
-    """Intermediate case: a Space repo type that is also inactive (last modified
-    over a year ago). Keeps repo_type URL/display logic and Inactive isolated
-    from the bare/minimal repo's edge cases."""
-    repo = make_mock_repo(
-        repo_id="imageomics/cool-space",
-        last_modified=datetime(2020, 1, 1, tzinfo=timezone.utc),
-    )
-    api = make_mock_api(open_pr_count=0)
-
-    with patch("hf_repo_exporter.hf_hub_download", return_value="/fake/README.md"), \
-         patch("builtins.open", mock_open(read_data=FULL_README)):
-        result = exporter.get_repo_info(api, repo, "space")
-
-    assert result["Repository Name"] == '=HYPERLINK("https://huggingface.co/spaces/imageomics/cool-space", "spaces/imageomics/cool-space")'
-    assert result["Repository Type"] == "space"
-    assert result["Description"] == "A cool research dataset"
-    assert result["Date Created"] == "2022-01-01"
-    assert result["Last Updated"] == "2020-01-01"
-    assert result["Created By"] == "janedoe"
-    assert result["Top 4 Contributors/Curators"] == "jsmith, janedoe"
-    assert result["Likes"] == 42
-    assert result["# of Open PRs"] == 0
-    assert result["README"] == "Yes"
-    assert result["License"] == "mit"
+    assert result[".gitignore"] == "Yes"
+    assert result["Package Requirements"] == "Yes"
+    assert result["CITATION"] == "No"
+    assert result[".zenodo.json"] == "No"
+    assert result["CONTRIBUTING"] == "No"
+    assert result["AGENTS"] == "No"
     assert result["Visibility"] == "Public"
-<<<<<<< Updated upstream
     assert result["Is Fork"] == "Yes"
     assert result["Has Forks"] == 2
     assert result["Archived"] == "Yes"
+    assert result["Inactive"] == "Yes"
     assert result["Website Reference"] == '=HYPERLINK("https://example.org/cool-project", "Yes")'
     assert result["Dataset"] == '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-data", "Yes")'
     assert result["Model"] == '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "Yes")'
     assert result["Paper Association"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")'
     assert result["DOI for GitHub Repo"] == "No"
-=======
-    assert result["Inactive"] == "Yes"
-    assert result["Homepage"] == '=HYPERLINK("https://example.org/cool-dataset", "https://example.org/cool-dataset")'
-    assert result["Repo"] == '=HYPERLINK("https://github.com/Imageomics/cool-dataset", "https://github.com/Imageomics/cool-dataset")'
-    assert result["Paper"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "https://arxiv.org/abs/1234.5678")'
-    assert result["Associated Datasets"] == "No"
-    assert result["Associated Models"] == "No"
-    assert result["Associated Spaces"] == "No"
-    assert result["DOI"] == "No"
->>>>>>> Stashed changes
