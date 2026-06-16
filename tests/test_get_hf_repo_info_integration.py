@@ -1,17 +1,30 @@
 """
 Integration test for hf_repo_exporter.get_repo_info().
 
-Builds mocked HuggingFace repo and API objects (no network calls) and checks
+Builds mocked Hugging Face repo and API objects (no network calls) and checks
 get_repo_info() against a frozen "golden" expected dict, so that
-refactoring (splitting modules, moving into src/repo_exporter, etc.)
+refactoring (splitting modules, moving into src/repo-exporter, etc.)
 doesn't silently change the exported data.
 """
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, mock_open, patch
 
+import pytest
 import hf_repo_exporter as exporter
 
+# Freeze "now" so the exported "Inactive" field is deterministic.
+_FIXED_NOW = datetime(2026, 6, 12, tzinfo=timezone.utc)
+
+@pytest.fixture(autouse=True)
+def _freeze_exporter_now(monkeypatch):
+    class _FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return _FIXED_NOW.replace(tzinfo=None)
+            return _FIXED_NOW.astimezone(tz)
+    monkeypatch.setattr(exporter, "datetime", _FixedDateTime)
 
 class FakeAuthor:
     def __init__(self, user: str):
@@ -109,7 +122,7 @@ Paper: https://arxiv.org/abs/1234.5678
 def test_get_repo_info_matches_expected_output():
     """Golden test: a fully-populated dataset repo should produce this exact row."""
     repo = make_mock_repo(
-        tags=["dataset:imageomics/cool-data", "doi:10.5281/zenodo.1234567"],
+        tags=["dataset:imageomics/cool-data", "doi:10.57967/hf.1234567"],
     )
     api = make_mock_api(
         open_pr_count=2,
@@ -140,7 +153,7 @@ def test_get_repo_info_matches_expected_output():
         "Associated Datasets": "imageomics/cool-data",
         "Associated Models": "No",
         "Associated Spaces": "imageomics/cool-space",
-        "DOI": "10.5281/zenodo.1234567",
+        "DOI": "10.57967/hf.1234567",
     }
 
     assert result == expected

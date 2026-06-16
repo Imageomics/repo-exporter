@@ -10,9 +10,23 @@ doesn't silently change the exported data.
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
+import pytest
 from github import GithubException
 
 import gh_repo_exporter as exporter
+
+# Freeze "now" so the exported "Inactive" field is deterministic.
+_FIXED_NOW = datetime(2026, 6, 12, tzinfo=timezone.utc)
+
+@pytest.fixture(autouse=True)
+def _freeze_exporter_now(monkeypatch):
+    class _FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return _FIXED_NOW.replace(tzinfo=None)
+            return _FIXED_NOW.astimezone(tz)
+    monkeypatch.setattr(exporter, "datetime", _FixedDateTime)
 
 
 class FakeContentFile:
