@@ -119,7 +119,7 @@ Paper: https://arxiv.org/abs/1234.5678
 def test_get_repo_info_matches_expected_output():
     """Golden test: a fully-populated dataset repo should produce this exact row."""
     repo = make_mock_repo(
-        tags=["dataset:imageomics/cool-data", "doi:10.57967/hf.1234567"],
+        tags=["dataset:imageomics/cool-data-source", "doi:10.57967/hf.1234567"],
     )
     api = make_mock_api(
         open_pr_count=2,
@@ -147,10 +147,10 @@ def test_get_repo_info_matches_expected_output():
         "Homepage": '=HYPERLINK("https://example.org/cool-dataset", "https://example.org/cool-dataset")',
         "Repo": '=HYPERLINK("https://github.com/Imageomics/cool-dataset", "https://github.com/Imageomics/cool-dataset")',
         "Paper": '=HYPERLINK("https://arxiv.org/abs/1234.5678", "https://arxiv.org/abs/1234.5678")',
-        "Associated Datasets": "imageomics/cool-data",
+        "Associated Datasets": "imageomics/cool-data-source",
         "Associated Models": "No",
         "Associated Spaces": "imageomics/cool-space",
-        "DOI": "10.57967/hf.1234567",
+        "DOI": "10.57967/hf/1234567",
     }
 
     assert result == expected
@@ -206,7 +206,8 @@ def test_get_repo_info_space_type_and_inactive_repo():
     from the bare/minimal repo's edge cases."""
     repo = make_mock_repo(
         repo_id="imageomics/cool-space",
-        last_modified=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        description="A cool research demo",
+        last_modified=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
     api = make_mock_api(open_pr_count=0)
 
@@ -216,9 +217,9 @@ def test_get_repo_info_space_type_and_inactive_repo():
 
     assert result["Repository Name"] == '=HYPERLINK("https://huggingface.co/spaces/imageomics/cool-space", "spaces/imageomics/cool-space")'
     assert result["Repository Type"] == "space"
-    assert result["Description"] == "A cool research dataset"
+    assert result["Description"] == "A cool research demo"
     assert result["Date Created"] == "2022-01-01"
-    assert result["Last Updated"] == "2020-01-01"
+    assert result["Last Updated"] == "2024-01-01"
     assert result["Created By"] == "janedoe"
     assert result["Top 4 Contributors/Curators"] == "jsmith, janedoe"
     assert result["Likes"] == 42
