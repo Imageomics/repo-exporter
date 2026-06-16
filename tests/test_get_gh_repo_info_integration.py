@@ -57,7 +57,7 @@ def make_mock_repo(
     name="cool-project",
     description="A cool research project",
     created_at=datetime(2022, 1, 1, tzinfo=timezone.utc),
-    updated_at=None,
+    updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
     stars=10,
     branches=3,
     private=False,
@@ -71,10 +71,7 @@ def make_mock_repo(
     citation_yaml=None,
     creator=("Jane Doe", "janedoe"),
 ):
-    """Build a MagicMock that mimics a PyGithub Repository object."""
-    if updated_at is None:
-        updated_at = datetime.now(timezone.utc) - timedelta(days=3)
-
+    
     repo = MagicMock()
     repo.name = name
     repo.description = description
@@ -169,7 +166,7 @@ def test_get_repo_info_matches_expected_output():
         "Repository Name": '=HYPERLINK("https://github.com/Imageomics/cool-project", "cool-project")',
         "Description": "A cool research project",
         "Date Created": "2022-01-01",
-        "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
+        "Last Updated": "2026-01-01",
         "Created By": "Jane Doe (janedoe)",
         "Top 4 Contributors (lines of code changes)": "Jane Doe (janedoe), John Smith (jsmith)",
         "Stars": 10,
