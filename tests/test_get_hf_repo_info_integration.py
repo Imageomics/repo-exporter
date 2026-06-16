@@ -119,7 +119,7 @@ Paper: https://arxiv.org/abs/1234.5678
 def test_get_repo_info_matches_expected_output():
     """Golden test: a fully-populated dataset repo should produce this exact row."""
     repo = make_mock_repo(
-        tags=["dataset:imageomics/cool-data-source", "doi:10.57967/hf.1234567"],
+        tags=["dataset:imageomics/cool-data-source", "doi:10.57967/hf/1234567"],
     )
     api = make_mock_api(
         open_pr_count=2,
