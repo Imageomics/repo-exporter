@@ -7,7 +7,7 @@ refactoring (splitting modules, moving into src/repo_exporter, etc.)
 doesn't silently change the exported data.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
