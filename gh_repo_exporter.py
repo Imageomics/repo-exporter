@@ -11,9 +11,9 @@ import os
 import re
 
 # Config
-ORG_NAME = "Imageomics"
-SPREADSHEET_ID = "15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc"
-SHEET_NAME = "Sheet1"
+ORG_NAME = os.getenv("ORG_NAME")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
+SHEET_NAME = os.getenv("SHEET_NAME")
 
 # Package requirement files to check
 PACKAGE_REQUIREMENT_FILES = [
@@ -514,7 +514,20 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 
 def main():
     TOKEN = os.getenv("GH_TOKEN") or input("Enter your GitHub token: ").strip()
+    
+    required_vars = {
+    "ORG_NAME": ORG_NAME,
+    "SPREADSHEET_ID": SPREADSHEET_ID,
+    "SHEET_NAME": SHEET_NAME,
+    }   
 
+    missing = [name for name, value in required_vars.items() if not value]
+
+    if missing:
+        raise ValueError(
+        f"Missing required environment variables: {', '.join(missing)}"
+        )
+        
     start_time = time.time()
 
     gh = Github(auth=Auth.Token(TOKEN))
