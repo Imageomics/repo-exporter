@@ -80,7 +80,16 @@ Instructions to create a Google Cloud Console Service Account and give it permis
  8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
  9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
 
-Now update the script with [your GitHub Organization name](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L13) and the [desired spreadsheet ID](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L14), then the script can be run through the GitHub Actions workflow by following the [Usage Instructions](#usage) for your repository.
+After forking the repository, configure the required environment variables and GitHub Actions:
+
+- `ORG_NAME` — used by both the GitHub and Hugging Face exporters; set this to your GitHub organization name. If your Hugging Face organization name differs from your GitHub organization name, run the two exporters separately, setting `ORG_NAME` to the appropriate value before each.
+- `SPREADSHEET_ID` — used by both exporters; set this to your Google Sheet ID
+- `SHEET_NAME` — used by both exporters; set this to your worksheet tab name
+- `GH_TOKEN` — required by the GitHub exporter
+- `HF_TOKEN` — required by the Hugging Face exporter
+- `GOOGLE_SERVICE_ACCOUNT_JSON` — required by both exporters
+
+Once configured, the workflow can be run by following the [Usage Instructions](#usage).
 
 ## Run repo exporter locally
    
@@ -97,8 +106,13 @@ Now update the script with [your GitHub Organization name](https://github.com/Im
    ```
     
 3. Add required environment variables into your Conda environment and reload environment:
+
     ```
     conda env config vars set GH_TOKEN="<your-token-here>"
+    conda env config vars set HF_TOKEN="<your-huggingface-token-here>"
+    conda env config vars set ORG_NAME="<your-github-org>"
+    conda env config vars set SPREADSHEET_ID="<your-google-sheet-id>"
+    conda env config vars set SHEET_NAME="<your-sheet-name>"
     conda env config vars set GOOGLE_CREDENTIALS_PATH="/path/to/service_account.json"
 
     conda deactivate
@@ -132,10 +146,18 @@ Now update the script with [your GitHub Organization name](https://github.com/Im
 
 ## Important Notes
 
- Key edits to ensure the script functions properly for _your organization_:
-  1. You must enter your specific [GitHub Organization Name](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L13) under Config settings at the top of the Python script file (for example, `Imageomics`)
-  2. You must enter your specific Google Sheet ID under Config settings at the top of the Python script file (for example, if the URL is `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit?gid=0#gid=0`, then `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc` is the [Google Sheet ID](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L14))
-  3. You must enter your specific [Google Sheet Section Name](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L15). This can be found at the bottom of your Google Sheet (for example, `Sheet1`)
+1. Set `ORG_NAME` to your GitHub organization name (for example, `Imageomics`). This same value is used by the Hugging Face exporter to look up repositories under the matching Hugging Face organization, so set it to whichever organization name applies to the exporter you are running.
+2. Set `SPREADSHEET_ID` to your Google Sheet ID. For example, if the URL is:
+
+   `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit`
+
+   then the spreadsheet ID is:
+
+   `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc`
+
+3. Set `SHEET_NAME` to the worksheet tab name in your Google Sheet (for example, `Sheet1`).
+4. `ORG_NAME`, `SPREADSHEET_ID`, and `SHEET_NAME` are required by both `gh_repo_exporter.py` and `hf_repo_exporter.py`; each script will raise an error on startup if any of these (or its respective token) is missing.
+5. Ensure these values are available as environment variables locally or as GitHub Actions secrets.
 
 ---
 

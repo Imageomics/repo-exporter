@@ -11,9 +11,9 @@ import re
 from collections import Counter
 
 # Config
-ORG_NAME = "imageomics"
-SPREADSHEET_ID = "1NOVB9IfBvkAh4YDbozhi5q0iwBfyp3enD6UxmO6wHIA"
-SHEET_NAME = "Sheet1"
+ORG_NAME = os.getenv("ORG_NAME")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
+SHEET_NAME = os.getenv("SHEET_NAME")
 
 # Helper Functions
 def get_repo_url(repo, repo_type: str) -> str:
@@ -461,6 +461,19 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 def main():
 
     TOKEN = os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ").strip()
+
+    required_vars = {
+        "ORG_NAME": ORG_NAME,
+        "SPREADSHEET_ID": SPREADSHEET_ID,
+        "SHEET_NAME": SHEET_NAME,
+    }
+
+    missing = [name for name, value in required_vars.items() if not value]
+
+    if missing:
+        raise ValueError(
+            f"Missing required environment variables: {', '.join(missing)}"
+        )
 
     start_time = time.time()
 
