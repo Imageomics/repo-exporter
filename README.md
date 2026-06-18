@@ -119,25 +119,25 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
     
 3. Configure only the variables required for the exporter(s) you plan to run.
 
-  ```bash
-  # GitHub exporter variables
-  conda env config vars set GH_TOKEN="<your-token-here>"
-  conda env config vars set GH_ORG_NAME="<your-github-org>"
-  conda env config vars set GH_SPREADSHEET_ID="<your-google-sheet-id>"
-  conda env config vars set GH_SHEET_NAME="<your-sheet-name>"
+```bash
+# GitHub exporter variables
+conda env config vars set GH_TOKEN="<your-token-here>"
+conda env config vars set GH_ORG_NAME="<your-github-org>"
+conda env config vars set GH_SPREADSHEET_ID="<your-google-sheet-id>"
+conda env config vars set GH_SHEET_NAME="<your-sheet-name>"
 
-  # Hugging Face exporter variables
-  conda env config vars set HF_TOKEN="<your-huggingface-token-here>"
-  conda env config vars set HF_ORG_NAME="<your-huggingface-org>"
-  conda env config vars set HF_SPREADSHEET_ID="<your-google-sheet-id>"
-  conda env config vars set HF_SHEET_NAME="<your-sheet-name>"
+# Hugging Face exporter variables
+conda env config vars set HF_TOKEN="<your-huggingface-token-here>"
+conda env config vars set HF_ORG_NAME="<your-huggingface-org>"
+conda env config vars set HF_SPREADSHEET_ID="<your-google-sheet-id>"
+conda env config vars set HF_SHEET_NAME="<your-sheet-name>"
 
-  # Shared variables
-  conda env config vars set GOOGLE_CREDENTIALS_PATH="/path/to/service_account.json"
+# Shared variables
+conda env config vars set GOOGLE_CREDENTIALS_PATH="/path/to/service_account.json"
 
-  conda deactivate
-  conda activate repo-exporter
-  ```
+conda deactivate
+conda activate repo-exporter
+```
 
 4. Install Python dependencies:
     ```
