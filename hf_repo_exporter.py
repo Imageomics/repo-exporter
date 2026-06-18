@@ -11,7 +11,7 @@ import re
 from collections import Counter
 
 # Config
-ORG_NAME = os.getenv("ORG_NAME")
+ORG_NAME = os.getenv("ORG_NAME") or "imageomics"
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 SHEET_NAME = os.getenv("SHEET_NAME")
 
@@ -29,7 +29,7 @@ def get_author(api, repo_id, repo_type) -> str:
         # Fetch all commits
         commits = api.list_repo_commits(repo_id=repo_id, repo_type=repo_type)
         if not commits:
-            return ORG_NAME
+            return ORG_NAME or "N/A"
 
         # The last item in the list is the earliest commit (the creation)
         first_commit = commits[-1]
@@ -42,11 +42,11 @@ def get_author(api, repo_id, repo_type) -> str:
                 return first_author
             
             # If it's an object, check for user handle then display name
-            return getattr(first_author, 'user', getattr(first_author, 'name', ORG_NAME))
+            return getattr(first_author, 'user', getattr(first_author, 'name', ORG_NAME or "N/A"))
             
-        return ORG_NAME
+        return ORG_NAME or "N/A"
     except Exception:
-        return ORG_NAME
+        return ORG_NAME or "N/A"
 
 def get_top_contributors(api, repo_id, repo_type) -> str:
     try:
@@ -66,11 +66,11 @@ def get_top_contributors(api, repo_id, repo_type) -> str:
                         all_handles.append(str(handle))
             
         # Filter out the Org name and the web-flow bot
-        bots_and_orgs = {ORG_NAME.lower(), "web-flow"}
+        bots_and_orgs = {(ORG_NAME or "").lower(), "web-flow"}
         filtered = [n for n in all_handles if str(n).lower() not in bots_and_orgs]
 
         if not filtered:
-            return ORG_NAME
+            return ORG_NAME or "N/A"
 
         counts = Counter(filtered)
         # Get top 4 most common contributors
@@ -78,7 +78,7 @@ def get_top_contributors(api, repo_id, repo_type) -> str:
         return ", ".join(top_4)
     except Exception as e:
         # Optional: tqdm.write(f"Error for {repo_id}: {e}")
-        return ORG_NAME
+        return ORG_NAME or "N/A"
 
 def get_open_pr_count(api, repo_id, repo_type) -> int:
     try:
