@@ -565,7 +565,7 @@ def main():
         )
 
         client = gspread.authorize(creds)
-        sheet = client.open_by_key(SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
+        sheet = client.open_by_key(GH_SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
 
         all_values = sheet.get_all_values()
 

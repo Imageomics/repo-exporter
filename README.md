@@ -172,14 +172,14 @@ conda activate repo-exporter
 
 ### GitHub exporter
 
-* Set `GH_ORG_NAME` to your GitHub organization name.
+* Set `GH_ORG_NAME` to your GitHub organization name (for API calls).
 * Set `GH_SPREADSHEET_ID` to the Google Sheet ID used by the GitHub exporter.
 * Set `GH_SHEET_NAME` to the worksheet tab used by the GitHub exporter.
 * `GH_TOKEN` is required to access GitHub repositories.
 
 ### Hugging Face exporter
 
-* Set `HF_ORG_NAME` to your Hugging Face organization name.
+* Set `HF_ORG_NAME` to your Hugging Face organization name (**case-sensitive**, for API calls).
 * Set `HF_SPREADSHEET_ID` to the Google Sheet ID used by the Hugging Face exporter.
 * Set `HF_SHEET_NAME` to the worksheet tab used by the Hugging Face exporter.
 * `HF_TOKEN` is required to access Hugging Face repositories.
@@ -194,13 +194,7 @@ conda activate repo-exporter
 For example, if the spreadsheet URL is:
 
 ```text id="1i7ltb"
-https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit
-```
-
-then the spreadsheet ID is:
-
-```text id="04f0vl"
-15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc
+https://docs.google.com/spreadsheets/d/fake-long-alpha-numeric-id-1a2b3c4d/edit
 ```
 
 
