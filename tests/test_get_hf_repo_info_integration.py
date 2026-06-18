@@ -176,7 +176,8 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     )
 
     with patch("hf_repo_exporter.hf_hub_download", return_value="/fake/README.md"), \
-         patch("builtins.open", mock_open(read_data="Just a plain readme with nothing special.")):
+     patch("builtins.open", mock_open(read_data="Just a plain readme with nothing special.")), \
+     patch("hf_repo_exporter.HF_ORG_NAME", "imageomics"):
         result = exporter.get_repo_info(api, repo, "model")
 
     assert result["Repository Name"] == '=HYPERLINK("https://huggingface.co/imageomics/bare-repo", "imageomics/bare-repo")'
