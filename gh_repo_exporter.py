@@ -11,11 +11,11 @@ import os
 import re
 
 # Config
-ORG_NAME = os.getenv("ORG_NAME")
-SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
-SHEET_NAME = os.getenv("SHEET_NAME")
-
+GH_ORG_NAME = os.getenv("GH_ORG_NAME")
+GH_SPREADSHEET_ID = os.getenv("GH_SPREADSHEET_ID")
+GH_SHEET_NAME = os.getenv("GH_SHEET_NAME")
 # Package requirement files to check
+
 PACKAGE_REQUIREMENT_FILES = [
     # Python 
     "requirements.txt", "environment.yaml", "environment.yml", "pyproject.toml",
@@ -394,7 +394,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     )
 
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+    sheet = client.open_by_key(GH_SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
 
     # Pull current header
     HEADER_ROW_INDEX = 2
@@ -516,9 +516,9 @@ def main():
     TOKEN = os.getenv("GH_TOKEN") or input("Enter your GitHub token: ").strip()
     
     required_vars = {
-    "ORG_NAME": ORG_NAME,
-    "SPREADSHEET_ID": SPREADSHEET_ID,
-    "SHEET_NAME": SHEET_NAME,
+    "GH_ORG_NAME": GH_ORG_NAME,
+    "GH_SPREADSHEET_ID": GH_SPREADSHEET_ID,
+    "GH_SHEET_NAME": GH_SHEET_NAME,
     }   
 
     missing = [name for name, value in required_vars.items() if not value]
@@ -533,13 +533,13 @@ def main():
     gh = Github(auth=Auth.Token(TOKEN))
     
     try:
-        org = gh.get_organization(ORG_NAME)
+        org = gh.get_organization(GH_ORG_NAME)
     except Exception as e:
         print(f"ERROR: Could not access org: \"{ORG_NAME}\"")
         return
     
     print("")
-    print(f"Fetching repositories from organization: {ORG_NAME}")
+    print(f"Fetching repositories from organization: {GH_ORG_NAME}")
     print("")
     print("----------------")
 
@@ -565,7 +565,7 @@ def main():
         )
 
         client = gspread.authorize(creds)
-        sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+        sheet = client.open_by_key(SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
 
         all_values = sheet.get_all_values()
 
@@ -590,7 +590,7 @@ def main():
 
     print(f"Existing sheet data shape: {existing_df.shape}")
     
-    for repo in tqdm(repos, desc=f"Fetching repositories from {ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
+    for repo in tqdm(repos, desc=f"Fetching repositories from {GH_ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
             info = get_repo_info(repo, existing_df)
             data.append(info)
@@ -609,7 +609,7 @@ def main():
     df.sort_values(by="Repository Name", inplace=True)
 
     update_google_sheet(df)
-    print(f"Finished fetching info for {len(df)} repositories from {ORG_NAME} organization")
+    print(f"Finished fetching info for {len(df)} repositories from {GH_ORG_NAME} organization")
 
     elapsed = time.time() - start_time
     minutes, seconds = divmod(int(elapsed), 60)

@@ -80,14 +80,26 @@ Instructions to create a Google Cloud Console Service Account and give it permis
  8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
  9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
 
-After forking the repository, configure the required environment variables and GitHub Actions:
+After forking the repository, configure the environment variables required for the exporter(s) you plan to run.
 
-- `ORG_NAME` — used by both the GitHub and Hugging Face exporters; set this to your GitHub organization name. If your Hugging Face organization name differs from your GitHub organization name, run the two exporters separately, setting `ORG_NAME` to the appropriate value before each.
-- `SPREADSHEET_ID` — used by both exporters; set this to your Google Sheet ID
-- `SHEET_NAME` — used by both exporters; set this to your worksheet tab name
-- `GH_TOKEN` — required by the GitHub exporter
-- `HF_TOKEN` — required by the Hugging Face exporter
-- `GOOGLE_SERVICE_ACCOUNT_JSON` — required by both exporters
+### GitHub exporter
+
+- `GH_ORG_NAME` — GitHub organization name
+- `GH_SPREADSHEET_ID` — Google Sheet ID for GitHub export data
+- `GH_SHEET_NAME` — worksheet tab used by the GitHub exporter
+- `GH_TOKEN` — GitHub access token
+
+### Hugging Face exporter
+
+- `HF_ORG_NAME` — Hugging Face organization name
+- `HF_SPREADSHEET_ID` — Google Sheet ID for Hugging Face export data
+- `HF_SHEET_NAME` — worksheet tab used by the Hugging Face exporter
+- `HF_TOKEN` — Hugging Face access token
+
+### Shared
+
+- `GOOGLE_CREDENTIALS_PATH` — path to the Google service account JSON file when running locally
+- `GOOGLE_SERVICE_ACCOUNT_JSON` — GitHub Actions secret containing the service account JSON
 
 Once configured, the workflow can be run by following the [Usage Instructions](#usage).
 
@@ -99,25 +111,33 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
     cd repo-exporter
     ```
 
-2. Create and activate Conda environment:
+2. Create and activate the Conda environment:
    ```
    conda create -n repo-exporter python -y
    conda activate repo-exporter
    ```
     
-3. Add required environment variables into your Conda environment and reload environment:
+3. Configure only the variables required for the exporter(s) you plan to run.
 
-    ```
-    conda env config vars set GH_TOKEN="<your-token-here>"
-    conda env config vars set HF_TOKEN="<your-huggingface-token-here>"
-    conda env config vars set ORG_NAME="<your-github-org>"
-    conda env config vars set SPREADSHEET_ID="<your-google-sheet-id>"
-    conda env config vars set SHEET_NAME="<your-sheet-name>"
-    conda env config vars set GOOGLE_CREDENTIALS_PATH="/path/to/service_account.json"
+```bash
+# GitHub exporter variables
+conda env config vars set GH_TOKEN="<your-token-here>"
+conda env config vars set GH_ORG_NAME="<your-github-org>"
+conda env config vars set GH_SPREADSHEET_ID="<your-google-sheet-id>"
+conda env config vars set GH_SHEET_NAME="<your-sheet-name>"
 
-    conda deactivate
-    conda activate repo-exporter
-    ```
+# Hugging Face exporter variables
+conda env config vars set HF_TOKEN="<your-huggingface-token-here>"
+conda env config vars set HF_ORG_NAME="<your-huggingface-org>"
+conda env config vars set HF_SPREADSHEET_ID="<your-google-sheet-id>"
+conda env config vars set HF_SHEET_NAME="<your-sheet-name>"
+
+# Shared variables
+conda env config vars set GOOGLE_CREDENTIALS_PATH="/path/to/service_account.json"
+
+conda deactivate
+conda activate repo-exporter
+
 
 4. Install Python dependencies:
     ```
@@ -146,18 +166,43 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
 
 ## Important Notes
 
-1. Set `ORG_NAME` to your GitHub organization name (for example, `Imageomics`). This same value is used by the Hugging Face exporter to look up repositories under the matching Hugging Face organization, so set it to whichever organization name applies to the exporter you are running.
-2. Set `SPREADSHEET_ID` to your Google Sheet ID. For example, if the URL is:
+* `gh_repo_exporter.py` only requires the `GH_*` environment variables.
+* `hf_repo_exporter.py` only requires the `HF_*` environment variables.
+* Both exporters require Google service account credentials.
 
-   `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit`
+### GitHub exporter
 
-   then the spreadsheet ID is:
+* Set `GH_ORG_NAME` to your GitHub organization name.
+* Set `GH_SPREADSHEET_ID` to the Google Sheet ID used by the GitHub exporter.
+* Set `GH_SHEET_NAME` to the worksheet tab used by the GitHub exporter.
+* `GH_TOKEN` is required to access GitHub repositories.
 
-   `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc`
+### Hugging Face exporter
 
-3. Set `SHEET_NAME` to the worksheet tab name in your Google Sheet (for example, `Sheet1`).
-4. `ORG_NAME`, `SPREADSHEET_ID`, and `SHEET_NAME` are required by both `gh_repo_exporter.py` and `hf_repo_exporter.py`; each script will raise an error on startup if any of these (or its respective token) is missing.
-5. Ensure these values are available as environment variables locally or as GitHub Actions secrets.
+* Set `HF_ORG_NAME` to your Hugging Face organization name.
+* Set `HF_SPREADSHEET_ID` to the Google Sheet ID used by the Hugging Face exporter.
+* Set `HF_SHEET_NAME` to the worksheet tab used by the Hugging Face exporter.
+* `HF_TOKEN` is required to access Hugging Face repositories.
+
+### Shared configuration
+
+* Both exporters require `GOOGLE_CREDENTIALS_PATH`.
+* The Google service account must have Editor access to the target spreadsheet.
+* If both exporters write to the same spreadsheet or worksheet, you may reuse the same spreadsheet IDs and sheet names.
+* Ensure all required values are available as environment variables locally or as GitHub Actions secrets.
+
+For example, if the spreadsheet URL is:
+
+```text id="1i7ltb"
+https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit
+```
+
+then the spreadsheet ID is:
+
+```text id="04f0vl"
+15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc
+```
+
 
 ---
 
