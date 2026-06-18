@@ -137,7 +137,7 @@ conda env config vars set GOOGLE_CREDENTIALS_PATH="/path/to/service_account.json
 
 conda deactivate
 conda activate repo-exporter
-
+```
 
 4. Install Python dependencies:
     ```
