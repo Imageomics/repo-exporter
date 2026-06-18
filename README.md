@@ -197,6 +197,12 @@ For example, if the spreadsheet URL is:
 https://docs.google.com/spreadsheets/d/fake-long-alpha-numeric-id-1a2b3c4d/edit
 ```
 
+then the spreadsheet ID is:
+
+```text id="04f0vl"
+fake-long-alpha-numeric-id-1a2b3c4d
+```
+
 
 ---
 
