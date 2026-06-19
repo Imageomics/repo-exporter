@@ -80,26 +80,7 @@ Instructions to create a Google Cloud Console Service Account and give it permis
  8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
  9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
 
-After forking the repository, configure the environment variables required for the exporter(s) you plan to run.
-
-### GitHub exporter
-
-- `GH_ORG_NAME` — GitHub organization name
-- `GH_SPREADSHEET_ID` — Google Sheet ID for GitHub export data
-- `GH_SHEET_NAME` — worksheet tab used by the GitHub exporter
-- `GH_TOKEN` — GitHub access token
-
-### Hugging Face exporter
-
-- `HF_ORG_NAME` — Hugging Face organization name
-- `HF_SPREADSHEET_ID` — Google Sheet ID for Hugging Face export data
-- `HF_SHEET_NAME` — worksheet tab used by the Hugging Face exporter
-- `HF_TOKEN` — Hugging Face access token
-
-### Shared
-
-- `GOOGLE_CREDENTIALS_PATH` — path to the Google service account JSON file when running locally
-- `GOOGLE_SERVICE_ACCOUNT_JSON` — GitHub Actions secret containing the service account JSON
+After cloning the repository, configure the [environment variables](#environment-variables) required for the exporter(s) you plan to run.
 
 Once configured, the workflow can be run by following the [Usage Instructions](#usage).
 
@@ -164,11 +145,12 @@ conda activate repo-exporter
       python gh_repo_exporter.py
       ```
 
-## Important Notes
+## Environment Variables
 
-* `gh_repo_exporter.py` only requires the `GH_*` environment variables.
-* `hf_repo_exporter.py` only requires the `HF_*` environment variables.
-* Both exporters require Google service account credentials.
+> [!NOTE]
+> * `gh_repo_exporter.py` only requires the `GH_*` environment variables.
+> * `hf_repo_exporter.py` only requires the `HF_*` environment variables.
+> * Both exporters require Google service account credentials.
 
 ### GitHub exporter
 
