@@ -1,6 +1,6 @@
 # Repository Exporter [![DOI](https://zenodo.org/badge/1080019710.svg)](https://doi.org/10.5281/zenodo.17835081)
 
-A Python script that gathers metadata for all repositories in a GitHub organization and automatically exports the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
+Python scripts that gather metadata for all repositories in a provided GitHub or Hugging Face organization and automatically exports the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
 
 ## Contents
 - [Features](#features)  
@@ -10,23 +10,26 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
   - [Create a Hugging Face Token](#create-a-hugging-face-token)   
   - [Set up Google Cloud Service Account Access](#set-up-google-cloud-service-account-access)  
 - [Run repo exporter locally](#run-repo-exporter-locally)  
-- [Important Notes](#important-notes)  
+- [Environment Variables](#environment-variables)  
 - [Testing](#testing)
 
 ---
 
 ## Features
-- Fetches all repositories in an organization
+- Fetches all repositories in the indicated GitHub or Hugging Face organization(s)
 - Collects key details:
-  - Repo visibility, name and description
-  - Date created and last updated
-  - Creator and top 4 contributors (`N/A` creator means it was either a transferred repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their github account)
-  - Number of stars and number of branches
-  - README, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, `.zenodo.json` and `CONTRIBUTING.md` files presence
-  - Primary Programming Language
-  - Website Reference, Dataset, Model, Paper Association, DOI for GitHub Repo presence
+  - Repo visibility, name (hyperlinked to repo), and description
+  - Date created and last updated, with a flag for inactivity (set after a year of no commits)
+  - Creator and top 4 contributors (`N/A` creator means it was either a transferred repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their GitHub account)
+  - Number of stars and number of branches for GitHub repositories, for Hugging Face repos, the analogous number of likes and open Discussions/PRs are collected
+  - Standard file/metadata checks:
+      - **For GitHub:** `README.md`, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, `.zenodo.json`, and `CONTRIBUTING.md` files
+      - **For Hugging Face:** `README.md` ([dataset or model card](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/About-Templates/)/Space README) and license (read from `yaml`)
+      - DOI for the repository (HF generated or from Zenodo for GitHub repos)
+  - Primary Programming Language (**GitHub only**)
+  - Website Reference/Homepage, Associated Dataset(s), Model(s), or Paper(s), and associated [GitHub] repo for Hugging Face repositories
 - Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list
-- For **Standard Files** highlights **No** data cell values with red cell colors and for **Recommended Files** and **Filters** highlights **No** data cell values with orange cell colors 
+- For [**Standard Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#standard-files) highlights **No** data cell values with red cell colors and for [**Recommended Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#recommended-files) and **Filters** highlights **No** data cell values with orange cell colors
 
 ## Usage
 The workflow runs automatically each week (9am UTC on Mondays); however, you can also run the GitHub Actions workflow manually:
@@ -50,7 +53,7 @@ To use this script within your own GitHub organization, first fork this repo, th
   5. Under **Permissions** select **Repositories** and set:
       - **Metadata** -> Read-only 
       - **Contents** -> Read-only
-      - **Adminstration** -> Read-only
+      - **Administration** -> Read-only
   6. Click **Generate token** and **copy it** (make sure to store it somewhere safe for future use).
   7. Navigate to `https://github.com/<gh-org-name>/repo-exporter/settings/secrets/actions` and click **New repository secret** and name it **GH_TOKEN** and copy paste the token into the **Secret** section and click **Add secret**
   **Note:** The token must be approved by the organization administrator before accessing private repositories.
