@@ -46,4 +46,6 @@ jobs:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         GOOGLE_CREDENTIALS_PATH: service_account.json
         REPO_TYPE: ${{ github.event.inputs.repo_type || 'all' }}
+        GH_ORG_NAME: ${{ vars.GH_ORG_NAME }}
+        SPREADSHEET_ID: ${{ vars.SPREADSHEET_ID }}
       run: python gh_repo_exporter.py

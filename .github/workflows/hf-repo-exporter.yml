@@ -36,4 +36,6 @@ jobs:
       env:
         HF_TOKEN: ${{ secrets.HF_TOKEN }}
         GOOGLE_CREDENTIALS_PATH: service_account.json
+        HF_ORG_NAME: ${{ vars.HF_ORG_NAME }}
+        SPREADSHEET_ID: ${{ vars.SPREADSHEET_ID }}
       run: python hf_repo_exporter.py

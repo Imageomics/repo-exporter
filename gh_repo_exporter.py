@@ -538,7 +538,7 @@ def main():
     try:
         org = gh.get_organization(GH_ORG_NAME)
     except Exception as e:
-        print(f"ERROR: Could not access org: \"{ORG_NAME}\"")
+        print(f"ERROR: Could not access org: \"{GH_ORG_NAME}\"")
         return
     
     print("")
