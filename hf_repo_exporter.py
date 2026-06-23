@@ -464,7 +464,8 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 def main():
 
     TOKEN = os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ").strip()
-
+    if TOKEN:
+        os.environ["HF_TOKEN"] = TOKEN
     required_vars = {
         "HF_ORG_NAME": HF_ORG_NAME,
         "SPREADSHEET_ID": SPREADSHEET_ID,
