@@ -104,22 +104,7 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
    conda activate repo-exporter
    ```
     
-3. Configure environment variables using a `.env` file
-
-Create a `.env` file in the root of the project:
-
-```bash
-GH_TOKEN=your-token-here
-GH_ORG_NAME=your-github-org
-SPREADSHEET_ID=your-google-sheet-id
-GH_SHEET_NAME=GH-Repos
-
-HF_TOKEN=your-huggingface-token
-HF_ORG_NAME=your-huggingface-org
-HF_SHEET_NAME=HF-Repos
-
-GOOGLE_CREDENTIALS_PATH=/path/to/service_account.json
-```
+3. Create a `.env` file in the root of the project to configure required [environment variables](#environment-variables). See [`.env.example`](.env.example) for an example; the default sheet names are included and can be removed.
 
 4. Install Python dependencies:
     ```
@@ -149,9 +134,11 @@ GOOGLE_CREDENTIALS_PATH=/path/to/service_account.json
 ## Environment Variables
 
 > [!NOTE]
-> * `gh_repo_exporter.py` requires the `GH_*` and `SPREADSHEET_ID`. 
-> * `hf_repo_exporter.py` requires the `HF_*` and `SPREADSHEET_ID`. 
-> * Both exporters support optional sheet name variables (`GH_SHEET_NAME` and `HF_SHEET_NAME`) and require Google service account credentials.
+> `SPREADSHEET_ID` and Google service account credentials are required for both GitHub and Hugging Face exports, as well as the platform-prefaced variables (e.g., GH_ORG_NAME` and `HF_ORG_NAME`)
+> * Both exporters support optional custom sheet name variables (`GH_SHEET_NAME` and `HF_SHEET_NAME`; these must be *distinct*).
+
+> [!WARNING]  
+> Tokens and Google service account credentials must be saved as repository *secrets*. All other values may be saved as environment variables assuming your spreadsheet is appropriately protected.
 
 ### GitHub exporter
 
@@ -171,7 +158,6 @@ GOOGLE_CREDENTIALS_PATH=/path/to/service_account.json
 
 * Both exporters require `GOOGLE_CREDENTIALS_PATH`.
 * The Google service account must have Editor access to the target spreadsheet.
-* If both exporters write to the same spreadsheet or worksheet, you may reuse the same spreadsheet IDs and sheet names.
 * Ensure all required values are available as environment variables locally or as GitHub Actions secrets.
 
 For example, if the spreadsheet URL is:
