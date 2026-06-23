@@ -7,9 +7,6 @@ jobs:
   run-tests:
     runs-on: ubuntu-latest
 
-    env:
-      PYTHONPATH: ${{ github.workspace }}
-
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
@@ -30,5 +27,5 @@ jobs:
         shell: bash
 
       - name: run test
-        run: pytest -rs
+        run: python -m pytest -q
         shell: bash
