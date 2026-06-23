@@ -10,6 +10,9 @@ import time
 import os
 import re
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # Config
 GH_ORG_NAME = os.getenv("GH_ORG_NAME")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")

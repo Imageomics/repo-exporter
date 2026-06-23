@@ -10,6 +10,9 @@ import os
 import re
 from collections import Counter
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # Config
 HF_ORG_NAME = os.getenv("HF_ORG_NAME")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
