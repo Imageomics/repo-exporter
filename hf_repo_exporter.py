@@ -12,8 +12,8 @@ from collections import Counter
 
 # Config
 HF_ORG_NAME = os.getenv("HF_ORG_NAME")
-HF_SPREADSHEET_ID = os.getenv("HF_SPREADSHEET_ID")
-HF_SHEET_NAME = os.getenv("HF_SHEET_NAME")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
+HF_SHEET_NAME = os.getenv("HF_SHEET_NAME","HF-Repos")
 
 # Helper Functions
 def get_repo_url(repo, repo_type: str) -> str:
@@ -343,7 +343,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     )
 
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(HF_SPREADSHEET_ID).worksheet(HF_SHEET_NAME)
+    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(HF_SHEET_NAME)
 
     # Pull current header
     HEADER_ROW_INDEX = 2
@@ -464,8 +464,7 @@ def main():
 
     required_vars = {
         "HF_ORG_NAME": HF_ORG_NAME,
-        "HF_SPREADSHEET_ID": HF_SPREADSHEET_ID,
-        "HF_SHEET_NAME": HF_SHEET_NAME,
+        "SPREADSHEET_ID": SPREADSHEET_ID,
     }
 
     missing = [name for name, value in required_vars.items() if not value]

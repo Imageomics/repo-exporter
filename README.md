@@ -28,6 +28,9 @@ Python scripts that gather metadata for all repositories in a provided GitHub or
       - DOI for the repository (HF generated or from Zenodo for GitHub repos)
   - Primary Programming Language (**GitHub only**)
   - Website Reference/Homepage, Associated Dataset(s), Model(s), or Paper(s), and associated [GitHub] repo for Hugging Face repositories
+  - Supports configurable worksheet names with defaults:
+    - Github: `GH_SHEET_NAME` defaults to `GH-Repos`
+    - Hugging Face: `HF_SHEET_NAME` defaults to `HF-Repos`
 - Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list
 - For [**Standard Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#standard-files) highlights **No** data cell values with red cell colors and for [**Recommended Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#recommended-files) and **Filters** highlights **No** data cell values with orange cell colors
 
@@ -107,13 +110,16 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
 # GitHub exporter variables
 conda env config vars set GH_TOKEN="<your-token-here>"
 conda env config vars set GH_ORG_NAME="<your-github-org>"
-conda env config vars set GH_SPREADSHEET_ID="<your-google-sheet-id>"
+conda env config vars set SPREADSHEET_ID="<your-google-sheet-id>"
+
+# Optional (defaults to GH-Repos)
 conda env config vars set GH_SHEET_NAME="<your-sheet-name>"
 
 # Hugging Face exporter variables
 conda env config vars set HF_TOKEN="<your-huggingface-token-here>"
 conda env config vars set HF_ORG_NAME="<your-huggingface-org>"
-conda env config vars set HF_SPREADSHEET_ID="<your-google-sheet-id>"
+
+# Optional (defaults to HF-Repos)
 conda env config vars set HF_SHEET_NAME="<your-sheet-name>"
 
 # Shared variables
@@ -151,22 +157,22 @@ conda activate repo-exporter
 ## Environment Variables
 
 > [!NOTE]
-> * `gh_repo_exporter.py` only requires the `GH_*` environment variables.
-> * `hf_repo_exporter.py` only requires the `HF_*` environment variables.
-> * Both exporters require Google service account credentials.
+> * `gh_repo_exporter.py` requires the `GH_*` and `SPREADSHEET_ID`. 
+> * `hf_repo_exporter.py` requires the `HF_*` and `SPREADSHEET_ID`. 
+> * Both exporters support optional sheet name variables (`GH_SHEET_NAME` and `HF_SHEET_NAME`) and require Google service account credentials.
 
 ### GitHub exporter
 
 * Set `GH_ORG_NAME` to your GitHub organization name (for API calls).
-* Set `GH_SPREADSHEET_ID` to the Google Sheet ID used by the GitHub exporter.
-* Set `GH_SHEET_NAME` to the worksheet tab used by the GitHub exporter.
+* Set `SPREADSHEET_ID` to the Google Sheet ID used by the exporter.
+* `GH_SHEET_NAME` is optional. If not provided, the exporter uses "GH-Repos".
 * `GH_TOKEN` is required to access GitHub repositories.
 
 ### Hugging Face exporter
 
 * Set `HF_ORG_NAME` to your Hugging Face organization name (**case-sensitive**, for API calls).
-* Set `HF_SPREADSHEET_ID` to the Google Sheet ID used by the Hugging Face exporter.
-* Set `HF_SHEET_NAME` to the worksheet tab used by the Hugging Face exporter.
+* Set `SPREADSHEET_ID` to the Google Sheet ID used by the exporter.
+* `HF_SHEET_NAME` is optional. If not provided, the exporter uses "HF-Repos".
 * `HF_TOKEN` is required to access Hugging Face repositories.
 
 ### Shared configuration

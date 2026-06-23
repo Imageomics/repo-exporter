@@ -12,8 +12,8 @@ import re
 
 # Config
 GH_ORG_NAME = os.getenv("GH_ORG_NAME")
-GH_SPREADSHEET_ID = os.getenv("GH_SPREADSHEET_ID")
-GH_SHEET_NAME = os.getenv("GH_SHEET_NAME")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
+GH_SHEET_NAME = os.getenv("GH_SHEET_NAME","GH-Repos")
 # Package requirement files to check
 
 PACKAGE_REQUIREMENT_FILES = [
@@ -394,7 +394,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     )
 
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(GH_SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
+    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
 
     # Pull current header
     HEADER_ROW_INDEX = 2
@@ -517,8 +517,7 @@ def main():
     
     required_vars = {
     "GH_ORG_NAME": GH_ORG_NAME,
-    "GH_SPREADSHEET_ID": GH_SPREADSHEET_ID,
-    "GH_SHEET_NAME": GH_SHEET_NAME,
+    "SPREADSHEET_ID": SPREADSHEET_ID,
     }   
 
     missing = [name for name, value in required_vars.items() if not value]
@@ -565,7 +564,7 @@ def main():
         )
 
         client = gspread.authorize(creds)
-        sheet = client.open_by_key(GH_SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
+        sheet = client.open_by_key(SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
 
         all_values = sheet.get_all_values()
 
