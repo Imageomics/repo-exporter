@@ -519,15 +519,16 @@ def main():
     TOKEN = os.getenv("GH_TOKEN") or input("Enter your GitHub token: ").strip()
     
     required_vars = {
-    "GH_ORG_NAME": GH_ORG_NAME,
-    "SPREADSHEET_ID": SPREADSHEET_ID,
-    }   
+        "GH_ORG_NAME": GH_ORG_NAME,
+        "SPREADSHEET_ID": SPREADSHEET_ID,
+    }
 
     missing = [name for name, value in required_vars.items() if not value]
 
     if missing:
         raise ValueError(
-        f"Missing required environment variables: {', '.join(missing)}"
+            "Missing required environment variables: "
+            f"{', '.join(missing)}. Set them in your shell/.env or in the GitHub Actions workflow env."
         )
         
     start_time = time.time()

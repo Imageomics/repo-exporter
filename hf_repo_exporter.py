@@ -474,7 +474,8 @@ def main():
 
     if missing:
         raise ValueError(
-            f"Missing required environment variables: {', '.join(missing)}"
+            "Missing required environment variables: "
+            f"{', '.join(missing)}. Set them in your shell/.env or in the GitHub Actions workflow env."
         )
 
     start_time = time.time()

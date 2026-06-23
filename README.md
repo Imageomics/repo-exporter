@@ -1,6 +1,6 @@
 # Repository Exporter [![DOI](https://zenodo.org/badge/1080019710.svg)](https://doi.org/10.5281/zenodo.17835081)
 
-Python scripts that gather metadata for all repositories in a provided GitHub or Hugging Face organization and automatically exports the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
+Python scripts that gather metadata for all repositories in a provided GitHub or Hugging Face organization and automatically export the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
 
 ## Contents
 - [Features](#features)  
@@ -29,7 +29,7 @@ Python scripts that gather metadata for all repositories in a provided GitHub or
   - Primary Programming Language (**GitHub only**)
   - Website Reference/Homepage, Associated Dataset(s), Model(s), or Paper(s), and associated [GitHub] repo for Hugging Face repositories
   - Supports configurable worksheet names with defaults:
-    - Github: `GH_SHEET_NAME` defaults to `GH-Repos`
+    - GitHub: `GH_SHEET_NAME` defaults to `GH-Repos`
     - Hugging Face: `HF_SHEET_NAME` defaults to `HF-Repos`
 - Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list
 - For [**Standard Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#standard-files) highlights **No** data cell values with red cell colors and for [**Recommended Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#recommended-files) and **Filters** highlights **No** data cell values with orange cell colors
@@ -134,7 +134,7 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
 ## Environment Variables
 
 > [!NOTE]
-> `SPREADSHEET_ID` and Google service account credentials are required for both GitHub and Hugging Face exports, as well as the platform-prefaced variables (e.g., GH_ORG_NAME` and `HF_ORG_NAME`)
+> `SPREADSHEET_ID` and Google service account credentials are required for both GitHub and Hugging Face exports, as well as the platform-prefaced variables (e.g., `GH_ORG_NAME` and `HF_ORG_NAME`)
 > * Both exporters support optional custom sheet name variables (`GH_SHEET_NAME` and `HF_SHEET_NAME`; these must be *distinct*).
 
 > [!WARNING]  
