@@ -272,7 +272,7 @@ def extract_link_from_text(text, label):
         return content
     return "No"
 
-def get_repo_info(api, repo, repo_type: str) -> dict[str, str | int]:
+def get_repo_info(api, repo, repo_type: str, token: str | None = None) -> dict[str, str | int]:
 
     # 1. Download README once
     readme_text = ""
@@ -281,7 +281,7 @@ def get_repo_info(api, repo, repo_type: str) -> dict[str, str | int]:
             repo_id=repo.id, 
             filename="README.md", 
             repo_type=repo_type,
-            token=os.getenv("HF_TOKEN")
+            token=token
         )
         with open(path, 'r', encoding='utf-8') as f:
             readme_text = f.read()
@@ -464,8 +464,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 def main():
 
     TOKEN = os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ").strip()
-    if TOKEN:
-        os.environ["HF_TOKEN"] = TOKEN
+  
     required_vars = {
         "HF_ORG_NAME": HF_ORG_NAME,
         "SPREADSHEET_ID": SPREADSHEET_ID,
@@ -513,7 +512,7 @@ def main():
 
     for repo, repo_type in tqdm(repos, desc=f"Fetching HF repos from {HF_ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
-            info = get_repo_info(api, repo, repo_type)
+            info = get_repo_info(api, repo, repo_type, token=TOKEN)
             data.append(info)
             tqdm.write(f"Fetched info for /{repo.id}")
         except Exception as e:

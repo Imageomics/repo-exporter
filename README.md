@@ -156,7 +156,7 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
 
 ### Shared configuration
 
-* Both exporters require `GOOGLE_CREDENTIALS_PATH`.
+* Both exporters require Google service account credentials created in the [service account setup](#set-up-google-cloud-service-account-access). Set `GOOGLE_CREDENTIALS_PATH` to the JSON key file path (defaults to `service_account.json` if omitted).
 * The Google service account must have Editor access to the target spreadsheet.
 * Ensure all required values are available as environment variables locally or as GitHub Actions secrets.
 
