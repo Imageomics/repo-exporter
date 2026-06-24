@@ -516,7 +516,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 # --------
 
 def main():
-    TOKEN = os.getenv("GH_TOKEN") or input("Enter your GitHub token: ").strip()
+    TOKEN = (os.getenv("GH_TOKEN") or input("Enter your GitHub token: ")).strip()
     
     required_vars = {
         "GH_ORG_NAME": GH_ORG_NAME,
@@ -533,7 +533,7 @@ def main():
         
     start_time = time.time()
 
-    gh = Github(auth=Auth.Token(TOKEN))
+    gh = Github(auth=Auth.Token(TOKEN)) if TOKEN else Github()
     
     try:
         org = gh.get_organization(GH_ORG_NAME)
