@@ -162,13 +162,13 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
 
 For example, if the spreadsheet URL is:
 
-```text id="1i7ltb"
+```text
 https://docs.google.com/spreadsheets/d/fake-long-alpha-numeric-id-1a2b3c4d/edit
 ```
 
 then the spreadsheet ID is:
 
-```text id="04f0vl"
+```text
 fake-long-alpha-numeric-id-1a2b3c4d
 ```
 
