@@ -10,12 +10,15 @@ import time
 import os
 import re
 
-# Config
-ORG_NAME = "Imageomics"
-SPREADSHEET_ID = "15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc"
-SHEET_NAME = "Sheet1"
+from dotenv import load_dotenv
+load_dotenv()
 
+# Config
+GH_ORG_NAME = os.getenv("GH_ORG_NAME")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
+GH_SHEET_NAME = os.getenv("GH_SHEET_NAME","GH-Repos")
 # Package requirement files to check
+
 PACKAGE_REQUIREMENT_FILES = [
     # Python 
     "requirements.txt", "environment.yaml", "environment.yml", "pyproject.toml",
@@ -394,7 +397,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     )
 
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
 
     # Pull current header
     HEADER_ROW_INDEX = 2
@@ -434,7 +437,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
                 continue  # skip untouched columns
 
             value = row.get(col_name, "")
-            cell = gspread.utils.rowcol_to_a1(row_idx, col_idx)
+            cell = f"'{sheet.title}'!{gspread.utils.rowcol_to_a1(row_idx, col_idx)}"
 
             batch_body.append({
                 "range": cell,
@@ -513,20 +516,33 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 # --------
 
 def main():
-    TOKEN = os.getenv("GH_TOKEN") or input("Enter your GitHub token: ").strip()
+    TOKEN = (os.getenv("GH_TOKEN") or input("Enter your GitHub token: ")).strip()
+    
+    required_vars = {
+        "GH_ORG_NAME": GH_ORG_NAME,
+        "SPREADSHEET_ID": SPREADSHEET_ID,
+    }
 
+    missing = [name for name, value in required_vars.items() if not value]
+
+    if missing:
+        raise ValueError(
+            "Missing required environment variables: "
+            f"{', '.join(missing)}. Set them in your shell/.env or in the GitHub Actions workflow env."
+        )
+        
     start_time = time.time()
 
-    gh = Github(auth=Auth.Token(TOKEN))
+    gh = Github(auth=Auth.Token(TOKEN)) if TOKEN else Github()
     
     try:
-        org = gh.get_organization(ORG_NAME)
+        org = gh.get_organization(GH_ORG_NAME)
     except Exception as e:
-        print(f"ERROR: Could not access org: \"{ORG_NAME}\"")
+        print(f"ERROR: Could not access org: \"{GH_ORG_NAME}\"")
         return
     
     print("")
-    print(f"Fetching repositories from organization: {ORG_NAME}")
+    print(f"Fetching repositories from organization: {GH_ORG_NAME}")
     print("")
     print("----------------")
 
@@ -552,7 +568,7 @@ def main():
         )
 
         client = gspread.authorize(creds)
-        sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+        sheet = client.open_by_key(SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
 
         all_values = sheet.get_all_values()
 
@@ -577,7 +593,7 @@ def main():
 
     print(f"Existing sheet data shape: {existing_df.shape}")
     
-    for repo in tqdm(repos, desc=f"Fetching repositories from {ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
+    for repo in tqdm(repos, desc=f"Fetching repositories from {GH_ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
             info = get_repo_info(repo, existing_df)
             data.append(info)
@@ -596,7 +612,7 @@ def main():
     df.sort_values(by="Repository Name", inplace=True)
 
     update_google_sheet(df)
-    print(f"Finished fetching info for {len(df)} repositories from {ORG_NAME} organization")
+    print(f"Finished fetching info for {len(df)} repositories from {GH_ORG_NAME} organization")
 
     elapsed = time.time() - start_time
     minutes, seconds = divmod(int(elapsed), 60)

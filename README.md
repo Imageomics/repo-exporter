@@ -1,6 +1,6 @@
 # Repository Exporter [![DOI](https://zenodo.org/badge/1080019710.svg)](https://doi.org/10.5281/zenodo.17835081)
 
-A Python script that gathers metadata for all repositories in a GitHub organization and automatically exports the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
+Python scripts that gather metadata for all repositories in a provided GitHub or Hugging Face organization and automatically export the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
 
 ## Contents
 - [Features](#features)  
@@ -10,23 +10,29 @@ A Python script that gathers metadata for all repositories in a GitHub organizat
   - [Create a Hugging Face Token](#create-a-hugging-face-token)   
   - [Set up Google Cloud Service Account Access](#set-up-google-cloud-service-account-access)  
 - [Run repo exporter locally](#run-repo-exporter-locally)  
-- [Important Notes](#important-notes)  
+- [Environment Variables](#environment-variables)  
 - [Testing](#testing)
 
 ---
 
 ## Features
-- Fetches all repositories in an organization
+- Fetches all repositories in the indicated GitHub or Hugging Face organization(s)
 - Collects key details:
-  - Repo visibility, name and description
-  - Date created and last updated
-  - Creator and top 4 contributors (`N/A` creator means it was either a transferred repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their github account)
-  - Number of stars and number of branches
-  - README, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, `.zenodo.json` and `CONTRIBUTING.md` files presence
-  - Primary Programming Language
-  - Website Reference, Dataset, Model, Paper Association, DOI for GitHub Repo presence
+  - Repo visibility, name (hyperlinked to repo), and description
+  - Date created and last updated, with a flag for inactivity (set after a year of no commits)
+  - Creator and top 4 contributors (`N/A` creator means it was either a transferred repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their GitHub account)
+  - Number of stars and number of branches for GitHub repositories, for Hugging Face repos, the analogous number of likes and open Discussions/PRs are collected
+  - Standard file/metadata checks:
+      - **For GitHub:** `README.md`, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, `.zenodo.json`, and `CONTRIBUTING.md` files
+      - **For Hugging Face:** `README.md` ([dataset or model card](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/About-Templates/)/Space README) and license (read from `yaml`)
+      - DOI for the repository (HF generated or from Zenodo for GitHub repos)
+  - Primary Programming Language (**GitHub only**)
+  - Website Reference/Homepage, Associated Dataset(s), Model(s), or Paper(s), and associated [GitHub] repo for Hugging Face repositories
+  - Supports configurable worksheet names with defaults:
+    - GitHub: `GH_SHEET_NAME` defaults to `GH-Repos`
+    - Hugging Face: `HF_SHEET_NAME` defaults to `HF-Repos`
 - Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list
-- For **Standard Files** highlights **No** data cell values with red cell colors and for **Recommended Files** and **Filters** highlights **No** data cell values with orange cell colors 
+- For [**Standard Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#standard-files) highlights **No** data cell values with red cell colors and for [**Recommended Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#recommended-files) and **Filters** highlights **No** data cell values with orange cell colors
 
 ## Usage
 The workflow runs automatically each week (9am UTC on Mondays); however, you can also run the GitHub Actions workflow manually:
@@ -50,7 +56,7 @@ To use this script within your own GitHub organization, first fork this repo, th
   5. Under **Permissions** select **Repositories** and set:
       - **Metadata** -> Read-only 
       - **Contents** -> Read-only
-      - **Adminstration** -> Read-only
+      - **Administration** -> Read-only
   6. Click **Generate token** and **copy it** (make sure to store it somewhere safe for future use).
   7. Navigate to `https://github.com/<gh-org-name>/repo-exporter/settings/secrets/actions` and click **New repository secret** and name it **GH_TOKEN** and copy paste the token into the **Secret** section and click **Add secret**
   **Note:** The token must be approved by the organization administrator before accessing private repositories.
@@ -80,7 +86,9 @@ Instructions to create a Google Cloud Console Service Account and give it permis
  8. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable the **Google Sheets API** for the project you made
  9. Go to your chosen Google Sheet and go to **Share** settings and add the new Service Account email you made and set it as an **Editor**
 
-Now update the script with [your GitHub Organization name](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L13) and the [desired spreadsheet ID](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L14), then the script can be run through the GitHub Actions workflow by following the [Usage Instructions](#usage) for your repository.
+After cloning the repository, configure the [environment variables](#environment-variables) required for the exporter(s) you plan to run.
+
+Once configured, the workflow can be run by following the [Usage Instructions](#usage).
 
 ## Run repo exporter locally
    
@@ -90,20 +98,13 @@ Now update the script with [your GitHub Organization name](https://github.com/Im
     cd repo-exporter
     ```
 
-2. Create and activate Conda environment:
+2. Create and activate the Conda environment:
    ```
    conda create -n repo-exporter python -y
    conda activate repo-exporter
    ```
     
-3. Add required environment variables into your Conda environment and reload environment:
-    ```
-    conda env config vars set GH_TOKEN="<your-token-here>"
-    conda env config vars set GOOGLE_CREDENTIALS_PATH="/path/to/service_account.json"
-
-    conda deactivate
-    conda activate repo-exporter
-    ```
+3. Create a `.env` file in the root of the project to configure required [environment variables](#environment-variables). See [`.env.example`](.env.example) for an example; the default sheet names are included and can be removed.
 
 4. Install Python dependencies:
     ```
@@ -130,12 +131,47 @@ Now update the script with [your GitHub Organization name](https://github.com/Im
       python gh_repo_exporter.py
       ```
 
-## Important Notes
+## Environment Variables
 
- Key edits to ensure the script functions properly for _your organization_:
-  1. You must enter your specific [GitHub Organization Name](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L13) under Config settings at the top of the Python script file (for example, `Imageomics`)
-  2. You must enter your specific Google Sheet ID under Config settings at the top of the Python script file (for example, if the URL is `https://docs.google.com/spreadsheets/d/15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc/edit?gid=0#gid=0`, then `15BQimTjaOyo-jeaJRcg1Hia-9ORcilj3Jx-ks-uGyoc` is the [Google Sheet ID](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L14))
-  3. You must enter your specific [Google Sheet Section Name](https://github.com/Imageomics/repo-exporter/blob/d3b5ac782d9a4853abe162267dcddcbd7a0862a9/export_repos.py#L15). This can be found at the bottom of your Google Sheet (for example, `Sheet1`)
+> [!NOTE]
+> `SPREADSHEET_ID` and Google service account credentials are required for both GitHub and Hugging Face exports, as well as the platform-prefaced variables (e.g., `GH_ORG_NAME` and `HF_ORG_NAME`)
+> * Both exporters support optional custom sheet name variables (`GH_SHEET_NAME` and `HF_SHEET_NAME`; these must be *distinct*).
+
+> [!WARNING]  
+> Tokens and Google service account credentials must be saved as repository *secrets*. All other values may be saved as environment variables assuming your spreadsheet is appropriately protected.
+
+### GitHub exporter
+
+* Set `GH_ORG_NAME` to your GitHub organization name (for API calls).
+* Set `SPREADSHEET_ID` to the Google Sheet ID used by the exporter.
+* `GH_SHEET_NAME` is optional. If not provided, the exporter uses "GH-Repos".
+* `GH_TOKEN` is required to access GitHub repositories.
+
+### Hugging Face exporter
+
+* Set `HF_ORG_NAME` to your Hugging Face organization name (**case-sensitive**, for API calls).
+* Set `SPREADSHEET_ID` to the Google Sheet ID used by the exporter.
+* `HF_SHEET_NAME` is optional. If not provided, the exporter uses "HF-Repos".
+* `HF_TOKEN` is required to access Hugging Face repositories.
+
+### Shared configuration
+
+* Both exporters require Google service account credentials created in the [service account setup](#set-up-google-cloud-service-account-access). Set `GOOGLE_CREDENTIALS_PATH` to the JSON key file path (defaults to `service_account.json` if omitted).
+* The Google service account must have Editor access to the target spreadsheet.
+* Ensure all required values are available as environment variables locally or as GitHub Actions secrets.
+
+For example, if the spreadsheet URL is:
+
+```text
+https://docs.google.com/spreadsheets/d/fake-long-alpha-numeric-id-1a2b3c4d/edit
+```
+
+then the spreadsheet ID is:
+
+```text
+fake-long-alpha-numeric-id-1a2b3c4d
+```
+
 
 ---
 

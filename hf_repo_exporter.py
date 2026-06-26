@@ -10,10 +10,13 @@ import os
 import re
 from collections import Counter
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # Config
-ORG_NAME = "imageomics"
-SPREADSHEET_ID = "1NOVB9IfBvkAh4YDbozhi5q0iwBfyp3enD6UxmO6wHIA"
-SHEET_NAME = "Sheet1"
+HF_ORG_NAME = os.getenv("HF_ORG_NAME")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
+HF_SHEET_NAME = os.getenv("HF_SHEET_NAME","HF-Repos")
 
 # Helper Functions
 def get_repo_url(repo, repo_type: str) -> str:
@@ -29,7 +32,7 @@ def get_author(api, repo_id, repo_type) -> str:
         # Fetch all commits
         commits = api.list_repo_commits(repo_id=repo_id, repo_type=repo_type)
         if not commits:
-            return ORG_NAME
+            return HF_ORG_NAME or "N/A"
 
         # The last item in the list is the earliest commit (the creation)
         first_commit = commits[-1]
@@ -42,11 +45,11 @@ def get_author(api, repo_id, repo_type) -> str:
                 return first_author
             
             # If it's an object, check for user handle then display name
-            return getattr(first_author, 'user', getattr(first_author, 'name', ORG_NAME))
+            return getattr(first_author, 'user', getattr(first_author, 'name', HF_ORG_NAME or "N/A"))
             
-        return ORG_NAME
+        return HF_ORG_NAME or "N/A"
     except Exception:
-        return ORG_NAME
+        return HF_ORG_NAME or "N/A"
 
 def get_top_contributors(api, repo_id, repo_type) -> str:
     try:
@@ -66,11 +69,11 @@ def get_top_contributors(api, repo_id, repo_type) -> str:
                         all_handles.append(str(handle))
             
         # Filter out the Org name and the web-flow bot
-        bots_and_orgs = {ORG_NAME.lower(), "web-flow"}
+        bots_and_orgs = {(HF_ORG_NAME or "").lower(), "web-flow"}
         filtered = [n for n in all_handles if str(n).lower() not in bots_and_orgs]
 
         if not filtered:
-            return ORG_NAME
+            return HF_ORG_NAME or "N/A"
 
         counts = Counter(filtered)
         # Get top 4 most common contributors
@@ -78,7 +81,7 @@ def get_top_contributors(api, repo_id, repo_type) -> str:
         return ", ".join(top_4)
     except Exception as e:
         # Optional: tqdm.write(f"Error for {repo_id}: {e}")
-        return ORG_NAME
+        return HF_ORG_NAME or "N/A"
 
 def get_open_pr_count(api, repo_id, repo_type) -> int:
     try:
@@ -269,7 +272,7 @@ def extract_link_from_text(text, label):
         return content
     return "No"
 
-def get_repo_info(api, repo, repo_type: str) -> dict[str, str | int]:
+def get_repo_info(api, repo, repo_type: str, token: str | None = None) -> dict[str, str | int]:
 
     # 1. Download README once
     readme_text = ""
@@ -278,7 +281,7 @@ def get_repo_info(api, repo, repo_type: str) -> dict[str, str | int]:
             repo_id=repo.id, 
             filename="README.md", 
             repo_type=repo_type,
-            token=os.getenv("HF_TOKEN")
+            token=token
         )
         with open(path, 'r', encoding='utf-8') as f:
             readme_text = f.read()
@@ -343,7 +346,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     )
 
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(HF_SHEET_NAME)
 
     # Pull current header
     HEADER_ROW_INDEX = 2
@@ -384,7 +387,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 
             value = row.get(col_name, "")
             value = ensure_string_value(value)
-            cell = gspread.utils.rowcol_to_a1(row_idx, col_idx)
+            cell = f"'{sheet.title}'!{gspread.utils.rowcol_to_a1(row_idx, col_idx)}"
 
             batch_body.append({
                 "range": cell,
@@ -460,7 +463,20 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 
 def main():
 
-    TOKEN = os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ").strip()
+    TOKEN = (os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ")).strip() or None
+  
+    required_vars = {
+        "HF_ORG_NAME": HF_ORG_NAME,
+        "SPREADSHEET_ID": SPREADSHEET_ID,
+    }
+
+    missing = [name for name, value in required_vars.items() if not value]
+
+    if missing:
+        raise ValueError(
+            "Missing required environment variables: "
+            f"{', '.join(missing)}. Set them in your shell/.env or in the GitHub Actions workflow env."
+        )
 
     start_time = time.time()
 
@@ -469,22 +485,22 @@ def main():
     try:
         repos = []
 
-        for m in api.list_models(author=ORG_NAME, full=True):
+        for m in api.list_models(author=HF_ORG_NAME, full=True):
             repos.append((api.model_info(m.id), "model"))
 
-        for d in api.list_datasets(author=ORG_NAME, full=True):
+        for d in api.list_datasets(author=HF_ORG_NAME, full=True):
             repos.append((api.dataset_info(d.id), "dataset"))
 
-        for s in api.list_spaces(author=ORG_NAME, full=True):
+        for s in api.list_spaces(author=HF_ORG_NAME, full=True):
             repos.append((api.space_info(s.id), "space"))
 
     except Exception as e:
-        print(f'ERROR: Could not fetch models for "{ORG_NAME}"')
+        print(f'ERROR: Could not fetch models for "{HF_ORG_NAME}"')
         print(e)
         return
 
     print("")
-    print(f"Fetching Hugging Face repositories for: {ORG_NAME}")
+    print(f"Fetching Hugging Face repositories for: {HF_ORG_NAME}")
     print("")
     print("----------------")
 
@@ -494,9 +510,9 @@ def main():
     if os.environ.get("CI") == "true":
         tqdm_kwargs = {"mininterval": 1, "dynamic_ncols": False, "leave": False}
 
-    for repo, repo_type in tqdm(repos, desc=f"Fetching HF repos from {ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
+    for repo, repo_type in tqdm(repos, desc=f"Fetching HF repos from {HF_ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
-            info = get_repo_info(api, repo, repo_type)
+            info = get_repo_info(api, repo, repo_type, token=TOKEN)
             data.append(info)
             tqdm.write(f"Fetched info for /{repo.id}")
         except Exception as e:
@@ -513,7 +529,7 @@ def main():
     df.sort_values(by="Repository Name", inplace=True)
 
     update_google_sheet(df)
-    print(f"Finished fetching info for {len(df)} repositories from {ORG_NAME} organization")
+    print(f"Finished fetching info for {len(df)} repositories from {HF_ORG_NAME} organization")
 
     elapsed = time.time() - start_time
     minutes, seconds = divmod(int(elapsed), 60)
