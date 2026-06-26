@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 import time
 import os
 import re
+import argparse
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -17,6 +18,7 @@ load_dotenv()
 GH_ORG_NAME = os.getenv("GH_ORG_NAME")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 GH_SHEET_NAME = os.getenv("GH_SHEET_NAME","GH-Repos")
+
 # Package requirement files to check
 
 PACKAGE_REQUIREMENT_FILES = [
@@ -384,10 +386,8 @@ def extract_display_name(val: str) -> str:
     match = re.search(r'"([^"]+)"\)$', val) # regex to extract the repo-name from "=HYPERLINK(..., "repo-name")"
     return match.group(1) if match else val
 
-def update_google_sheet(df: pd.DataFrame) -> None:
+def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, creds_path: str) -> None:
     # Authenticate Google API
-    creds_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
-
     creds = Credentials.from_service_account_file(
         creds_path,
         scopes=[
@@ -397,7 +397,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     )
 
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
+    sheet = client.open_by_key(spreadsheet_id).worksheet(sheet_name)
 
     # Pull current header
     HEADER_ROW_INDEX = 2
@@ -516,11 +516,25 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 # --------
 
 def main():
-    TOKEN = (os.getenv("GH_TOKEN") or input("Enter your GitHub token: ")).strip()
-    
+    parser = argparse.ArgumentParser(description="Export GitHub org repo metadata to Google Sheets.")
+    parser.add_argument("--token", default=None, help="GitHub personal access token (overrides GH_TOKEN in .env)")
+    parser.add_argument("--org", default=None, help="GitHub org name (overrides GH_ORG_NAME in .env)")
+    parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)")
+    parser.add_argument("--sheet-name", default="GH-Repos", help="Sheet tab name (default: GH-Repos)")
+    parser.add_argument("--credentials-path", default=None, help="Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env)")
+    parser.add_argument("--repo-type", default=None, help="Repo type filter: all, public, private, forks, sources, member (overrides REPO_TYPE in .env)")
+    args = parser.parse_args()
+
+    TOKEN = args.token or os.getenv("GH_TOKEN") or input("Enter your GitHub token: ").strip()
+    org_name = args.org or GH_ORG_NAME
+    spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
+    sheet_name = args.sheet_name or GH_SHEET_NAME
+    creds_path = args.credentials_path or os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
+    repo_type = args.repo_type or os.getenv("REPO_TYPE")
+
     required_vars = {
-        "GH_ORG_NAME": GH_ORG_NAME,
-        "SPREADSHEET_ID": SPREADSHEET_ID,
+        "GH_ORG_NAME": org_name,
+        "SPREADSHEET_ID": spreadsheet_id,
     }
 
     missing = [name for name, value in required_vars.items() if not value]
@@ -536,18 +550,17 @@ def main():
     gh = Github(auth=Auth.Token(TOKEN)) if TOKEN else Github()
     
     try:
-        org = gh.get_organization(GH_ORG_NAME)
+        org = gh.get_organization(org_name)
     except Exception as e:
-        print(f"ERROR: Could not access org: \"{GH_ORG_NAME}\"")
+        print(f"ERROR: Could not access org: \"{org_name}\"")
         return
     
     print("")
-    print(f"Fetching repositories from organization: {GH_ORG_NAME}")
+    print(f"Fetching repositories from organization: {org_name}")
     print("")
     print("----------------")
 
-    REPO_TYPE = os.getenv("REPO_TYPE")
-    repos = list(org.get_repos(type=REPO_TYPE))
+    repos = list(org.get_repos(type=repo_type))
     print(f"Total repos fetched: {len(repos)}")
     data = []
     
@@ -557,8 +570,6 @@ def main():
     existing_df = pd.DataFrame()
 
     try:
-        creds_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
-
         creds = Credentials.from_service_account_file(
             creds_path,
             scopes=[
@@ -568,7 +579,7 @@ def main():
         )
 
         client = gspread.authorize(creds)
-        sheet = client.open_by_key(SPREADSHEET_ID).worksheet(GH_SHEET_NAME)
+        sheet = client.open_by_key(spreadsheet_id).worksheet(sheet_name)
 
         all_values = sheet.get_all_values()
 
@@ -593,7 +604,7 @@ def main():
 
     print(f"Existing sheet data shape: {existing_df.shape}")
     
-    for repo in tqdm(repos, desc=f"Fetching repositories from {GH_ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
+    for repo in tqdm(repos, desc=f"Fetching repositories from {org_name}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
             info = get_repo_info(repo, existing_df)
             data.append(info)
@@ -611,8 +622,8 @@ def main():
     df = pd.DataFrame(data)
     df.sort_values(by="Repository Name", inplace=True)
 
-    update_google_sheet(df)
-    print(f"Finished fetching info for {len(df)} repositories from {GH_ORG_NAME} organization")
+    update_google_sheet(df, spreadsheet_id, sheet_name, creds_path)
+    print(f"Finished fetching info for {len(df)} repositories from {org_name} organization")
 
     elapsed = time.time() - start_time
     minutes, seconds = divmod(int(elapsed), 60)
