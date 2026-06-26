@@ -9,6 +9,7 @@ import time
 import os
 import re
 from collections import Counter
+import argparse
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -333,9 +334,8 @@ def extract_display_name(val: str) -> str:
     match = re.search(r'"([^"]+)"\)$', val) # regex to extract the repo-name from "=HYPERLINK(..., "repo-name")"
     return match.group(1) if match else val
 
-def update_google_sheet(df: pd.DataFrame) -> None:
+def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, creds_path: str) -> None:
     # Authenticate Google API
-    creds_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
 
     creds = Credentials.from_service_account_file(
         creds_path,
@@ -346,7 +346,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     )
 
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(HF_SHEET_NAME)
+    sheet = client.open_by_key(spreadsheet_id).worksheet(sheet_name)
 
     # Pull current header
     HEADER_ROW_INDEX = 2
@@ -463,11 +463,23 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 
 def main():
 
-    TOKEN = (os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ")).strip() or None
+    parser = argparse.ArgumentParser(description="Export Hugging Face org repo metadata to Google Sheets.")
+    parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
+    parser.add_argument("--org", default=None, help="Hugging Face org name (overrides HF_ORG_NAME in .env)")
+    parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)")
+    parser.add_argument("--sheet-name", default="HF-Repos", help="Sheet tab name (default: HF-Repos)")
+    parser.add_argument("--credentials-path", default=None, help="Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env)")
+    args = parser.parse_args()
+
+    TOKEN = args.token or os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ").strip() or None
+    org_name = args.org or HF_ORG_NAME
+    spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
+    sheet_name = args.sheet_name or HF_SHEET_NAME
+    creds_path = args.credentials_path or os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
   
     required_vars = {
-        "HF_ORG_NAME": HF_ORG_NAME,
-        "SPREADSHEET_ID": SPREADSHEET_ID,
+        "HF_ORG_NAME": org_name,
+        "SPREADSHEET_ID": spreadsheet_id,
     }
 
     missing = [name for name, value in required_vars.items() if not value]
@@ -485,22 +497,22 @@ def main():
     try:
         repos = []
 
-        for m in api.list_models(author=HF_ORG_NAME, full=True):
+        for m in api.list_models(author=org_name, full=True):
             repos.append((api.model_info(m.id), "model"))
 
-        for d in api.list_datasets(author=HF_ORG_NAME, full=True):
+        for d in api.list_datasets(author=org_name, full=True):
             repos.append((api.dataset_info(d.id), "dataset"))
 
-        for s in api.list_spaces(author=HF_ORG_NAME, full=True):
+        for s in api.list_spaces(author=org_name, full=True):
             repos.append((api.space_info(s.id), "space"))
 
     except Exception as e:
-        print(f'ERROR: Could not fetch models for "{HF_ORG_NAME}"')
+        print(f'ERROR: Could not fetch models for "{org_name}"')
         print(e)
         return
 
     print("")
-    print(f"Fetching Hugging Face repositories for: {HF_ORG_NAME}")
+    print(f"Fetching Hugging Face repositories for: {org_name}")
     print("")
     print("----------------")
 
@@ -510,7 +522,7 @@ def main():
     if os.environ.get("CI") == "true":
         tqdm_kwargs = {"mininterval": 1, "dynamic_ncols": False, "leave": False}
 
-    for repo, repo_type in tqdm(repos, desc=f"Fetching HF repos from {HF_ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
+    for repo, repo_type in tqdm(repos, desc=f"Fetching HF repos from {org_name}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
             info = get_repo_info(api, repo, repo_type, token=TOKEN)
             data.append(info)
@@ -528,8 +540,8 @@ def main():
     df = pd.DataFrame(data)
     df.sort_values(by="Repository Name", inplace=True)
 
-    update_google_sheet(df)
-    print(f"Finished fetching info for {len(df)} repositories from {HF_ORG_NAME} organization")
+    update_google_sheet(df, spreadsheet_id, sheet_name, creds_path)
+    print(f"Finished fetching info for {len(df)} repositories from {org_name} organization")
 
     elapsed = time.time() - start_time
     minutes, seconds = divmod(int(elapsed), 60)
