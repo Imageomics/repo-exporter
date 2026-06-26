@@ -387,7 +387,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 
             value = row.get(col_name, "")
             value = ensure_string_value(value)
-            cell = gspread.utils.rowcol_to_a1(row_idx, col_idx)
+            cell = f"'{sheet.title}'!{gspread.utils.rowcol_to_a1(row_idx, col_idx)}"
 
             batch_body.append({
                 "range": cell,

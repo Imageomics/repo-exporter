@@ -437,7 +437,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
                 continue  # skip untouched columns
 
             value = row.get(col_name, "")
-            cell = gspread.utils.rowcol_to_a1(row_idx, col_idx)
+            cell = f"'{sheet.title}'!{gspread.utils.rowcol_to_a1(row_idx, col_idx)}"
 
             batch_body.append({
                 "range": cell,
