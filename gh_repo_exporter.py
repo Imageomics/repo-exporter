@@ -520,12 +520,12 @@ def main():
     parser.add_argument("--token", default=None, help="GitHub personal access token (overrides GH_TOKEN in .env)")
     parser.add_argument("--org", default=None, help="GitHub org name (overrides GH_ORG_NAME in .env)")
     parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)")
-    parser.add_argument("--sheet-name", default="GH-Repos", help="Sheet tab name (default: GH-Repos)")
+    parser.add_argument("--sheet-name", default=None, help="Sheet tab name (overrides GH_SHEET_NAME in .env; default: GH-Repos)")
     parser.add_argument("--credentials-path", default=None, help="Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env)")
     parser.add_argument("--repo-type", default=None, help="Repo type filter: all, public, private, forks, sources, member (overrides REPO_TYPE in .env)")
     args = parser.parse_args()
 
-    TOKEN = args.token or os.getenv("GH_TOKEN") or input("Enter your GitHub token: ").strip()
+    TOKEN = (args.token or os.getenv("GH_TOKEN") or input("Enter your GitHub token: ")).strip()
     org_name = args.org or GH_ORG_NAME
     spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
     sheet_name = args.sheet_name or GH_SHEET_NAME

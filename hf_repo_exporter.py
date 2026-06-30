@@ -467,11 +467,11 @@ def main():
     parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
     parser.add_argument("--org", default=None, help="Hugging Face org name (overrides HF_ORG_NAME in .env)")
     parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)")
-    parser.add_argument("--sheet-name", default="HF-Repos", help="Sheet tab name (default: HF-Repos)")
+    parser.add_argument("--sheet-name", default=None, help="Sheet tab name (overrides HF_SHEET_NAME in .env; default: HF-Repos)")
     parser.add_argument("--credentials-path", default=None, help="Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env)")
     args = parser.parse_args()
 
-    TOKEN = args.token or os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ").strip() or None
+    TOKEN = (args.token or os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ")).strip() or None
     org_name = args.org or HF_ORG_NAME
     spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
     sheet_name = args.sheet_name or HF_SHEET_NAME
