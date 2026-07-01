@@ -23,13 +23,13 @@ classifiers = [
 ]
 
 dependencies = [
-    "google-auth==2.41.1"
-    "gspread==6.2.1"
-    "pandas==2.3.3"
-    "PyGithub==2.8.1"
-    "tqdm==4.67.1"
-    "PyYAML==6.0.3"
-    "huggingface_hub==1.2.3"
+    "google-auth==2.41.1",
+    "gspread==6.2.1",
+    "pandas==2.3.3",
+    "PyGithub==2.8.1",
+    "tqdm==4.67.1",
+    "PyYAML==6.0.3",
+    "huggingface_hub==1.2.3",
     "python-dotenv==1.0.1"
 ]
 
