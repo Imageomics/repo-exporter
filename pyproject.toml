@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend =  "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/repo-exporter"]
+
+[project]
+name = "repo-exporter"
+dynamic = ["version"]
+description = "A Python script that collects key info (Name, description, creation date, last updated date, contributors, etc.) from all repos in a GitHub organization and saves it to a color-coded Google Sheet file of choice."
+readme = "README.md"
+requires-python =  ">=3.10"
+authors = [
+    { name="Elizabeth G. Campolongo", email="e.campolongo479@gmail.com" }
+]
+maintainers = [
+    { name = "Elizabeth G. Campolongo", email = "e.campolongo479@gmail.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
+
+dependencies = [
+    "google-auth==2.41.1"
+    "gspread==6.2.1"
+    "pandas==2.3.3"
+    "PyGithub==2.8.1"
+    "tqdm==4.67.1"
+    "PyYAML==6.0.3"
+    "huggingface_hub==1.2.3"
+    "python-dotenv==1.0.1"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.0.3",
+]
+
+keywords = [
+    "github",
+    "huggingface",
+    "google-sheets",
+    "Imageomics",
+    "automation",
+    "metadata",
+]
+
+[project.urls]
+Homepage = "https://github.com/Imageomics/repo-exporter"
+Repository = "https://github.com/Imageomics/repo-exporter.git"
+"Bug Tracker" = "https://github.com/Imageomics/repo-exporter/issues"
+
+[project.scripts]
+repo-exporter = "repo_exporter.__main__:main"
+
+[tool.hatch.version]
+path = "src/repo-exporter/__about__.py"
