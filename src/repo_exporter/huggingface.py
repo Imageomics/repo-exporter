@@ -12,22 +12,19 @@ class HuggingFaceExporter(BaseExporter):
     Exports Hugging Face org repo metadata to a Google Sheet.
     """
 
-    def __init__(self, token: str | None, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str):
+    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str, token: str | None = None):
         """
         Parameters:
         ------------
-        token          - String | None. Hugging Face token.
         org_name       - String. Hugging Face organization name.
         spreadsheet_id - String. Google Sheets spreadsheet ID.
         sheet_name     - String. Sheet tab name.
         creds_path     - String. Path to service_account.json.
+        token          - String | None. Hugging Face token.
         """
-        super().__init__()
-        self.token = token
-        self.org_name = org_name
-        self.spreadsheet_id = spreadsheet_id
-        self.sheet_name = sheet_name
+        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path)
         self.creds_path = creds_path
+        self.token = token
         self.api = HfApi(token=token)
 
     # Repo fetching
@@ -38,12 +35,12 @@ class HuggingFaceExporter(BaseExporter):
         Returns a list of (repo, repo_type) tuples.
         """
         repos = []
-        for m in self.api.list_models(author=self.org_name, full=True):
-            repos.append((self.api.model_info(m.id), "model"))
-        for d in self.api.list_datasets(author=self.org_name, full=True):
-            repos.append((self.api.dataset_info(d.id), "dataset"))
-        for s in self.api.list_spaces(author=self.org_name, full=True):
-            repos.append((self.api.space_info(s.id), "space"))
+        for m in self.api.list_models(author=self.org_name):
+            repos.append(m), "model"))
+        for d in self.api.list_datasets(author=self.org_name):
+            repos.append((d, "dataset"))
+        for s in self.api.list_spaces(author=self.org_name):
+            repos.append((s, "space"))
         return repos
 
     # Repo metadata helpers
@@ -139,42 +136,6 @@ class HuggingFaceExporter(BaseExporter):
             return len(open_prs)
         except Exception:
             return 0
-
-    def get_license(self, repo) -> str:
-        """
-        Check cardData, repo attribute, then README YAML frontmatter for a license.
-
-        Parameters:
-        ------------
-        repo - HF repo info object.
-        """
-        try:
-            license_from_card = getattr(repo, "cardData", {}).get("license")
-            if license_from_card:
-                return license_from_card
-        except Exception:
-            pass
-
-        try:
-            license_attr = getattr(repo, "license", None)
-            if license_attr:
-                return license_attr
-        except Exception:
-            pass
-
-        try:
-            readme_text = getattr(repo, "readme", None)
-            if readme_text:
-                import yaml
-                match = re.search(r'^---\s*(.*?)\s*---', readme_text, re.DOTALL | re.MULTILINE)
-                if match:
-                    data = yaml.safe_load(match.group(1))
-                    if isinstance(data, dict):
-                        return data.get("license", "No")
-        except Exception:
-            pass
-
-        return "No"
 
     def get_card_field(self, repo, keys: list) -> str:
         """
@@ -330,6 +291,14 @@ class HuggingFaceExporter(BaseExporter):
         repo      - HF repo info object.
         repo_type - String. One of "model", "dataset", "space".
         """
+        # Fetch full details inside the loop where BaseExporter wraps it in try/except
+        if repo_type == "model":
+            repo = self.api.model_info(repo_summary.id)
+        elif repo_type == "dataset":
+            repo = self.api.dataset_info(repo_summary.id)
+        else:
+            repo = self.api.space_info(repo_summary.id)
+        
         readme_text = ""
         try:
             path = hf_hub_download(
@@ -361,7 +330,7 @@ class HuggingFaceExporter(BaseExporter):
             "Likes": getattr(repo, "likes", "N/A"),
             "# of Open PRs": self.get_open_pr_count(repo.id, repo_type),
             "README": "Yes" if getattr(repo, "cardData", False) else "No",
-            "License": self.get_license(repo),
+            "License": self.get_card_field(repo, ["license"]) or "No",
             "Visibility": "Private" if getattr(repo, "private", False) else "Public",
             "Inactive": self.is_inactive(getattr(repo, "lastModified", None)),
             "Homepage": self.extract_link_from_text(readme_text, "Homepage"),

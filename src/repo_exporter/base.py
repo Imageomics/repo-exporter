@@ -18,11 +18,11 @@ class BaseExporter(ABC):
     self.creds_path in their __init__.
     """
 
-    def __init__(self):
-        self.org_name = None
-        self.spreadsheet_id = None
-        self.sheet_name = None
-        self.creds_path = None
+    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str):
+        self.org_name = org_name
+        self.spreadsheet_id = spreadsheet_id
+        self.sheet_name = sheet_name
+        self.creds_path = creds_path
 
     # Shared utilities
 
@@ -93,13 +93,39 @@ class BaseExporter(ABC):
         """
         ...
 
+    @property
     @abstractmethod
+    def red_columns(self) -> set[str]:
+        """Columns to color red when value is 'No'."""
+        pass
+    
+    @property
+    @abstractmethod
+    def secondary_columns(self) -> set[str]:
+        """Columns to color with the secondary color when value is 'No'."""
+        pass
+    
     def update_google_sheet(self, df: pd.DataFrame) -> None:
         """
-        Write df to the platform-specific Google Sheet tab.
-        Each subclass defines its own column set and color config.
+        Write df to the GitHub sheet tab with GH-specific column/color config.
+
+        Parameters:
+        ------------
+        df - pd.DataFrame. Data to write, with columns matching sheet headers.
         """
-        ...
+        sheet = self._get_sheet()
+        header = sheet.row_values(2)
+        batch_body, _ = self._build_batch_body(sheet, df, header)
+        self._write_batch(sheet, batch_body)
+        
+        self._apply_conditional_formatting(
+            sheet,
+            header,
+            df,
+            red_columns=self.red_columns,
+            secondary_columns=self.orange_columns,
+            secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+        )
 
     # Shared Google Sheets helpers for subclasses
 
