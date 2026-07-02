@@ -470,8 +470,8 @@ def main():
     parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
     parser.add_argument("--repo-type", default="all", help="Repo type filter: all, public, private, forks, sources, member; default: all")
     parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)")
-    parser.add_argument("--sheet-name", default=None, help="fSheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")
-    parser.add_argument("--credentials-path", default=None, help="fPath to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})")
+    parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")
+    parser.add_argument("--credentials-path", default=None, help=f"Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})")
     args = parser.parse_args()
 
     org_name = args.org or HF_ORG_NAME
