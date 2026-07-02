@@ -18,6 +18,7 @@ load_dotenv()
 GH_ORG_NAME = os.getenv("GH_ORG_NAME")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 GH_SHEET_NAME = os.getenv("GH_SHEET_NAME","GH-Repos")
+GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
 
 # Package requirement files to check
 
@@ -517,20 +518,20 @@ def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, 
 
 def main():
     parser = argparse.ArgumentParser(description="Export GitHub org repo metadata to Google Sheets.")
-    parser.add_argument("--token", default=None, help="GitHub personal access token (overrides GH_TOKEN in .env)")
     parser.add_argument("--org", default=None, help="GitHub org name (overrides GH_ORG_NAME in .env)")
+    parser.add_argument("--token", default=None, help="GitHub personal access token (overrides GH_TOKEN in .env)")
+    parser.add_argument("--repo-type", default="all", help="Repo type filter: all, public, private, forks, sources, member; default: all")
     parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)")
-    parser.add_argument("--sheet-name", default=None, help="Sheet tab name (overrides GH_SHEET_NAME in .env; default: GH-Repos)")
-    parser.add_argument("--credentials-path", default=None, help="Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env)")
-    parser.add_argument("--repo-type", default=None, help="Repo type filter: all, public, private, forks, sources, member (overrides REPO_TYPE in .env)")
+    parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides GH_SHEET_NAME in .env; default: {GH_SHEET_NAME})")
+    parser.add_argument("--credentials-path", default=None, help=f"Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})")
     args = parser.parse_args()
 
-    TOKEN = (args.token or os.getenv("GH_TOKEN") or input("Enter your GitHub token: ")).strip()
     org_name = args.org or GH_ORG_NAME
+    TOKEN = args.token or GH_TOKEN
+    repo_type = args.repo_type
     spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
     sheet_name = args.sheet_name or GH_SHEET_NAME
-    creds_path = args.credentials_path or os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
-    repo_type = args.repo_type or os.getenv("REPO_TYPE")
+    creds_path = args.credentials_path or GOOGLE_CREDENTIALS_PATH
 
     required_vars = {
         "GH_ORG_NAME": org_name,
