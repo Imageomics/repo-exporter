@@ -13,7 +13,7 @@ import gspread
 class BaseExporter(ABC):
     """
     Base class for platform-specific repo exporters.
-    Subclasses must implement get_repo_info() and update_google_sheet(),
+    Subclasses must implement fetch_repos() and get_repo_info(),
     and should set self.org_name, self.spreadsheet_id, self.sheet_name,
     self.creds_path in their __init__.
     """
@@ -113,12 +113,12 @@ class BaseExporter(ABC):
         client = gspread.authorize(creds)
         return client.open_by_key(self.spreadsheet_id).worksheet(self.sheet_name)
     
-    def get_column_index(self, header:list, col_name: str):
-            try:
-                return header.index(col_name)
-            except ValueError:
-                return None
-            
+    def get_column_index(self, header:list[str], col_name: str) -> int | None:
+        try:
+            return header.index(col_name)
+        except ValueError:
+            return None
+        
     def _build_batch_body(self, sheet, df: pd.DataFrame, header: list) -> tuple[list, list]:
         """
         Build the batch update body for writing df to the sheet.
@@ -244,7 +244,7 @@ class BaseExporter(ABC):
         
     def update_google_sheet(self, df: pd.DataFrame) -> None:
         """
-        Write df to the GitHub sheet tab with GH-specific column/color config.
+        Write df to the configured Google sheet tab using subclass column/color config.
 
         Parameters:
         ------------

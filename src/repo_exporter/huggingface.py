@@ -1,11 +1,9 @@
 from huggingface_hub import HfApi, hf_hub_download
-import pandas as pd
 from tqdm import tqdm
 from collections import Counter
 import re
 
 from repo_exporter.base import BaseExporter
-
 
 class HuggingFaceExporter(BaseExporter):
     """
@@ -44,8 +42,6 @@ class HuggingFaceExporter(BaseExporter):
             "Associated Spaces",
             "DOI",
         }
-
-    # Repo fetching
 
     def fetch_repos(self) -> list:
         """
@@ -173,6 +169,8 @@ class HuggingFaceExporter(BaseExporter):
                     return str(value)
         except Exception:
             return "N/A"
+        
+        return "N/A"
 
     def get_associated_datasets(self, repo) -> str:
         """
@@ -298,8 +296,6 @@ class HuggingFaceExporter(BaseExporter):
             return content
         return "No"
 
-    # get_repo_info
-
     def get_repo_info(self, repo, repo_type: str) -> dict[str, str | int]:
         """
         Return a metadata dict for a single HF repo.
@@ -348,7 +344,7 @@ class HuggingFaceExporter(BaseExporter):
             "Top 4 Contributors/Curators": self.get_top_contributors(repo.id, repo_type),
             "Likes": getattr(repo, "likes", "N/A"),
             "# of Open PRs": self.get_open_pr_count(repo.id, repo_type),
-            "README": "Yes" if getattr(repo, "cardData", False) else "No",
+            "README": "Yes" if readme_text else "No",
             "License": self.get_card_field(repo, ["license"]) or "No",
             "Visibility": "Private" if getattr(repo, "private", False) else "Public",
             "Inactive": self.is_inactive(getattr(repo, "lastModified", None)),

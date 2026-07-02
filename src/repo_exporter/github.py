@@ -4,7 +4,6 @@ from tqdm import tqdm
 import yaml
 import re
 import time
-import os
 
 from repo_exporter.base import BaseExporter
 
@@ -133,6 +132,8 @@ class GitHubExporter(BaseExporter):
                 return "Yes"
         except GithubException:
             return "No"
+        
+        return "No"
 
     def has_license(self, repo) -> str:
         """
@@ -147,6 +148,8 @@ class GitHubExporter(BaseExporter):
                 return "Yes"
         except GithubException:
             return "No"
+        
+        return "No"
 
     def get_num_branches(self, repo) -> int | str:
         """
