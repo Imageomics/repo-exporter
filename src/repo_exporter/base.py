@@ -23,9 +23,7 @@ class BaseExporter(ABC):
         self.spreadsheet_id = spreadsheet_id
         self.sheet_name = sheet_name
         self.creds_path = creds_path
-
-    # Shared utilities
-
+        
     @staticmethod
     def is_inactive(dt: datetime | None) -> str:
         """
@@ -72,8 +70,6 @@ class BaseExporter(ABC):
         if isinstance(value, dict):
             return str(value)
         return str(value)
-
-    # Abstract methods — subclasses must implement
   
     @abstractmethod
     def fetch_repos(self) -> list:
@@ -90,7 +86,7 @@ class BaseExporter(ABC):
         Keys must match the column headers in the target Google Sheet.
         """
         ...
-
+    
     @property
     @abstractmethod
     def red_columns(self) -> set[str]:
@@ -103,30 +99,6 @@ class BaseExporter(ABC):
         """Columns to color with the secondary color when value is 'No'."""
         pass
     
-    def update_google_sheet(self, df: pd.DataFrame) -> None:
-        """
-        Write df to the GitHub sheet tab with GH-specific column/color config.
-
-        Parameters:
-        ------------
-        df - pd.DataFrame. Data to write, with columns matching sheet headers.
-        """
-        sheet = self._get_sheet()
-        header = sheet.row_values(2)
-        batch_body, _ = self._build_batch_body(sheet, df, header)
-        self._write_batch(sheet, batch_body)
-        
-        self._apply_conditional_formatting(
-            sheet,
-            header,
-            df,
-            red_columns=self.red_columns,
-            secondary_columns=self.secondary_columns,
-            secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
-        )
-
-    # Shared Google Sheets helpers for subclasses
-
     def _get_sheet(self):
         """
         Authenticate and return the gspread worksheet.
@@ -140,7 +112,13 @@ class BaseExporter(ABC):
         )
         client = gspread.authorize(creds)
         return client.open_by_key(self.spreadsheet_id).worksheet(self.sheet_name)
-
+    
+    def get_column_index(self, header:list, col_name: str):
+            try:
+                return header.index(col_name)
+            except ValueError:
+                return None
+            
     def _build_batch_body(self, sheet, df: pd.DataFrame, header: list) -> tuple[list, list]:
         """
         Build the batch update body for writing df to the sheet.
@@ -191,7 +169,7 @@ class BaseExporter(ABC):
                 })
 
         return batch_body, existing
-
+    
     def _write_batch(self, sheet, batch_body: list) -> None:
         """
         Execute a batch value update on the sheet.
@@ -208,12 +186,6 @@ class BaseExporter(ABC):
             }
         )
         
-    def get_column_index(self, header:list, col_name: str):
-            try:
-                return header.index(col_name)
-            except ValueError:
-                return None
-            
     def _apply_conditional_formatting(
         self,
         sheet,
@@ -269,7 +241,29 @@ class BaseExporter(ABC):
                 })
 
         sheet.spreadsheet.batch_update({"requests": rules})
-    
+        
+    def update_google_sheet(self, df: pd.DataFrame) -> None:
+        """
+        Write df to the GitHub sheet tab with GH-specific column/color config.
+
+        Parameters:
+        ------------
+        df - pd.DataFrame. Data to write, with columns matching sheet headers.
+        """
+        sheet = self._get_sheet()
+        header = sheet.row_values(2)
+        batch_body, _ = self._build_batch_body(sheet, df, header)
+        self._write_batch(sheet, batch_body)
+        
+        self._apply_conditional_formatting(
+            sheet,
+            header,
+            df,
+            red_columns=self.red_columns,
+            secondary_columns=self.secondary_columns,
+            secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+        )
+
     def _fetch_one(self, repo_args) -> dict:
         """
         Unpack repo_args and call get_repo_info.

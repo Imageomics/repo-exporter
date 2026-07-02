@@ -39,26 +39,29 @@ class GitHubExporter(BaseExporter):
         self.repo_type = repo_type
         self.gh = Github(auth=Auth.Token(token)) if token else Github()
         self.existing_df = pd.DataFrame()
+        
+    @property
+    def red_columns(self) -> set[str]:
+        return {
+            "README",
+            "License",
+            ".gitignore",
+            "Package Requirements",
+            "CITATION",
+        }
 
-    # Repo fetching
-
-    def fetch_repos(self) -> list:
-        """
-        Fetch all repos for the org and pre-load existing sheet data
-        to avoid recomputing Created By for repos already tracked.
-        """
-        try:
-            org = self.gh.get_organization(self.org_name)
-        except Exception as e:
-            raise RuntimeError(f'Could not access org "{self.org_name}": {e}')
-
-        repos = list(org.get_repos(type=self.repo_type))
-        print(f"Total repos fetched: {len(repos)}")
-
-        self._load_existing_sheet()
-        print(f"Existing sheet data shape: {self.existing_df.shape}")
-
-        return repos
+    @property
+    def secondary_columns(self) -> set[str]:
+        return {
+            ".zenodo.json",
+            "CONTRIBUTING",
+            "AGENTS",
+            "Website Reference",
+            "Dataset",
+            "Model",
+            "Paper Association",
+            "DOI for GitHub Repo",
+        }
 
     def _load_existing_sheet(self) -> None:
         """
@@ -82,7 +85,23 @@ class GitHubExporter(BaseExporter):
         except Exception as e:
             print(f"Warning: Could not load existing sheet data: {e}")
 
-    # Repo metadata helpers
+    def fetch_repos(self) -> list:
+        """
+        Fetch all repos for the org and pre-load existing sheet data
+        to avoid recomputing Created By for repos already tracked.
+        """
+        try:
+            org = self.gh.get_organization(self.org_name)
+        except Exception as e:
+            raise RuntimeError(f'Could not access org "{self.org_name}": {e}')
+
+        repos = list(org.get_repos(type=self.repo_type))
+        print(f"Total repos fetched: {len(repos)}")
+
+        self._load_existing_sheet()
+        print(f"Existing sheet data shape: {self.existing_df.shape}")
+
+        return repos
 
     def has_file(self, repo, *paths: str) -> str:
         """
@@ -185,6 +204,28 @@ class GitHubExporter(BaseExporter):
         except Exception as e:
             tqdm.write(f"Warning: Could not determine creator for {repo.name}: {e}")
             return "N/A"
+    
+    def _get_top_contributors_commits(self, repo, top_n: int = 4) -> str:
+        """
+        Fallback: rank contributors by commit count instead of lines changed.
+
+        Parameters:
+        ------------
+        repo   - PyGitHub Repository object.
+        top_n  - Integer. Number of top contributors to return.
+        """
+        try:
+            contributors = repo.get_contributors()
+            top_n_contributors = []
+            for i, contributor in enumerate(contributors):
+                if i >= top_n:
+                    break
+                top_n_contributors.append(f"{contributor.name} ({contributor.login})")
+
+            result = ", ".join(top_n_contributors) if top_n_contributors else "N/A"
+            return f"{result} (commit-based)" if result != "N/A" else "N/A"
+        except Exception:
+            return "N/A"
 
     def get_top_contributors(self, repo, top_n: int = 4) -> str:
         """
@@ -221,28 +262,6 @@ class GitHubExporter(BaseExporter):
         except Exception:
             tqdm.write(f"  Falling back to commit-based for {repo.name}...")
             return self._get_top_contributors_commits(repo, top_n)
-
-    def _get_top_contributors_commits(self, repo, top_n: int = 4) -> str:
-        """
-        Fallback: rank contributors by commit count instead of lines changed.
-
-        Parameters:
-        ------------
-        repo   - PyGitHub Repository object.
-        top_n  - Integer. Number of top contributors to return.
-        """
-        try:
-            contributors = repo.get_contributors()
-            top_n_contributors = []
-            for i, contributor in enumerate(contributors):
-                if i >= top_n:
-                    break
-                top_n_contributors.append(f"{contributor.name} ({contributor.login})")
-
-            result = ", ".join(top_n_contributors) if top_n_contributors else "N/A"
-            return f"{result} (commit-based)" if result != "N/A" else "N/A"
-        except Exception:
-            return "N/A"
 
     def get_primary_language(self, repo) -> str:
         """
@@ -419,8 +438,6 @@ class GitHubExporter(BaseExporter):
         except Exception:
             return "No"
 
-    # get_repo_info
-
     def get_repo_info(self, repo) -> dict[str, str | int]:
         """
         Return a metadata dict for a single GitHub repo.
@@ -464,25 +481,4 @@ class GitHubExporter(BaseExporter):
             "DOI for GitHub Repo": self.has_doi(repo),
         }
 
-    @property
-    def red_columns(self) -> set[str]:
-        return {
-            "README",
-            "License",
-            ".gitignore",
-            "Package Requirements",
-            "CITATION",
-        }
-
-    @property
-    def secondary_columns(self) -> set[str]:
-        return {
-            ".zenodo.json",
-            "CONTRIBUTING",
-            "AGENTS",
-            "Website Reference",
-            "Dataset",
-            "Model",
-            "Paper Association",
-            "DOI for GitHub Repo",
-        }
+    

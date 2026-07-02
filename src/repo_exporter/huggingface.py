@@ -26,6 +26,24 @@ class HuggingFaceExporter(BaseExporter):
         self.creds_path = creds_path
         self.token = token
         self.api = HfApi(token=token)
+        
+    @property
+    def red_columns(self) -> set[str]:
+        return {
+            "README",
+            "License",
+            "Repo",
+            "Paper",
+        }
+
+    @property
+    def secondary_columns(self) -> set[str]:
+        return {
+            "Associated Datasets",
+            "Associated Models",
+            "Associated Spaces",
+            "DOI",
+        }
 
     # Repo fetching
 
@@ -343,20 +361,3 @@ class HuggingFaceExporter(BaseExporter):
             "DOI": self.get_doi(repo),
         }
     
-    @property
-    def red_columns(self) -> set[str]:
-        return {
-            "README",
-            "License",
-            "Repo",
-            "Paper",
-        }
-
-    @property
-    def secondary_columns(self) -> set[str]:
-        return {
-            "Associated Datasets",
-            "Associated Models",
-            "Associated Spaces",
-            "DOI",
-        }
