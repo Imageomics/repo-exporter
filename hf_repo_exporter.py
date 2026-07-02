@@ -30,12 +30,12 @@ def get_repo_url(repo, repo_type: str) -> str:
     else: # model
         return f"https://huggingface.co/{repo.id}"
 
-def get_author(api, repo_id, repo_type) -> str:
+def get_author(api, repo_id, repo_type, org_name: str | None = None) -> str:
     try:
         # Fetch all commits
         commits = api.list_repo_commits(repo_id=repo_id, repo_type=repo_type)
         if not commits:
-            return HF_ORG_NAME or "N/A"
+            return org_name or "N/A"
 
         # The last item in the list is the earliest commit (the creation)
         first_commit = commits[-1]
@@ -48,13 +48,13 @@ def get_author(api, repo_id, repo_type) -> str:
                 return first_author
             
             # If it's an object, check for user handle then display name
-            return getattr(first_author, 'user', getattr(first_author, 'name', HF_ORG_NAME or "N/A"))
+            return getattr(first_author, 'user', getattr(first_author, 'name', org_name or "N/A"))
             
-        return HF_ORG_NAME or "N/A"
+        return org_name or "N/A"
     except Exception:
-        return HF_ORG_NAME or "N/A"
+        return org_name or "N/A"
 
-def get_top_contributors(api, repo_id, repo_type) -> str:
+def get_top_contributors(api, repo_id, repo_type, org_name: str | None = None) -> str:
     try:
         commits = api.list_repo_commits(repo_id=repo_id, repo_type=repo_type)
         
@@ -72,11 +72,11 @@ def get_top_contributors(api, repo_id, repo_type) -> str:
                         all_handles.append(str(handle))
             
         # Filter out the Org name and the web-flow bot
-        bots_and_orgs = {(HF_ORG_NAME or "").lower(), "web-flow"}
+        bots_and_orgs = {(org_name or "").lower(), "web-flow"}
         filtered = [n for n in all_handles if str(n).lower() not in bots_and_orgs]
 
         if not filtered:
-            return HF_ORG_NAME or "N/A"
+            return org_name or "N/A"
 
         counts = Counter(filtered)
         # Get top 4 most common contributors
@@ -84,7 +84,7 @@ def get_top_contributors(api, repo_id, repo_type) -> str:
         return ", ".join(top_4)
     except Exception as e:
         # Optional: tqdm.write(f"Error for {repo_id}: {e}")
-        return HF_ORG_NAME or "N/A"
+        return org_name or "N/A"
 
 def get_open_pr_count(api, repo_id, repo_type) -> int:
     try:
@@ -275,8 +275,7 @@ def extract_link_from_text(text, label):
         return content
     return "No"
 
-def get_repo_info(api, repo, repo_type: str, token: str | None = None) -> dict[str, str | int]:
-
+def get_repo_info(api, repo, repo_type: str, token: str | None = None, org_name: str | None = None) -> dict[str, str | int]:
     # 1. Download README once
     readme_text = ""
     try:
@@ -305,8 +304,8 @@ def get_repo_info(api, repo, repo_type: str, token: str | None = None) -> dict[s
         "Description": get_card_field(repo, ["model_description", "description"]) or "N/A",
         "Date Created": repo.created_at.strftime("%Y-%m-%d") if getattr(repo, "created_at", False) else "N/A",
         "Last Updated": repo.lastModified.strftime("%Y-%m-%d") if getattr(repo, "lastModified", False) else "N/A",
-        "Created By": get_author(api, repo.id, repo_type),
-        "Top 4 Contributors/Curators": get_top_contributors(api, repo.id, repo_type),
+        "Created By": get_author(api, repo.id, repo_type, org_name),
+        "Top 4 Contributors/Curators": get_top_contributors(api, repo.id, repo_type, org_name),
         "Likes": getattr(repo, "likes", "N/A"),
         "# of Open PRs": get_open_pr_count(api, repo.id, repo_type),
         "README": "Yes" if getattr(repo, "cardData", False) else "No",
@@ -474,7 +473,7 @@ def main():
     args = parser.parse_args()
 
     org_name = args.org or HF_ORG_NAME
-    TOKEN = args.token.strip() or HF_TOKEN
+    TOKEN = (args.token or HF_TOKEN or "").strip() or None 
     spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
     sheet_name = args.sheet_name or HF_SHEET_NAME
     creds_path = args.credentials_path or GOOGLE_CREDENTIALS_PATH
@@ -526,7 +525,7 @@ def main():
 
     for repo, repo_type in tqdm(repos, desc=f"Fetching HF repos from {org_name}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
-            info = get_repo_info(api, repo, repo_type, token=TOKEN)
+            info = get_repo_info(api, repo, repo_type, token=TOKEN, org_name=org_name)
             data.append(info)
             tqdm.write(f"Fetched info for /{repo.id}")
         except Exception as e:
