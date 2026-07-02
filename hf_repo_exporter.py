@@ -468,7 +468,6 @@ def main():
     parser = argparse.ArgumentParser(description="Export Hugging Face org repo metadata to Google Sheets.")
     parser.add_argument("--org", default=None, help="Hugging Face org name (overrides HF_ORG_NAME in .env)")
     parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
-    parser.add_argument("--repo-type", default="all", help="Repo type filter: all, public, private, forks, sources, member; default: all")
     parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)")
     parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")
     parser.add_argument("--credentials-path", default=None, help=f"Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})")
@@ -476,7 +475,6 @@ def main():
 
     org_name = args.org or HF_ORG_NAME
     TOKEN = args.token or HF_TOKEN
-    repo_type = args.repo_type
     spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
     sheet_name = args.sheet_name or HF_SHEET_NAME
     creds_path = args.credentials_path or GOOGLE_CREDENTIALS_PATH
