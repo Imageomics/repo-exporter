@@ -18,6 +18,7 @@ load_dotenv()
 GH_ORG_NAME = os.getenv("GH_ORG_NAME")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 GH_SHEET_NAME = os.getenv("GH_SHEET_NAME","GH-Repos")
+GH_TOKEN = os.getenv("GH_TOKEN")
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
 
 # Package requirement files to check

@@ -18,6 +18,8 @@ load_dotenv()
 HF_ORG_NAME = os.getenv("HF_ORG_NAME")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 HF_SHEET_NAME = os.getenv("HF_SHEET_NAME","HF-Repos")
+HF_TOKEN = os.getenv("HF_TOKEN")
+GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
 
 # Helper Functions
 def get_repo_url(repo, repo_type: str) -> str:
@@ -464,18 +466,20 @@ def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, 
 def main():
 
     parser = argparse.ArgumentParser(description="Export Hugging Face org repo metadata to Google Sheets.")
-    parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
     parser.add_argument("--org", default=None, help="Hugging Face org name (overrides HF_ORG_NAME in .env)")
+    parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
+    parser.add_argument("--repo-type", default="all", help="Repo type filter: all, public, private, forks, sources, member; default: all")
     parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)")
-    parser.add_argument("--sheet-name", default=None, help="Sheet tab name (overrides HF_SHEET_NAME in .env; default: HF-Repos)")
-    parser.add_argument("--credentials-path", default=None, help="Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env)")
+    parser.add_argument("--sheet-name", default=None, help="fSheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")
+    parser.add_argument("--credentials-path", default=None, help="fPath to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})")
     args = parser.parse_args()
 
-    TOKEN = (args.token or os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ")).strip() or None
     org_name = args.org or HF_ORG_NAME
+    TOKEN = args.token or HF_TOKEN
+    repo_type = args.repo_type
     spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
     sheet_name = args.sheet_name or HF_SHEET_NAME
-    creds_path = args.credentials_path or os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
+    creds_path = args.credentials_path or GOOGLE_CREDENTIALS_PATH
   
     required_vars = {
         "HF_ORG_NAME": org_name,
