@@ -9,6 +9,7 @@ import time
 import os
 import re
 from collections import Counter
+import argparse
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -17,6 +18,8 @@ load_dotenv()
 HF_ORG_NAME = os.getenv("HF_ORG_NAME")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 HF_SHEET_NAME = os.getenv("HF_SHEET_NAME","HF-Repos")
+HF_TOKEN = os.getenv("HF_TOKEN")
+GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
 
 # Helper Functions
 def get_repo_url(repo, repo_type: str) -> str:
@@ -27,12 +30,12 @@ def get_repo_url(repo, repo_type: str) -> str:
     else: # model
         return f"https://huggingface.co/{repo.id}"
 
-def get_author(api, repo_id, repo_type) -> str:
+def get_author(api, repo_id, repo_type, org_name: str | None = None) -> str:
     try:
         # Fetch all commits
         commits = api.list_repo_commits(repo_id=repo_id, repo_type=repo_type)
         if not commits:
-            return HF_ORG_NAME or "N/A"
+            return org_name or "N/A"
 
         # The last item in the list is the earliest commit (the creation)
         first_commit = commits[-1]
@@ -45,13 +48,13 @@ def get_author(api, repo_id, repo_type) -> str:
                 return first_author
             
             # If it's an object, check for user handle then display name
-            return getattr(first_author, 'user', getattr(first_author, 'name', HF_ORG_NAME or "N/A"))
+            return getattr(first_author, 'user', getattr(first_author, 'name', org_name or "N/A"))
             
-        return HF_ORG_NAME or "N/A"
+        return org_name or "N/A"
     except Exception:
-        return HF_ORG_NAME or "N/A"
+        return org_name or "N/A"
 
-def get_top_contributors(api, repo_id, repo_type) -> str:
+def get_top_contributors(api, repo_id, repo_type, org_name: str | None = None) -> str:
     try:
         commits = api.list_repo_commits(repo_id=repo_id, repo_type=repo_type)
         
@@ -69,11 +72,11 @@ def get_top_contributors(api, repo_id, repo_type) -> str:
                         all_handles.append(str(handle))
             
         # Filter out the Org name and the web-flow bot
-        bots_and_orgs = {(HF_ORG_NAME or "").lower(), "web-flow"}
+        bots_and_orgs = {(org_name or "").lower(), "web-flow"}
         filtered = [n for n in all_handles if str(n).lower() not in bots_and_orgs]
 
         if not filtered:
-            return HF_ORG_NAME or "N/A"
+            return org_name or "N/A"
 
         counts = Counter(filtered)
         # Get top 4 most common contributors
@@ -81,7 +84,7 @@ def get_top_contributors(api, repo_id, repo_type) -> str:
         return ", ".join(top_4)
     except Exception as e:
         # Optional: tqdm.write(f"Error for {repo_id}: {e}")
-        return HF_ORG_NAME or "N/A"
+        return org_name or "N/A"
 
 def get_open_pr_count(api, repo_id, repo_type) -> int:
     try:
@@ -272,8 +275,7 @@ def extract_link_from_text(text, label):
         return content
     return "No"
 
-def get_repo_info(api, repo, repo_type: str, token: str | None = None) -> dict[str, str | int]:
-
+def get_repo_info(api, repo, repo_type: str, token: str | None = None, org_name: str | None = None) -> dict[str, str | int]:
     # 1. Download README once
     readme_text = ""
     try:
@@ -302,8 +304,8 @@ def get_repo_info(api, repo, repo_type: str, token: str | None = None) -> dict[s
         "Description": get_card_field(repo, ["model_description", "description"]) or "N/A",
         "Date Created": repo.created_at.strftime("%Y-%m-%d") if getattr(repo, "created_at", False) else "N/A",
         "Last Updated": repo.lastModified.strftime("%Y-%m-%d") if getattr(repo, "lastModified", False) else "N/A",
-        "Created By": get_author(api, repo.id, repo_type),
-        "Top 4 Contributors/Curators": get_top_contributors(api, repo.id, repo_type),
+        "Created By": get_author(api, repo.id, repo_type, org_name),
+        "Top 4 Contributors/Curators": get_top_contributors(api, repo.id, repo_type, org_name),
         "Likes": getattr(repo, "likes", "N/A"),
         "# of Open PRs": get_open_pr_count(api, repo.id, repo_type),
         "README": "Yes" if getattr(repo, "cardData", False) else "No",
@@ -333,9 +335,8 @@ def extract_display_name(val: str) -> str:
     match = re.search(r'"([^"]+)"\)$', val) # regex to extract the repo-name from "=HYPERLINK(..., "repo-name")"
     return match.group(1) if match else val
 
-def update_google_sheet(df: pd.DataFrame) -> None:
+def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, creds_path: str) -> None:
     # Authenticate Google API
-    creds_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
 
     creds = Credentials.from_service_account_file(
         creds_path,
@@ -346,7 +347,7 @@ def update_google_sheet(df: pd.DataFrame) -> None:
     )
 
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(HF_SHEET_NAME)
+    sheet = client.open_by_key(spreadsheet_id).worksheet(sheet_name)
 
     # Pull current header
     HEADER_ROW_INDEX = 2
@@ -463,11 +464,23 @@ def update_google_sheet(df: pd.DataFrame) -> None:
 
 def main():
 
-    TOKEN = (os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ")).strip() or None
+    parser = argparse.ArgumentParser(description="Export Hugging Face org repo metadata to Google Sheets.")
+    parser.add_argument("--org", default=None, help="Hugging Face org name (overrides HF_ORG_NAME in .env)")
+    parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
+    parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)")
+    parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")
+    parser.add_argument("--credentials-path", default=None, help=f"Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})")
+    args = parser.parse_args()
+
+    org_name = args.org or HF_ORG_NAME
+    TOKEN = args.token.strip() or HF_TOKEN
+    spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
+    sheet_name = args.sheet_name or HF_SHEET_NAME
+    creds_path = args.credentials_path or GOOGLE_CREDENTIALS_PATH
   
     required_vars = {
-        "HF_ORG_NAME": HF_ORG_NAME,
-        "SPREADSHEET_ID": SPREADSHEET_ID,
+        "HF_ORG_NAME": org_name,
+        "SPREADSHEET_ID": spreadsheet_id,
     }
 
     missing = [name for name, value in required_vars.items() if not value]
@@ -485,22 +498,22 @@ def main():
     try:
         repos = []
 
-        for m in api.list_models(author=HF_ORG_NAME, full=True):
+        for m in api.list_models(author=org_name, full=True):
             repos.append((api.model_info(m.id), "model"))
 
-        for d in api.list_datasets(author=HF_ORG_NAME, full=True):
+        for d in api.list_datasets(author=org_name, full=True):
             repos.append((api.dataset_info(d.id), "dataset"))
 
-        for s in api.list_spaces(author=HF_ORG_NAME, full=True):
+        for s in api.list_spaces(author=org_name, full=True):
             repos.append((api.space_info(s.id), "space"))
 
     except Exception as e:
-        print(f'ERROR: Could not fetch models for "{HF_ORG_NAME}"')
+        print(f'ERROR: Could not fetch models for "{org_name}"')
         print(e)
         return
 
     print("")
-    print(f"Fetching Hugging Face repositories for: {HF_ORG_NAME}")
+    print(f"Fetching Hugging Face repositories for: {org_name}")
     print("")
     print("----------------")
 
@@ -510,9 +523,9 @@ def main():
     if os.environ.get("CI") == "true":
         tqdm_kwargs = {"mininterval": 1, "dynamic_ncols": False, "leave": False}
 
-    for repo, repo_type in tqdm(repos, desc=f"Fetching HF repos from {HF_ORG_NAME}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
+    for repo, repo_type in tqdm(repos, desc=f"Fetching HF repos from {org_name}...", unit="repo", colour="green", ncols=100, **tqdm_kwargs):
         try:
-            info = get_repo_info(api, repo, repo_type, token=TOKEN)
+            info = get_repo_info(api, repo, repo_type, token=TOKEN, org_name=org_name)
             data.append(info)
             tqdm.write(f"Fetched info for /{repo.id}")
         except Exception as e:
@@ -528,8 +541,8 @@ def main():
     df = pd.DataFrame(data)
     df.sort_values(by="Repository Name", inplace=True)
 
-    update_google_sheet(df)
-    print(f"Finished fetching info for {len(df)} repositories from {HF_ORG_NAME} organization")
+    update_google_sheet(df, spreadsheet_id, sheet_name, creds_path)
+    print(f"Finished fetching info for {len(df)} repositories from {org_name} organization")
 
     elapsed = time.time() - start_time
     minutes, seconds = divmod(int(elapsed), 60)
