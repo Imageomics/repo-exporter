@@ -7,9 +7,6 @@ import time
 import os
 
 from repo_exporter.base import BaseExporter
-from google.oauth2.service_account import Credentials
-import gspread
-
 
 PACKAGE_REQUIREMENT_FILES = [
     # Python
@@ -20,13 +17,13 @@ PACKAGE_REQUIREMENT_FILES = [
     "package.json", "package-lock.json", "yarn.lock", "bower.json",
 ]
 
-
 class GitHubExporter(BaseExporter):
     """
     Exports GitHub org repo metadata to a Google Sheet.
     """
 
-    def __init__(self, token: str, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str, repo_type: str | None = None):
+    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
+             token: str | None = None, repo_type: str | None = None):
         """
         Parameters:
         ------------
@@ -37,12 +34,8 @@ class GitHubExporter(BaseExporter):
         creds_path     - String. Path to service_account.json.
         repo_type      - String | None. Repo type filter (all, public, private, forks, sources, member).
         """
-        super().__init__()
+        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path)
         self.token = token
-        self.org_name = org_name
-        self.spreadsheet_id = spreadsheet_id
-        self.sheet_name = sheet_name
-        self.creds_path = creds_path
         self.repo_type = repo_type
         self.gh = Github(auth=Auth.Token(token)) if token else Github()
         self.existing_df = pd.DataFrame()
@@ -73,15 +66,7 @@ class GitHubExporter(BaseExporter):
         sheet so get_repo_creator can skip re-fetching commit history.
         """
         try:
-            creds = Credentials.from_service_account_file(
-                self.creds_path,
-                scopes=[
-                    "https://www.googleapis.com/auth/spreadsheets",
-                    "https://www.googleapis.com/auth/drive",
-                ],
-            )
-            client = gspread.authorize(creds)
-            sheet = client.open_by_key(self.spreadsheet_id).worksheet(self.sheet_name)
+            sheet = self._get_sheet()
             all_values = sheet.get_all_values()
 
             if len(all_values) > 2:
@@ -479,29 +464,19 @@ class GitHubExporter(BaseExporter):
             "DOI for GitHub Repo": self.has_doi(repo),
         }
 
-    # Google Sheets update
-
-    def update_google_sheet(self, df: pd.DataFrame) -> None:
-        """
-        Write df to the GitHub sheet tab with GH-specific column/color config.
-
-        Parameters:
-        ------------
-        df - pd.DataFrame. Data to write, with columns matching sheet headers.
-        """
-        sheet = self._get_sheet()
-        header = sheet.row_values(2)
-        batch_body, _ = self._build_batch_body(sheet, df, header)
-        self._write_batch(sheet, batch_body)
-
-        red_columns = {
+    @property
+    def red_columns(self) -> set[str]:
+        return {
             "README",
             "License",
             ".gitignore",
             "Package Requirements",
             "CITATION",
         }
-        orange_columns = {
+
+    @property
+    def secondary_columns(self) -> set[str]:
+        return {
             ".zenodo.json",
             "CONTRIBUTING",
             "AGENTS",
@@ -511,12 +486,3 @@ class GitHubExporter(BaseExporter):
             "Paper Association",
             "DOI for GitHub Repo",
         }
-
-        self._apply_conditional_formatting(
-            sheet,
-            header,
-            df,
-            red_columns=red_columns,
-            secondary_columns=orange_columns,
-            secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
-        )

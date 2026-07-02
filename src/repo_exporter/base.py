@@ -35,16 +35,14 @@ class BaseExporter(ABC):
         ------------
         dt - datetime | None. Timezone-aware or naive datetime of last activity.
         """
-        try:
-            if dt is None:
-                return "N/A"
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            one_year_ago = datetime.now(timezone.utc) - timedelta(days=365)
-            return "Yes" if dt < one_year_ago else "No"
-        except Exception:
+        
+        if dt is None:
             return "N/A"
-
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        one_year_ago = datetime.now(timezone.utc) - timedelta(days=365)
+        return "Yes" if dt < one_year_ago else "No"
+        
     @staticmethod
     def extract_display_name(val: str) -> str:
         """
@@ -123,7 +121,7 @@ class BaseExporter(ABC):
             header,
             df,
             red_columns=self.red_columns,
-            secondary_columns=self.orange_columns,
+            secondary_columns=self.secondary_columns,
             secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
         )
 
@@ -209,7 +207,13 @@ class BaseExporter(ABC):
                 "data": batch_body,
             }
         )
-
+        
+    def get_column_index(self, header:list, col_name: str):
+            try:
+                return header.index(col_name)
+            except ValueError:
+                return None
+            
     def _apply_conditional_formatting(
         self,
         sheet,
@@ -233,19 +237,13 @@ class BaseExporter(ABC):
         """
         HEADER_ROW_INDEX = 2
 
-        def get_column_index(col_name: str):
-            try:
-                return header.index(col_name)
-            except ValueError:
-                return None
-
         rules = []
         for col_set, color in [
             (red_columns, {"red": 1, "green": 0.5, "blue": 0.5}),
             (secondary_columns, secondary_color),
         ]:
             for col_name in col_set:
-                col_index = get_column_index(col_name)
+                col_index = self.get_column_index(header, col_name)
                 if col_index is None:
                     continue
                 rules.append({
@@ -271,6 +269,30 @@ class BaseExporter(ABC):
                 })
 
         sheet.spreadsheet.batch_update({"requests": rules})
+    
+    def _fetch_one(self, repo_args) -> dict:
+        """
+        Unpack repo_args and call get_repo_info.
+        Subclasses can override if they need to pass extra args.
+
+        Parameters:
+        ------------
+        repo_args - A single repo object or a tuple of args for get_repo_info.
+        """
+        if isinstance(repo_args, tuple):
+            return self.get_repo_info(*repo_args)
+        return self.get_repo_info(repo_args)
+
+    def _repo_label(self, repo_args) -> str:
+        """
+        Return a display label for a repo for tqdm.write messages.
+
+        Parameters:
+        ------------
+        repo_args - A single repo object or a tuple whose first element is the repo.
+        """
+        repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
+        return f"/{getattr(repo, 'name', getattr(repo, 'id', str(repo)))}"
 
     # Shared run() orchestration
 
@@ -331,26 +353,4 @@ class BaseExporter(ABC):
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"Total time taken: {minutes}m {seconds}s")
 
-    def _fetch_one(self, repo_args) -> dict:
-        """
-        Unpack repo_args and call get_repo_info.
-        Subclasses can override if they need to pass extra args.
-
-        Parameters:
-        ------------
-        repo_args - A single repo object or a tuple of args for get_repo_info.
-        """
-        if isinstance(repo_args, tuple):
-            return self.get_repo_info(*repo_args)
-        return self.get_repo_info(repo_args)
-
-    def _repo_label(self, repo_args) -> str:
-        """
-        Return a display label for a repo for tqdm.write messages.
-
-        Parameters:
-        ------------
-        repo_args - A single repo object or a tuple whose first element is the repo.
-        """
-        repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
-        return f"/{getattr(repo, 'name', getattr(repo, 'id', str(repo)))}"
+    

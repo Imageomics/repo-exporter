@@ -36,7 +36,7 @@ class HuggingFaceExporter(BaseExporter):
         """
         repos = []
         for m in self.api.list_models(author=self.org_name):
-            repos.append(m), "model"))
+            repos.append((m, "model"))
         for d in self.api.list_datasets(author=self.org_name):
             repos.append((d, "dataset"))
         for s in self.api.list_spaces(author=self.org_name):
@@ -292,6 +292,7 @@ class HuggingFaceExporter(BaseExporter):
         repo_type - String. One of "model", "dataset", "space".
         """
         # Fetch full details inside the loop where BaseExporter wraps it in try/except
+        repo_summary = repo
         if repo_type == "model":
             repo = self.api.model_info(repo_summary.id)
         elif repo_type == "dataset":
@@ -341,40 +342,21 @@ class HuggingFaceExporter(BaseExporter):
             "Associated Spaces": self.get_associated_spaces(repo),
             "DOI": self.get_doi(repo),
         }
-
-    # Google Sheets update
-
-    def update_google_sheet(self, df: pd.DataFrame) -> None:
-        """
-        Write df to the HF sheet tab with HF-specific column/color config.
-
-        Parameters:
-        ------------
-        df - pd.DataFrame. Data to write, with columns matching sheet headers.
-        """
-        sheet = self._get_sheet()
-        header = sheet.row_values(2)
-        batch_body, _ = self._build_batch_body(sheet, df, header)
-        self._write_batch(sheet, batch_body)
-
-        red_columns = {
+    
+    @property
+    def red_columns(self) -> set[str]:
+        return {
             "README",
             "License",
             "Repo",
             "Paper",
         }
-        yellow_columns = {
+
+    @property
+    def secondary_columns(self) -> set[str]:
+        return {
             "Associated Datasets",
             "Associated Models",
             "Associated Spaces",
             "DOI",
         }
-
-        self._apply_conditional_formatting(
-            sheet,
-            header,
-            df,
-            red_columns=red_columns,
-            secondary_columns=yellow_columns,
-            secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
-        )
