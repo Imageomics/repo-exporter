@@ -6,6 +6,8 @@ load_dotenv()
 
 from repo_exporter.github import GitHubExporter
 from repo_exporter.huggingface import HuggingFaceExporter
+from .__about__ import version
+
 
 
 def export_repos(
@@ -87,18 +89,40 @@ def _validate_required(required_vars: dict) -> None:
             f"{', '.join(missing)}. Set them in your shell/.env or in the GitHub Actions workflow env."
         )
 
+def create_parser():
+    parser = argparse.ArgumentParser(description='Export GitHub or Hugging Face repository metadata to Google Sheets.')
+    
+    parser.add_argument('--version', action='version', version=f'repo-exporter {version}')
+    
+    subparsers = parser.add_subparsers(title='platform', dest='platform', required=True)
+
+    # Github command
+    gh_parser = subparsers.add_parser("github", help="Export Github repositories.")
+    gh_parser.add_argument("--org", default=None, help="GitHub organization name (overrides GH_ORG_NAME).")
+    gh_parser.add_argument("--token", default=None, help="GitHub API token (overrides GH_TOKEN).")
+    gh_parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID.")
+    gh_parser.add_argument("--sheet-name", default=None, help="Sheet tab name.")
+    gh_parser.add_argument("--credentials-path", default=None, help="Path to service_account.json.")
+    gh_parser.add_argument("--repo-type", default=None,
+    choices=["all", "public", "private", "forks", "sources", "member"], help="GitHub repository type filter.")
+    
+    # Hugging Face command
+    hf_parser = subparsers.add_parser("huggingface", help="Export Hugging Face repositories.")
+    hf_parser.add_argument("--org", default=None, help="Hugging Face organization name (overrides HF_ORG_NAME).")
+    hf_parser.add_argument("--token", default=None, help="Hugging Face API token (overrides HF_TOKEN).")
+    hf_parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID.")
+    hf_parser.add_argument("--sheet-name", default=None, help="Sheet tab name.")
+    hf_parser.add_argument("--credentials-path", default=None, help="Path to service_account.json.")
+    
+    return parser 
+
+def parse_args(input_args=None):
+    args = create_parser().parse_args(input_args)
+    return args
 
 def main():
-    parser = argparse.ArgumentParser(description="Export GitHub or Hugging Face org repo metadata to Google Sheets.")
-    parser.add_argument("--platform", type=str.lower, choices=["github", "huggingface"], required=True, help="Which platform to export from")
-    parser.add_argument("--token", default=None, help="API token (overrides GH_TOKEN / HF_TOKEN in .env)")
-    parser.add_argument("--org", default=None, help="Org name (overrides GH_ORG_NAME / HF_ORG_NAME in .env)")
-    parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)")
-    parser.add_argument("--sheet-name", default=None, help="Sheet tab name (defaults to platform-specific default)")
-    parser.add_argument("--credentials-path", default=None, help="Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env)")
-    parser.add_argument("--repo-type", default=None, help="GitHub-only: repo type filter (all, public, private, forks, sources, member)")
-    args = parser.parse_args()
-
+    args = parse_args()
+    
     try:
         export_repos(
             platform=args.platform,
@@ -107,11 +131,10 @@ def main():
             spreadsheet_id=args.spreadsheet_id,
             sheet_name=args.sheet_name,
             creds_path=args.credentials_path,
-            repo_type=args.repo_type,
+            repo_type=getattr(args, "repo_type", None)
         )
     except ValueError as e:
         raise SystemExit(str(e))
-
 
 if __name__ == "__main__":
     main()
