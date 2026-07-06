@@ -288,7 +288,7 @@ class HuggingFaceExporter(BaseExporter):
             if "http" in content.lower():
                 url_match = re.search(r'(https?://[^\s)]+)', content)
                 if url_match:
-                    url = url_match.group(1).rstrip('.,)]')
+                    url = url_match.group(1).rstrip('.,)]').replace('"', '""')
                     display_text = content.split('(')[0].strip() or label
                     display_text = display_text.replace('"', '""')
                     return f'=HYPERLINK("{url}", "{display_text}")'
