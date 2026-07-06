@@ -473,7 +473,7 @@ def main():
     args = parser.parse_args()
 
     org_name = args.org or HF_ORG_NAME
-    TOKEN = args.token.strip() or HF_TOKEN
+    TOKEN = (args.token or HF_TOKEN or "").strip() or None
     spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
     sheet_name = args.sheet_name or HF_SHEET_NAME
     creds_path = args.credentials_path or GOOGLE_CREDENTIALS_PATH

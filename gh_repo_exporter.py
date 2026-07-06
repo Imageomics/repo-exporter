@@ -528,7 +528,7 @@ def main():
     args = parser.parse_args()
 
     org_name = args.org or GH_ORG_NAME
-    TOKEN = args.token.strip() or GH_TOKEN
+    TOKEN = (args.token or GH_TOKEN or "").strip() or None 
     repo_type = args.repo_type
     spreadsheet_id = args.spreadsheet_id or SPREADSHEET_ID
     sheet_name = args.sheet_name or GH_SHEET_NAME
