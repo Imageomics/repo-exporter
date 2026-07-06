@@ -239,6 +239,8 @@ class BaseExporter(ABC):
                         "index": 0,
                     }
                 })
+        if not rules:
+            return
 
         sheet.spreadsheet.batch_update({"requests": rules})
         

@@ -356,7 +356,7 @@ class GitHubExporter(BaseExporter):
             for pattern in patterns:
                 match = re.search(pattern, readme, flags=re.IGNORECASE)
                 if match:
-                    url = match.group(0).rstrip(").],};:>\"'")
+                    url = match.group(0).rstrip(").],};:>\"'").replace('"', '""')
                     return f'=HYPERLINK("{url}", "Yes")'
             return "No"
         except Exception:
@@ -375,7 +375,7 @@ class GitHubExporter(BaseExporter):
             hf_pattern = r"https?://huggingface\.co/imageomics/[A-Za-z0-9_\-./]+"
             hf_match = re.search(hf_pattern, readme)
             if hf_match:
-                url = hf_match.group(0).rstrip(").],};:>\"'")
+                url = hf_match.group(0).rstrip(").],};:>\"'").replace('"', '""')
                 return f'=HYPERLINK("{url}", "Yes")'
             return "No"
         except Exception:
@@ -408,13 +408,13 @@ class GitHubExporter(BaseExporter):
                     continue
                 for pattern in url_patterns:
                     if re.search(pattern, url, re.IGNORECASE):
-                        cleaned = url.rstrip(").],};:>\"'")
+                        cleaned = url.rstrip(").],};:>\"'").replace('"', '""')
                         return f'=HYPERLINK("{cleaned}", "Yes")'
 
             if homepage:
                 for pattern in url_patterns:
                     if re.search(pattern, homepage, re.IGNORECASE):
-                        cleaned = homepage.rstrip(").],};:>\"'")
+                        cleaned = homepage.rstrip(").],};:>\"'").replace('"', '""')
                         return f'=HYPERLINK("{cleaned}", "Yes")'
 
             return "No"
@@ -436,7 +436,7 @@ class GitHubExporter(BaseExporter):
             external_patterns = ["arxiv.org", "huggingface.co", "hf.co", "doi.org"]
             if any(pattern in homepage.lower() for pattern in external_patterns):
                 return "No"
-            cleaned = homepage.rstrip(").],};:>\"'")
+            cleaned = homepage.rstrip(").],};:>\"'").replace('"', '""')
             return f'=HYPERLINK("{cleaned}", "Yes")'
         except Exception:
             return "No"
