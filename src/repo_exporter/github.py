@@ -130,11 +130,10 @@ class GitHubExporter(BaseExporter):
         try:
             if repo.get_readme():
                 return "Yes"
+            return "No"
         except GithubException:
             return "No"
         
-        return "No"
-
     def has_license(self, repo) -> str:
         """
         Return "Yes" if the repo has a license file, else "No".
@@ -146,11 +145,10 @@ class GitHubExporter(BaseExporter):
         try:
             if repo.get_license():
                 return "Yes"
+            return "No"
         except GithubException:
             return "No"
         
-        return "No"
-
     def get_num_branches(self, repo) -> int | str:
         """
         Return the total number of branches, or "N/A" on failure.
