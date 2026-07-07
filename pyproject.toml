@@ -7,17 +7,19 @@ packages = ["src/repo_exporter"]
 [project]
 name = "repo-exporter"
 dynamic = ["version"]
-description = "A Python script that collects key info (Name, description, creation date, last updated date, contributors, etc.) from all repos in a GitHub organization and saves it to a color-coded Google Sheet file of choice."
+description = "A Python package to collect key information (Name, description, creation date, last updated date, contributors, etc.) from all repos in a GitHub or Hugging Face organization and save it to a color-coded Google Sheet file of choice."
 readme = "README.md"
 requires-python =  ">=3.10"
 authors = [
     { name="Elizabeth G. Campolongo", email="e.campolongo479@gmail.com" }
 ]
-maintainers = [
-    { name = "Elizabeth G. Campolongo", email = "e.campolongo479@gmail.com" }
-]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
     "License :: OSI Approved :: MIT License",
 ]
 
@@ -52,7 +54,6 @@ Repository = "https://github.com/Imageomics/repo-exporter.git"
 "Bug Tracker" = "https://github.com/Imageomics/repo-exporter/issues"
 
 [project.scripts]
-repo-export = "repo_exporter.__main__:main"
 repo-exporter = "repo_exporter.__main__:main"
 
 [tool.hatch.version]
