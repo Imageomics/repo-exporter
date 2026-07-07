@@ -127,6 +127,7 @@ class GitHubExporter(BaseExporter):
         try:
             if repo.get_readme():
                 return "Yes"
+            return "No"
         except GithubException:
             return "No"
 
@@ -141,6 +142,7 @@ class GitHubExporter(BaseExporter):
         try:
             if repo.get_license():
                 return "Yes"
+            return "No"
         except GithubException:
             return "No"
 
