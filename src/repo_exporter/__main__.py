@@ -6,7 +6,7 @@ load_dotenv()
 
 from repo_exporter.github import GitHubExporter
 from repo_exporter.huggingface import HuggingFaceExporter
-from .__about__ import version
+from .__about__ import __version__ as version
 
 
 
@@ -96,8 +96,8 @@ def create_parser():
     
     subparsers = parser.add_subparsers(title='platform', dest='platform', required=True)
 
-    # Github command
-    gh_parser = subparsers.add_parser("github", help="Export Github repositories.")
+    # GitHub command
+    gh_parser = subparsers.add_parser("github", help="Export GitHub repositories.")
     gh_parser.add_argument("--org", default=None, help="GitHub organization name (overrides GH_ORG_NAME).")
     gh_parser.add_argument("--token", default=None, help="GitHub API token (overrides GH_TOKEN).")
     gh_parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID.")
