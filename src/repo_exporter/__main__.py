@@ -8,6 +8,15 @@ from repo_exporter.github import GitHubExporter
 from repo_exporter.huggingface import HuggingFaceExporter
 from .__about__ import __version__ as version
 
+GH_ORG_NAME = os.getenv("GH_ORG_NAME")
+GH_TOKEN = os.getenv("GH_TOKEN")
+GH_SHEET_NAME = os.getenv("GH_SHEET_NAME", "GH-Repos")
+GH_REPO_TYPE = os.getenv("GH_REPO_TYPE")
+HF_ORG_NAME = os.getenv("HF_ORG_NAME")
+HF_TOKEN = os.getenv("HF_TOKEN")
+HF_SHEET_NAME = os.getenv("HF_SHEET_NAME", "HF-Repos")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
+GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
 
 
 def export_repos(
@@ -30,18 +39,19 @@ def export_repos(
     spreadsheet_id - String | None. Google Sheets spreadsheet ID; falls back to SPREADSHEET_ID env var.
     sheet_name     - String | None. Sheet tab name; falls back to platform default.
     creds_path     - String | None. Path to service_account.json; falls back to GOOGLE_CREDENTIALS_PATH env var.
-    repo_type      - String | None. GitHub-only repo type filter.
+    repo_type      - String | None. GitHub-only repo type filter; falls back to GH_REPO_TYPE env var.
     """
     platform = platform.strip().lower()
-    spreadsheet_id = spreadsheet_id or os.getenv("SPREADSHEET_ID")
-    creds_path = creds_path or os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
+    spreadsheet_id = spreadsheet_id or SPREADSHEET_ID
+    creds_path = creds_path or GOOGLE_CREDENTIALS_PATH
 
     if platform == "github":
-        token = token or os.getenv("GH_TOKEN") or input("Enter your GitHub token: ").strip()
-        org_name = org_name or os.getenv("GH_ORG_NAME")
-        sheet_name = sheet_name or os.getenv("GH_SHEET_NAME", "GH-Repos")
-        repo_type = repo_type or os.getenv("REPO_TYPE")
-
+    
+        token = (token or GH_TOKEN or "").strip() or None
+        org_name = org_name or GH_ORG_NAME
+        sheet_name = sheet_name or GH_SHEET_NAME
+        repo_type = repo_type or GH_REPO_TYPE or "all"
+        
         _validate_required({"GH_ORG_NAME": org_name, "SPREADSHEET_ID": spreadsheet_id})
 
         exporter = GitHubExporter(
@@ -54,9 +64,9 @@ def export_repos(
         )
 
     elif platform == "huggingface":
-        token = token or os.getenv("HF_TOKEN") or input("Enter your Hugging Face token: ").strip() or None
-        org_name = org_name or os.getenv("HF_ORG_NAME")
-        sheet_name = sheet_name or os.getenv("HF_SHEET_NAME", "HF-Repos")
+        token = (token or HF_TOKEN or "").strip() or None
+        org_name = org_name or HF_ORG_NAME
+        sheet_name = sheet_name or HF_SHEET_NAME
 
         _validate_required({"HF_ORG_NAME": org_name, "SPREADSHEET_ID": spreadsheet_id})
 
@@ -91,34 +101,38 @@ def _validate_required(required_vars: dict) -> None:
 
 def create_parser():
     parser = argparse.ArgumentParser(description='Export GitHub or Hugging Face repository metadata to Google Sheets.')
-    
+
     parser.add_argument('--version', action='version', version=f'repo-exporter {version}')
-    
+
     subparsers = parser.add_subparsers(title='platform', dest='platform', required=True)
 
-# Shared args
-spreadsheet_arg = {'help': 'Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)'}
-credentials_arg = {'help': f"Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})"}
+    # Shared args
+    spreadsheet_arg = {'help': 'Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)'}
+    credentials_arg = {'help': f"Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})"}
 
     # GitHub command
     gh_parser = subparsers.add_parser("github", help="Export GitHub repositories.")
-    gh_parser.add_argument("--org", default=None, help="GitHub organization name (overrides GH_ORG_NAME).")
-    gh_parser.add_argument("--token", default=None, help="GitHub API token (overrides GH_TOKEN).")
+    gh_parser.add_argument("--org", default=None, help="GitHub org name (overrides GH_ORG_NAME in .env)")
+    gh_parser.add_argument("--token", default=None, help="GitHub personal access token (overrides GH_TOKEN in .env)")
+    gh_parser.add_argument(
+        "--repo-type",
+        default=None,
+        help=f"Repo type filter: all, public, private, forks, sources, member "
+             f"(overrides GH_REPO_TYPE in .env; default: {GH_REPO_TYPE})"
+    ) 
     gh_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
-    gh_parser.add_argument("--sheet-name", default=None, help="Sheet tab name.")
+    gh_parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides GH_SHEET_NAME in .env; default: {GH_SHEET_NAME})")
     gh_parser.add_argument("--credentials-path", **credentials_arg)
-    gh_parser.add_argument("--repo-type", default=None,
-    choices=["all", "public", "private", "forks", "sources", "member"], help="GitHub repository type filter.")
-    
+
     # Hugging Face command
     hf_parser = subparsers.add_parser("huggingface", help="Export Hugging Face repositories.")
-    hf_parser.add_argument("--org", default=None, help="Hugging Face organization name (overrides HF_ORG_NAME).")
-    hf_parser.add_argument("--token", default=None, help="Hugging Face API token (overrides HF_TOKEN).")
+    hf_parser.add_argument("--org", default=None, help="Hugging Face org name (overrides HF_ORG_NAME in .env)")
+    hf_parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
     hf_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
-    hf_parser.add_argument("--sheet-name", default=None, help="Sheet tab name.")
+    hf_parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")
     hf_parser.add_argument("--credentials-path", **credentials_arg)
-    
-    return parser 
+
+    return parser
 
 def parse_args(input_args=None):
     args = create_parser().parse_args(input_args)
@@ -126,7 +140,7 @@ def parse_args(input_args=None):
 
 def main():
     args = parse_args()
-    
+
     try:
         export_repos(
             platform=args.platform,
