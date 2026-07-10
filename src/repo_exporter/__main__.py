@@ -96,13 +96,17 @@ def create_parser():
     
     subparsers = parser.add_subparsers(title='platform', dest='platform', required=True)
 
+# Shared args
+spreadsheet_arg = {'help': 'Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)'}
+credentials_arg = {'help': f"Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})"}
+
     # GitHub command
     gh_parser = subparsers.add_parser("github", help="Export GitHub repositories.")
     gh_parser.add_argument("--org", default=None, help="GitHub organization name (overrides GH_ORG_NAME).")
     gh_parser.add_argument("--token", default=None, help="GitHub API token (overrides GH_TOKEN).")
-    gh_parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID.")
+    gh_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
     gh_parser.add_argument("--sheet-name", default=None, help="Sheet tab name.")
-    gh_parser.add_argument("--credentials-path", default=None, help="Path to service_account.json.")
+    gh_parser.add_argument("--credentials-path", **credentials_arg)
     gh_parser.add_argument("--repo-type", default=None,
     choices=["all", "public", "private", "forks", "sources", "member"], help="GitHub repository type filter.")
     
@@ -110,9 +114,9 @@ def create_parser():
     hf_parser = subparsers.add_parser("huggingface", help="Export Hugging Face repositories.")
     hf_parser.add_argument("--org", default=None, help="Hugging Face organization name (overrides HF_ORG_NAME).")
     hf_parser.add_argument("--token", default=None, help="Hugging Face API token (overrides HF_TOKEN).")
-    hf_parser.add_argument("--spreadsheet-id", default=None, help="Google Sheets spreadsheet ID.")
+    hf_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
     hf_parser.add_argument("--sheet-name", default=None, help="Sheet tab name.")
-    hf_parser.add_argument("--credentials-path", default=None, help="Path to service_account.json.")
+    hf_parser.add_argument("--credentials-path", **credentials_arg)
     
     return parser 
 
