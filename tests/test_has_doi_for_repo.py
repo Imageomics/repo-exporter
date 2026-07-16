@@ -149,3 +149,23 @@ def test_citation_cff_takes_precedence_over_badge():
     repo = FakeRepo(citation)
     readme = '[![DOI](https://zenodo.org/badge/647846144.svg)](https://doi.org/10.5281/zenodo.99999999)'
     assert has_doi(repo, readme) == "https://doi.org/10.5281/zenodo.11288083" 
+
+def test_citation_no_doi_falls_back_to_badge():
+    # CITATION.cff exists and parses fine but has no DOI field at all
+    # README has a valid Zenodo badge so badge DOI should be used
+    citation = """
+    title: Test
+    version: 1.0.0
+    """
+    repo = FakeRepo(citation)
+    readme = '[![DOI](https://zenodo.org/badge/647846144.svg)](https://doi.org/10.5281/zenodo.16755893)'
+    assert has_doi(repo, readme) == "https://doi.org/10.5281/zenodo.16755893"
+
+def test_malformed_citation_falls_back_to_badge():
+    # CITATION.cff exists but is not valid YAML (raises during parsing)
+    # README has a valid Zenodo badge so badge DOI should be used
+    
+    citation = "title: [Test: unclosed bracket\ndoi: 10.5281/zenodo.99999999"
+    repo = FakeRepo(citation)
+    readme = '[![DOI](https://zenodo.org/badge/647846144.svg)](https://doi.org/10.5281/zenodo.16755893)'
+    assert has_doi(repo, readme) == "https://doi.org/10.5281/zenodo.16755893"
