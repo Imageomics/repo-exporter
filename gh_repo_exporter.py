@@ -289,8 +289,42 @@ def get_primary_language(repo) -> str:
         return max(languages, key=languages.get)
     except Exception:
         return "N/A"
+    
+def _is_valid_paper_link_for_doi(url: str) -> bool:
+    """
+    Checks whether a matched URL should count as a paper association.
+    
+    doi.org links are only accepted if they contain "arxiv" (e.g. an
+    arXiv-issued DOI). This filters out non-paper doi.org links (Zenodo DOIs) 
+    which belongs in the "DOI for GitHub Repo" column. 
+    """
+
+    if "doi.org" in url.lower():
+        return "arxiv" in url.lower()
+    return True
+
+def _first_valid_paper_match(patterns: list[str], text: str) -> str | None:
+    """
+    Searches text for the first URL matching any pattern in its priority order
+    that passes _is_valid_paper_link_for_doi().
+    
+    Returns the cleaned URL string if found, otherwise None.
+    """
+    for pattern in patterns:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            cleaned = match.group(0).rstrip(").],};:>\"'")
+            if _is_valid_paper_link_for_doi(cleaned):
+                return cleaned
+    return None
 
 def get_associated_paper(readme: str, homepage: str | None = None) -> str:
+    """
+    Checks the README and then homepage as fallback for a link to an
+    associated paper.
+    
+    Returns an =HYPERLINK(...) formula pointing to the paper if found,
+    otherwise "No".
+    """
     try:
         url_patterns = [
             r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
@@ -302,19 +336,15 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
             r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
         ]
 
-        # Check README for paper-associated links regardless of surrounding markdown formatting
-        for pattern in url_patterns:
-            match = re.search(pattern, readme, re.IGNORECASE)
-            if match:
-                cleaned = match.group(0).rstrip(").],};:>\"'")
+        cleaned = _first_valid_paper_match(url_patterns, readme)
+        if cleaned:
+            return f'=HYPERLINK("{cleaned}", "Yes")'
+        
+        if homepage:
+            cleaned = _first_valid_paper_match(url_patterns, homepage)
+            if cleaned:
                 return f'=HYPERLINK("{cleaned}", "Yes")'
 
-        # Check About section URL as fallback  
-        if homepage:
-            for pattern in url_patterns:
-                if re.search(pattern, homepage, re.IGNORECASE):
-                    cleaned = homepage.rstrip(").],};:>\"'")
-                    return f'=HYPERLINK("{cleaned}", "Yes")'
         return "No"
     except Exception:
         return "No"
