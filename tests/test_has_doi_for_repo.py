@@ -109,3 +109,43 @@ def test_missing_citation_file():
 
     repo = NoCitationRepo()
     assert has_doi(repo) == "No"
+    
+def test_doi_badge_in_readme_no_citation():
+    # No CITATION.cff, but README has a Zenodo DOI badge pointing to doi.org
+    class NoCitationRepo:
+        def get_contents(self, path):
+            raise FileNotFoundError()
+
+    repo = NoCitationRepo()
+    readme = '[![DOI](https://zenodo.org/badge/647846144.svg)](https://doi.org/10.5281/zenodo.16755893)'
+    assert has_doi(repo, readme) == "https://doi.org/10.5281/zenodo.16755893"
+
+def test_doi_badge_latestdoi_link():
+    # No CITATION.cff, README badge links to the unresolved zenodo "latestdoi" redirect
+    class NoCitationRepo:
+        def get_contents(self, path):
+            raise FileNotFoundError()
+
+    repo = NoCitationRepo()
+    readme = '[![DOI](https://zenodo.org/badge/195575274.svg)](https://zenodo.org/badge/latestdoi/195575274)'
+    assert has_doi(repo, readme) == "https://zenodo.org/badge/latestdoi/195575274"
+
+def test_no_citation_and_no_badge_returns_no():
+    # No CITATION.cff and no badge in README
+    class NoCitationRepo:
+        def get_contents(self, path):
+            raise FileNotFoundError()
+
+    repo = NoCitationRepo()
+    readme = "Just a regular readme with no DOI badge."
+    assert has_doi(repo, readme) == "No"
+
+def test_citation_cff_takes_precedence_over_badge():
+    # CITATION.cff has a valid DOI; README badge should be ignored
+    citation = """
+    title: Test
+    doi: "10.5281/zenodo.11288083"
+    """
+    repo = FakeRepo(citation)
+    readme = '[![DOI](https://zenodo.org/badge/647846144.svg)](https://doi.org/10.5281/zenodo.99999999)'
+    assert has_doi(repo, readme) == "https://doi.org/10.5281/zenodo.11288083" 
