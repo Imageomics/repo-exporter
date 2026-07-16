@@ -186,11 +186,11 @@ def is_valid_doi(doi: str | None) -> bool:
     return True
 
 
-def has_doi(repo) -> str:
+def has_doi(repo, readme: str = "") -> str:
     """
-    Checks whether a repo contains a valid DOI in its CITATION.cff file. 
+    Checks whether a repo contains a valid DOI in its CITATION.cff file, or a Zenodo DOI badge in its README. 
     
-    Returns "Yes" if a valid DOI is found, otherwise "No"
+    Returns a DOI link if found, otherwise "No"
     """
     
     # Retrieving CITATION.cff file from repo
@@ -239,12 +239,27 @@ def has_doi(repo) -> str:
                 if is_valid_doi(val):
                     return "https://doi.org/" + val
                 
-        # If no valid DOI found
-        return "No"
-    
     except Exception:
-        # if CITATION.cff file doesn't exist or any parsing error occurs, return "No" 
-        return "No"
+        # if CITATION.cff file doesn't exist/ unparsable, fall back to DOI badge check in README
+        pass
+        
+    # Check for Zenodo DOI badge in README, e.g.
+    # [![DOI](https://zenodo.org/badge/647846144.svg)](https://doi.org/10.5281/zenodo.16755893)     
+       
+    try:
+        if readme:
+            badge_match = re.search(
+                r"\[!\[DOI\]\(https?://zenodo\.org/badge/\d+\.svg\)\]\((https?://\S+?)\)",
+                readme,
+                re.IGNORECASE,
+            )
+            if badge_match:
+                return badge_match.group(1).rstrip(").],};:>\"'")
+    except Exception:
+        pass
+    
+    return "No"
+    
         
 def get_dataset(readme: str, repo_name: str) -> str:
     try:
@@ -381,7 +396,7 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
         "Model": get_model(readme_content_lower),
         "Paper Association": get_associated_paper(readme_content_lower, repo.homepage),
-        "DOI for GitHub Repo": has_doi(repo),
+        "DOI for GitHub Repo": has_doi(repo,  readme_content_lower),
     }
 
 def extract_display_name(val: str) -> str:
