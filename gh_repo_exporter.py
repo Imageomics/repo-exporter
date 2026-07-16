@@ -302,21 +302,13 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
             r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
         ]
 
-        # checks for [<name>](<url>)
-        markdown_link_pattern = r"\[([^\]]+)\]\((.*?)\)"
+        # Check README for paper-associated links regardless of surrounding markdown formatting
+        for pattern in url_patterns:
+            match = re.search(pattern, readme, re.IGNORECASE)
+            if match:
+                cleaned = match.group(0).rstrip(").],};:>\"'")
+                return f'=HYPERLINK("{cleaned}", "Yes")'
 
-        # Check README for paper-associated links
-        for label, url in re.findall(markdown_link_pattern, readme):
-            # Only accept label == "paper" or "arXiv" (case-insensitive)
-            if label.strip().lower() not in {"paper", "arxiv"}:
-                continue
-
-            # Check if URL matches a paper source
-            for pattern in url_patterns:
-                if re.search(pattern, url, re.IGNORECASE):
-                    cleaned = url.rstrip(").],};:>\"'")
-                    return f'=HYPERLINK("{cleaned}", "Yes")'
-                
         # Check About section URL as fallback  
         if homepage:
             for pattern in url_patterns:
