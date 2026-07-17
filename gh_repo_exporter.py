@@ -299,8 +299,9 @@ def _is_valid_paper_link_for_doi(url: str) -> bool:
     which belongs in the "DOI for GitHub Repo" column. 
     """
 
+    # the denylist
     if "doi.org" in url.lower():
-        return "arxiv" in url.lower()
+        return "zenodo" not in url.lower()
     return True
 
 def _first_valid_paper_match(patterns: list[str], text: str) -> str | None:
