@@ -297,14 +297,16 @@ class GitHubExporter(BaseExporter):
             return False
         return True
 
-    def has_doi(self, repo) -> str:
+    def has_doi(self, repo, readme: str = "") -> str:
         """
-        Check CITATION.cff for a valid Zenodo DOI.
-        Returns a full https://doi.org/ URL or "No".
+        Check CITATION.cff for a valid Zenodo DOI, falling back to a Zenodo DOI
+        badge in the README if CITATION.cff has no valid DOI.
+        Returns a DOI URL or "No".
 
         Parameters:
         ------------
-        repo - PyGitHub Repository object.
+        repo   - PyGitHub Repository object.
+        readme - String. Lowercased README content, used for the badge fallback.
         """
         try:
             content_file = repo.get_contents("CITATION.cff")
@@ -331,9 +333,24 @@ class GitHubExporter(BaseExporter):
                     if self.is_valid_doi(val):
                         return "https://doi.org/" + val
 
-            return "No"
         except Exception:
-            return "No"
+            pass
+
+        # Fall back to a Zenodo DOI badge in the README, e.g.
+        # [![DOI](https://zenodo.org/badge/647846144.svg)](https://doi.org/10.5281/zenodo.16755893)
+        try:
+            if readme:
+                badge_match = re.search(
+                    r"\[!\[DOI\]\(https?://zenodo\.org/badge/\d+\.svg\)\]\((https?://\S+?)\)",
+                    readme,
+                    re.IGNORECASE,
+                )
+                if badge_match:
+                    return badge_match.group(1).rstrip(").],};:>\"'")
+        except Exception:
+            pass
+
+        return "No"
 
     def get_dataset(self, readme: str, repo_name: str) -> str:
         """
@@ -479,7 +496,7 @@ class GitHubExporter(BaseExporter):
             "Dataset": self.get_dataset(readme_content_lower, repo.name.lower()),
             "Model": self.get_model(readme_content_lower),
             "Paper Association": self.get_associated_paper(readme_content_lower, repo.homepage),
-            "DOI for GitHub Repo": self.has_doi(repo),
+            "DOI for GitHub Repo": self.has_doi(repo, readme_content_lower),
         }
 
     

@@ -142,6 +142,20 @@ def make_mock_repo(
 
     return repo
 
+def _repo_with_citation(citation_text: str) -> MagicMock:
+    """
+    Build a minimal mock repo whose get_contents("CITATION.cff") returns
+    the given citation text, and raises GithubException for anything else.
+    """
+    repo = MagicMock()
+
+    def get_contents(path, *args, **kwargs):
+        if path == "CITATION.cff":
+            return FakeContentFile(citation_text)
+        raise GithubException(404, "Not Found", None)
+
+    repo.get_contents.side_effect = get_contents
+    return repo
 
 FULL_README = """
 # Cool Project
@@ -160,10 +174,7 @@ title: Cool Project
 doi: 10.5281/zenodo.1234567
 """
 
-
-# ---------------------------------------------------------------------------
 # get_repo_info golden tests
-# ---------------------------------------------------------------------------
 
 def test_get_repo_info_matches_expected_output():
     """Golden test: a fully-populated repo should produce this exact row."""
@@ -311,9 +322,7 @@ def test_get_repo_info_forked_and_archived_repo():
     assert result["DOI for GitHub Repo"] == "No"
 
 
-# ---------------------------------------------------------------------------
 # get_repo_creator (cache hit / fallback paths)
-# ---------------------------------------------------------------------------
 
 def _make_repo_for_creator(name: str, created_at_str: str) -> MagicMock:
     repo = MagicMock()
@@ -460,9 +469,7 @@ def test_get_repo_creator_correct_last_page_index_is_requested():
     commits.get_page.assert_called_once_with(expected_page)
 
 
-# ---------------------------------------------------------------------------
 # is_valid_doi / has_doi
-# ---------------------------------------------------------------------------
 
 def test_is_valid_doi_accepts_zenodo_doi():
     exporter = make_exporter()
@@ -485,9 +492,7 @@ def test_is_valid_doi_rejects_none_and_non_string():
     assert exporter.is_valid_doi(12345) is False
 
 
-# ---------------------------------------------------------------------------
 # get_website_reference / get_dataset / get_model / get_associated_paper
-# ---------------------------------------------------------------------------
 
 def test_get_website_reference_returns_hyperlink_for_real_site():
     exporter = make_exporter()
@@ -532,3 +537,30 @@ def test_get_associated_paper_falls_back_to_homepage():
     exporter = make_exporter()
     result = exporter.get_associated_paper("no paper link here", homepage="https://arxiv.org/abs/9999")
     assert result == '=HYPERLINK("https://arxiv.org/abs/9999", "Yes")'
+    
+def test_has_doi_falls_back_to_readme_badge_when_no_citation_doi():
+    exporter = make_exporter()
+    repo = _repo_with_citation("title: Test\nversion: 1.0.0\n")
+    readme = (
+        "[![DOI](https://zenodo.org/badge/647846144.svg)]"
+        "(https://doi.org/10.5281/zenodo.16755893)"
+    )
+    assert exporter.has_doi(repo, readme) == "https://doi.org/10.5281/zenodo.16755893"
+
+
+def test_has_doi_prefers_citation_doi_over_badge():
+    exporter = make_exporter()
+    citation = 'title: Test\ndoi: "10.5281/zenodo.11288083"\n'
+    repo = _repo_with_citation(citation)
+    readme = (
+        "[![DOI](https://zenodo.org/badge/999.svg)]"
+        "(https://doi.org/10.5281/zenodo.99999999)"
+    )
+    assert exporter.has_doi(repo, readme) == "https://doi.org/10.5281/zenodo.11288083"
+
+
+def test_has_doi_no_citation_and_no_badge_returns_no():
+    exporter = make_exporter()
+    repo = MagicMock()
+    repo.get_contents.side_effect = GithubException(404, "Not Found", None)
+    assert exporter.has_doi(repo, "no badge here") == "No"
