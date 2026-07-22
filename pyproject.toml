@@ -58,3 +58,7 @@ repo-exporter = "repo_exporter.__main__:main"
 
 [tool.hatch.version]
 path = "src/repo_exporter/__about__.py"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

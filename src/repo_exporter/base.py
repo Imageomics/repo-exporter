@@ -9,7 +9,6 @@ from tqdm import tqdm
 from google.oauth2.service_account import Credentials
 import gspread
 
-
 class BaseExporter(ABC):
     """
     Base class for platform-specific repo exporters.
@@ -348,5 +347,3 @@ class BaseExporter(ABC):
         elapsed = time.time() - start_time
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"Total time taken: {minutes}m {seconds}s")
-
-    
