@@ -289,33 +289,38 @@ def get_primary_language(repo) -> str:
         return max(languages, key=languages.get)
     except Exception:
         return "N/A"
-    
-def _is_valid_paper_link_for_doi(url: str) -> bool:
-    """
-    Checks whether a matched URL should count as a paper association.
-    
-    doi.org links are only accepted if they contain "arxiv" (e.g. an
-    arXiv-issued DOI). This filters out non-paper doi.org links (Zenodo DOIs) 
-    which belongs in the "DOI for GitHub Repo" column. 
-    """
 
-    # the denylist
-    if "doi.org" in url.lower():
-        return "zenodo" not in url.lower()
-    return True
+# DOI registrant prefixes for known paper-hosting publishers.
+DOI_REGISTRANT_PREFIXES = {
+    "48550": "arXiv",
+    "1109": "IEEE",
+    "1111": "Wiley",
+    "1073": "PNAS",
+    "1126": "Science / AAAS",
+    "7717": "PeerJ",
+    "1038": "Nature",
+    "1007": "Springer",
+    "1145": "ACM",
+    "1101": "bioRxiv / Cold Spring Harbor",
+}
+
+_DOI_PUB_CODES = "|".join(DOI_REGISTRANT_PREFIXES)
+_KNOWN_PUBLISHER_DOI_PATTERN = (
+    rf"https?://doi\.org/10\.(?:{_DOI_PUB_CODES})/[A-Za-z0-9\-./]+"
+)
 
 def _first_valid_paper_match(patterns: list[str], text: str) -> str | None:
     """
-    Searches text for the first URL matching any pattern in its priority order
-    that passes _is_valid_paper_link_for_doi().
+    Searches text for the first URL matching any pattern in its priority
+    order. Patterns are constructed to only match known-good sources, so
+    any match found is valid by construction.
     
     Returns the cleaned URL string if found, otherwise None.
     """
     for pattern in patterns:
-        for match in re.finditer(pattern, text, re.IGNORECASE):
-            cleaned = match.group(0).rstrip(").],};:>\"'")
-            if _is_valid_paper_link_for_doi(cleaned):
-                return cleaned
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return match.group(0).rstrip(").],};:>\"'")
     return None
 
 def get_associated_paper(readme: str, homepage: str | None = None) -> str:
@@ -329,7 +334,7 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
     try:
         url_patterns = [
             r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
-            r"https?://doi\.org/[A-Za-z0-9_\-./]+",
+            _KNOWN_PUBLISHER_DOI_PATTERN,
             r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+",
             r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+",
             r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+",
