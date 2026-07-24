@@ -305,39 +305,70 @@ def get_primary_language(repo) -> str:
     except Exception:
         return "N/A"
 
+# DOI registrant prefixes for known paper-hosting publishers.
+DOI_REGISTRANT_PREFIXES = {
+    "48550": "arXiv",
+    "1109": "IEEE",
+    "1111": "Wiley",
+    "1073": "PNAS",
+    "1126": "Science / AAAS",
+    "7717": "PeerJ",
+    "1038": "Nature",
+    "1007": "Springer",
+    "1145": "ACM",
+    "1101": "bioRxiv / Cold Spring Harbor",
+    "1080": "Taylor & Francis",
+}
+
+_DOI_PUB_CODES = "|".join(DOI_REGISTRANT_PREFIXES)
+_KNOWN_PUBLISHER_DOI_PATTERN = (
+    rf"https?://doi\.org/10\.(?:{_DOI_PUB_CODES})/[A-Za-z0-9\-./]+"
+)
+
+def _first_valid_paper_match(patterns: list[str], text: str) -> str | None:
+    """
+    Searches text for the first URL matching any pattern in its priority
+    order. Patterns are constructed to only match known-good sources, so
+    any match found is valid by construction.
+    
+    Returns the cleaned URL string if found, otherwise None.
+    """
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return match.group(0).rstrip(").],};:>\"'")
+    return None
+
 def get_associated_paper(readme: str, homepage: str | None = None) -> str:
+    """
+    Checks the README and then homepage as fallback for a link to an
+    associated paper.
+    
+    Returns an =HYPERLINK(...) formula pointing to the paper if found,
+    otherwise "No".
+    """
     try:
         url_patterns = [
             r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
-            r"https?://doi\.org/[A-Za-z0-9_\-./]+",
+            _KNOWN_PUBLISHER_DOI_PATTERN,
             r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+",
             r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+",
+            r"https?://www\.biorxiv\.org/[A-Za-z0-9_\-./]+",
+            r"https?://www\.pnas\.org/[A-Za-z0-9_\-./]+",
             r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+",
             r"https?://ieeexplore\.ieee\.org/[A-Za-z0-9_\-./]+",
             r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
         ]
 
-        # checks for [<name>](<url>)
-        markdown_link_pattern = r"\[([^\]]+)\]\((.*?)\)"
-
-        # Check README for paper-associated links
-        for label, url in re.findall(markdown_link_pattern, readme):
-            # Only accept label == "paper" or "arXiv" (case-insensitive)
-            if label.strip().lower() not in {"paper", "arxiv"}:
-                continue
-
-            # Check if URL matches a paper source
-            for pattern in url_patterns:
-                if re.search(pattern, url, re.IGNORECASE):
-                    cleaned = url.rstrip(").],};:>\"'")
-                    return f'=HYPERLINK("{cleaned}", "Yes")'
-                
-        # Check About section URL as fallback  
+        cleaned = _first_valid_paper_match(url_patterns, readme)
+        if cleaned:
+            return f'=HYPERLINK("{cleaned}", "Yes")'
+        
         if homepage:
-            for pattern in url_patterns:
-                if re.search(pattern, homepage, re.IGNORECASE):
-                    cleaned = homepage.rstrip(").],};:>\"'")
-                    return f'=HYPERLINK("{cleaned}", "Yes")'
+            cleaned = _first_valid_paper_match(url_patterns, homepage)
+            if cleaned:
+                return f'=HYPERLINK("{cleaned}", "Yes")'
+
         return "No"
     except Exception:
         return "No"
