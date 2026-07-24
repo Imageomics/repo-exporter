@@ -185,6 +185,7 @@ def is_valid_doi(doi: str | None) -> bool:
     
     return True
 
+
 def has_doi(repo, readme: str = "") -> str:
     """
     Checks whether a repo contains a valid DOI in its CITATION.cff file, or a Zenodo DOI badge in its README. 
@@ -258,6 +259,7 @@ def has_doi(repo, readme: str = "") -> str:
         pass
     
     return "No"
+    
         
 def get_dataset(readme: str, repo_name: str) -> str:
     try:
@@ -394,7 +396,7 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
         "Model": get_model(readme_content_lower),
         "Paper Association": get_associated_paper(readme_content_lower, repo.homepage),
-        "DOI for GitHub Repo": has_doi(repo, readme_content_lower),
+        "DOI for GitHub Repo": has_doi(repo,  readme_content_lower),
     }
 
 def extract_display_name(val: str) -> str:
