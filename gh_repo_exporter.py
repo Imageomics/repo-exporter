@@ -313,11 +313,17 @@ _KNOWN_PUBLISHER_DOI_PATTERN = (
 # Direct (non-DOI) URL patterns for known paper-hosting publishers.
 PAPER_HOST_DOMAINS = {
     "arxiv.org": "arXiv",
-    "link.springer.com": "Springer",
-    "www.nature.com": "Nature",
-    "dl.acm.org": "ACM",
     "ieeexplore.ieee.org": "IEEE",
+    "onlinelibrary.wiley.com": "Wiley",
+    "www.pnas.org": "PNAS",
+    "www.science.org": "Science / AAAS",
+    "peerj.com": "PeerJ",
+    "www.nature.com": "Nature",
+    "link.springer.com": "Springer",
+    "dl.acm.org": "ACM",
+    "www.biorxiv.org": "bioRxiv / Cold Spring Harbor",
     "www.researchgate.net": "ResearchGate",
+    "www.tandfonline.com": "Taylor & Francis",
 }
 
 _PAPER_HOST_DOMAIN_CODES = "|".join(re.escape(d) for d in PAPER_HOST_DOMAINS)
