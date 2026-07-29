@@ -16,6 +16,47 @@ PACKAGE_REQUIREMENT_FILES = [
     "package.json", "package-lock.json", "yarn.lock", "bower.json",
 ]
 
+# DOI registrant prefixes for known paper-hosting publishers.
+DOI_REGISTRANT_PREFIXES = {
+    "48550": "arXiv",
+    "1109": "IEEE",
+    "1111": "Wiley",
+    "1073": "PNAS",
+    "1126": "Science / AAAS",
+    "7717": "PeerJ",
+    "1038": "Nature",
+    "1007": "Springer",
+    "1145": "ACM",
+    "1101": "bioRxiv / Cold Spring Harbor",
+    "1080": "Taylor & Francis",
+}
+
+_DOI_PUB_CODES = "|".join(DOI_REGISTRANT_PREFIXES)
+_KNOWN_PUBLISHER_DOI_PATTERN = (
+    rf"https?://doi\.org/10\.(?:{_DOI_PUB_CODES})/[A-Za-z0-9\-./]+"
+)
+
+# Direct (non-DOI) URL patterns for known paper-hosting publishers.
+PAPER_HOST_DOMAINS = {
+    "arxiv.org": "arXiv",
+    "ieeexplore.ieee.org": "IEEE",
+    "onlinelibrary.wiley.com": "Wiley",
+    "www.pnas.org": "PNAS",
+    "www.science.org": "Science / AAAS",
+    "peerj.com": "PeerJ",
+    "www.nature.com": "Nature",
+    "link.springer.com": "Springer",
+    "dl.acm.org": "ACM",
+    "www.biorxiv.org": "bioRxiv / Cold Spring Harbor",
+    "www.researchgate.net": "ResearchGate",
+    "www.tandfonline.com": "Taylor & Francis",
+}
+
+_PAPER_HOST_DOMAIN_CODES = "|".join(re.escape(d) for d in PAPER_HOST_DOMAINS)
+_KNOWN_PAPER_HOST_PATTERN = (
+    rf"https?://(?:{_PAPER_HOST_DOMAIN_CODES})/[A-Za-z0-9_\-./]+"
+)
+
 class GitHubExporter(BaseExporter):
     """
     Exports GitHub org repo metadata to a Google Sheet.
@@ -396,10 +437,29 @@ class GitHubExporter(BaseExporter):
         except Exception:
             return "No"
 
+    @staticmethod
+    def _first_valid_paper_match(patterns: list[str], text: str) -> str | None:
+        """
+        Search text for the first URL matching any pattern in priority order.
+        Patterns only match known-good sources, so any match found is valid
+        by construction.
+
+        Parameters:
+        ------------
+        patterns - List of regex pattern strings, checked in order.
+        text     - String to search.
+        """
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(0).rstrip(").],};:>\"'")
+        return None
+
     def get_associated_paper(self, readme: str, homepage: str | None = None) -> str:
         """
-        Search README for a markdown link labeled "paper" or "arxiv" pointing to
-        a known publisher URL. Falls back to homepage. Returns a HYPERLINK formula or "No".
+        Check the README and then homepage as fallback for a link to an
+        associated paper, matched against known publisher DOI and direct
+        URL patterns. Returns a HYPERLINK formula or "No".
 
         Parameters:
         ------------
@@ -408,29 +468,20 @@ class GitHubExporter(BaseExporter):
         """
         try:
             url_patterns = [
-                r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
-                r"https?://doi\.org/[A-Za-z0-9_\-./]+",
-                r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+",
-                r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+",
-                r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+",
-                r"https?://ieeexplore\.ieee\.org/[A-Za-z0-9_\-./]+",
-                r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
+                _KNOWN_PAPER_HOST_PATTERN,
+                _KNOWN_PUBLISHER_DOI_PATTERN,
             ]
-            markdown_link_pattern = r"\[([^\]]+)\]\((.*?)\)"
 
-            for label, url in re.findall(markdown_link_pattern, readme):
-                if label.strip().lower() not in {"paper", "arxiv"}:
-                    continue
-                for pattern in url_patterns:
-                    if re.search(pattern, url, re.IGNORECASE):
-                        cleaned = url.rstrip(").],};:>\"'").replace('"', '""')
-                        return f'=HYPERLINK("{cleaned}", "Yes")'
+            cleaned = self._first_valid_paper_match(url_patterns, readme)
+            if cleaned:
+                cleaned = cleaned.replace('"', '""')
+                return f'=HYPERLINK("{cleaned}", "Yes")'
 
             if homepage:
-                for pattern in url_patterns:
-                    if re.search(pattern, homepage, re.IGNORECASE):
-                        cleaned = homepage.rstrip(").],};:>\"'").replace('"', '""')
-                        return f'=HYPERLINK("{cleaned}", "Yes")'
+                cleaned = self._first_valid_paper_match(url_patterns, homepage)
+                if cleaned:
+                    cleaned = cleaned.replace('"', '""')
+                    return f'=HYPERLINK("{cleaned}", "Yes")'
 
             return "No"
         except Exception:
