@@ -302,6 +302,17 @@ DOI_REGISTRANT_PREFIXES = {
     "1007": "Springer",
     "1145": "ACM",
     "1101": "bioRxiv / Cold Spring Harbor",
+    "1080": "Taylor & Francis",
+}
+
+# Direct (non-DOI) URL patterns for known paper-hosting publishers.
+PAPER_HOST_URL_PATTERNS = {
+    r"https?://arxiv\.org/[A-Za-z0-9_\-./]+": "arXiv",
+    r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+": "Springer",
+    r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+": "Nature",
+    r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+": "ACM",
+    r"https?://ieeexplore\.ieee\.org/[A-Za-z0-9_\-./]+": "IEEE",
+    r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+": "ResearchGate",
 }
 
 # Direct (non-DOI) URL patterns for known paper-hosting publishers.
@@ -345,6 +356,13 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
         url_patterns = [
             *PAPER_HOST_URL_PATTERNS,
             _KNOWN_PUBLISHER_DOI_PATTERN,
+            r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+",
+            r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+",
+            r"https?://www\.biorxiv\.org/[A-Za-z0-9_\-./]+",
+            r"https?://www\.pnas\.org/[A-Za-z0-9_\-./]+",
+            r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+",
+            r"https?://ieeexplore\.ieee\.org/[A-Za-z0-9_\-./]+",
+            r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
         ]
         
         cleaned = _first_valid_paper_match(url_patterns, readme)
