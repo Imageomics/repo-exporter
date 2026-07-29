@@ -305,19 +305,24 @@ DOI_REGISTRANT_PREFIXES = {
     "1080": "Taylor & Francis",
 }
 
-# Direct (non-DOI) URL patterns for known paper-hosting publishers.
-PAPER_HOST_URL_PATTERNS = {
-    r"https?://arxiv\.org/[A-Za-z0-9_\-./]+": "arXiv",
-    r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+": "Springer",
-    r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+": "Nature",
-    r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+": "ACM",
-    r"https?://ieeexplore\.ieee\.org/[A-Za-z0-9_\-./]+": "IEEE",
-    r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+": "ResearchGate",
-}
-
 _DOI_PUB_CODES = "|".join(DOI_REGISTRANT_PREFIXES)
 _KNOWN_PUBLISHER_DOI_PATTERN = (
     rf"https?://doi\.org/10\.(?:{_DOI_PUB_CODES})/[A-Za-z0-9\-./]+"
+)
+
+# Direct (non-DOI) URL patterns for known paper-hosting publishers.
+PAPER_HOST_DOMAINS = {
+    "arxiv.org": "arXiv",
+    "link.springer.com": "Springer",
+    "www.nature.com": "Nature",
+    "dl.acm.org": "ACM",
+    "ieeexplore.ieee.org": "IEEE",
+    "www.researchgate.net": "ResearchGate",
+}
+
+_PAPER_HOST_DOMAIN_CODES = "|".join(re.escape(d) for d in PAPER_HOST_DOMAINS)
+_KNOWN_PAPER_HOST_PATTERN = (
+    rf"https?://(?:{_PAPER_HOST_DOMAIN_CODES})/[A-Za-z0-9_\-./]+"
 )
 
 def _first_valid_paper_match(patterns: list[str], text: str) -> str | None:
@@ -344,7 +349,7 @@ def get_associated_paper(readme: str, homepage: str | None = None) -> str:
     """
     try:
         url_patterns = [
-            *PAPER_HOST_URL_PATTERNS,
+            _KNOWN_PAPER_HOST_PATTERN,
             _KNOWN_PUBLISHER_DOI_PATTERN,
         ]
 
