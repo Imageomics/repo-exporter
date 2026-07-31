@@ -441,8 +441,9 @@ class GitHubExporter(BaseExporter):
     def _first_valid_paper_match(patterns: list[str], text: str) -> str | None:
         """
         Search text for the first URL matching any pattern in priority order.
-        Patterns only match known-good sources, so any match found is valid
-        by construction.
+        Patterns only constructed to only match known-good sources, so any match found is valid by construction.
+        
+        Returns a cleaned URL string if match found, otherwise None.
 
         Parameters:
         ------------
@@ -459,7 +460,7 @@ class GitHubExporter(BaseExporter):
         """
         Check the README and then homepage as fallback for a link to an
         associated paper, matched against known publisher DOI and direct
-        URL patterns. Returns a HYPERLINK formula or "No".
+        URL patterns. Returns a HYPERLINK formula pointing to the paper if found, or "No".
 
         Parameters:
         ------------
