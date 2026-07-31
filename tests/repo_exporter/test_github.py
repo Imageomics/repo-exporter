@@ -565,37 +565,43 @@ def test_has_doi_no_citation_and_no_badge_returns_no():
     repo.get_contents.side_effect = GithubException(404, "Not Found", None)
     assert exporter.has_doi(repo, "no badge here") == "No"
 
-# _first_valid_paper_match()
+# _find_paper_matches()
 
-def test_first_valid_paper_match_returns_first_matching_pattern():
-    patterns = [r"https?://foo\.com/\S+", r"https?://bar\.com/\S+"]
-    text = "check out https://bar.com/page1"
-    result = GitHubExporter._first_valid_paper_match(patterns, text)
-    assert result == "https://bar.com/page1"
-
-
-def test_first_valid_paper_match_respects_pattern_priority_order():
-    """If multiple patterns could match, the earlier pattern in the list wins,
-    even if its match appears later in the text."""
-    patterns = [r"https?://bar\.com/\S+", r"https?://foo\.com/\S+"]
-    text = "https://foo.com/first then https://bar.com/second"
-    result = GitHubExporter._first_valid_paper_match(patterns, text)
-    assert result == "https://bar.com/second"
+def test_find_paper_matches_finds_direct_and_doi_matches():
+    exporter = make_exporter()
+    text = "https://arxiv.org/abs/1234 and https://doi.org/10.1038/s41586-020-1234-5"
+    matches = exporter._find_paper_matches(text)
+    urls = {m[3] for m in matches}
+    assert urls == {
+        "https://arxiv.org/abs/1234",
+        "https://doi.org/10.1038/s41586-020-1234-5",
+    }
 
 
-def test_first_valid_paper_match_strips_trailing_punctuation():
-    patterns = [r"https?://foo\.com/\S+"]
-    text = "(see https://foo.com/page)."
-    result = GitHubExporter._first_valid_paper_match(patterns, text)
-    assert result == "https://foo.com/page"
+def test_find_paper_matches_flags_preprints():
+    exporter = make_exporter()
+    matches = exporter._find_paper_matches("https://arxiv.org/abs/1234")
+    assert matches[0][2] is True  # is_preprint
 
 
-def test_first_valid_paper_match_returns_none_when_no_pattern_matches():
-    patterns = [r"https?://foo\.com/\S+"]
-    text = "nothing relevant here"
-    assert GitHubExporter._first_valid_paper_match(patterns, text) is None
+def test_find_paper_matches_flags_publications():
+    exporter = make_exporter()
+    matches = exporter._find_paper_matches("https://www.nature.com/articles/s41586")
+    assert matches[0][2] is False  # is_preprint
 
-# get_associated_paper()
+
+def test_find_paper_matches_strips_trailing_punctuation():
+    exporter = make_exporter()
+    matches = exporter._find_paper_matches("(see https://arxiv.org/abs/1234).")
+    assert matches[0][3] == "https://arxiv.org/abs/1234"
+
+
+def test_find_paper_matches_returns_empty_list_when_no_match():
+    exporter = make_exporter()
+    assert exporter._find_paper_matches("nothing relevant here") == []
+    
+# get_associated_paper() priority rules 
+
 
 def test_get_associated_paper_matches_known_doi_prefix():
     """A doi.org link with a recognized registrant prefix (Springer) should match."""
@@ -631,20 +637,6 @@ def test_get_associated_paper_homepage_fallback_matches_doi_prefix():
     )
     assert result == '=HYPERLINK("https://doi.org/10.1038/s41586-020-1234-5", "Yes")'
 
-
-def test_get_associated_paper_direct_domain_takes_priority_over_doi_link():
-    """When both a doi.org link and a direct known-host link are present,
-    the direct-host match wins, since it's checked first regardless of
-    which URL appears earlier in the text."""
-    exporter = make_exporter()
-    readme = (
-        "First https://doi.org/10.1007/s00442-020-04756-5 "
-        "then https://www.nature.com/articles/s41586"
-    )
-    result = exporter.get_associated_paper(readme)
-    assert result == '=HYPERLINK("https://www.nature.com/articles/s41586", "Yes")'
-
-
 def test_get_associated_paper_strips_trailing_punctuation():
     """A URL followed by closing punctuation (parens, periods, etc.) should
     have that punctuation stripped from the matched link."""
@@ -658,3 +650,39 @@ def test_get_associated_paper_no_match_in_readme_or_homepage_returns_no():
     exporter = make_exporter()
     result = exporter.get_associated_paper("nothing relevant", homepage="https://example.com")
     assert result == "No"
+    
+def test_get_associated_paper_doi_takes_priority_over_direct_domain():
+    """When both a doi.org link and a direct known-host link are present
+    and neither is a preprint, the DOI link wins, regardless of which
+    URL appears earlier in the text."""
+    exporter = make_exporter()
+    readme = (
+        "First https://doi.org/10.1007/s00442-020-04756-5 "
+        "then https://www.nature.com/articles/s41586"
+    )
+    result = exporter.get_associated_paper(readme)
+    assert result == '=HYPERLINK("https://doi.org/10.1007/s00442-020-04756-5", "Yes")'
+
+
+def test_get_associated_paper_publication_takes_priority_over_preprint():
+    """A known-publisher (non-preprint) link wins over a preprint link,
+    even if the preprint link is a DOI and appears earlier in the text."""
+    exporter = make_exporter()
+    readme = (
+        "Preprint: https://doi.org/10.48550/arXiv.1234.5678 "
+        "Published: https://www.nature.com/articles/s41586"
+    )
+    result = exporter.get_associated_paper(readme)
+    assert result == '=HYPERLINK("https://www.nature.com/articles/s41586", "Yes")'
+
+
+def test_get_associated_paper_breaks_ties_by_position():
+    """When two matches have the same preprint status and DOI-vs-URL type,
+    the one appearing first in the text wins."""
+    exporter = make_exporter()
+    readme = (
+        "https://doi.org/10.1038/s41586-020-1234-5 "
+        "https://doi.org/10.1007/s00442-020-04756-5"
+    )
+    result = exporter.get_associated_paper(readme)
+    assert result == '=HYPERLINK("https://doi.org/10.1038/s41586-020-1234-5", "Yes")'
