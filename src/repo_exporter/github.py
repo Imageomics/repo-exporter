@@ -475,13 +475,11 @@ class GitHubExporter(BaseExporter):
 
             cleaned = self._first_valid_paper_match(url_patterns, readme)
             if cleaned:
-                cleaned = cleaned.replace('"', '""')
                 return f'=HYPERLINK("{cleaned}", "Yes")'
 
             if homepage:
                 cleaned = self._first_valid_paper_match(url_patterns, homepage)
                 if cleaned:
-                    cleaned = cleaned.replace('"', '""')
                     return f'=HYPERLINK("{cleaned}", "Yes")'
 
             return "No"
