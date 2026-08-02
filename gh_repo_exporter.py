@@ -331,43 +331,63 @@ _KNOWN_PAPER_HOST_PATTERN = (
     rf"https?://(?:{_PAPER_HOST_DOMAIN_CODES})/[A-Za-z0-9_\-./]+"
 )
 
-def _first_valid_paper_match(patterns: list[str], text: str) -> str | None:
+# Publisher labels considered preprints rather than final publications.
+PREPRINT_LABELS = {"arXiv", "bioRxiv / Cold Spring Harbor"}
+
+def _is_preprint_doi(url: str) -> bool:
     """
-    Searches text for the first URL matching any pattern in its priority
-    order. Patterns are constructed to only match known-good sources, so
-    any match found is valid by construction.
-    
-    Returns the cleaned URL string if found, otherwise None.
+    Return True if url is a DOI link whose registrant prefix maps to a
+    preprint publisher (arXiv, bioRxiv).
     """
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            return match.group(0).rstrip(").],};:>\"'")
-    return None
+    match = re.search(r"doi\.org/10\.(\d+)/", url, re.IGNORECASE)
+    if not match:
+        return False
+    return DOI_REGISTRANT_PREFIXES.get(match.group(1)) in PREPRINT_LABELS
+
+def _is_preprint_host(url: str) -> bool:
+    """
+    Return True if url's domain maps to a preprint publisher (arXiv, bioRxiv).
+    """
+    url_lower = url.lower()
+    for domain, label in PAPER_HOST_DOMAINS.items():
+        if domain in url_lower:
+            return label in PREPRINT_LABELS
+    return False
+
+def _find_paper_matches(text: str) -> list[tuple[int, bool, bool, str]]:
+    """
+    Find every known-publisher DOI and direct-host paper link in text.
+
+    Returns a list of (position, is_doi, is_preprint, cleaned_url) tuples
+    so get_associated_paper can rank matches by publication status, DOI
+    preference, and position in the text.
+    """
+    matches = []
+    for pattern, is_doi in [(_KNOWN_PUBLISHER_DOI_PATTERN, True),
+                             (_KNOWN_PAPER_HOST_PATTERN, False)]:
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            url = m.group(0).rstrip(").],};:>\"'")
+            is_preprint = _is_preprint_doi(url) if is_doi else _is_preprint_host(url)
+            matches.append((m.start(), is_doi, is_preprint, url))
+    return matches
 
 def get_associated_paper(readme: str, homepage: str | None = None) -> str:
     """
     Checks the README and then homepage as fallback for a link to an
-    associated paper.
-    
+    associated paper, matched against known publisher DOI and direct
+    URL patterns. Publications are preferred over preprints, DOI links
+    are preferred over direct URLs, and ties are broken by whichever
+    link appears first in the text.
+
     Returns an =HYPERLINK(...) formula pointing to the paper if found,
     otherwise "No".
     """
     try:
-        url_patterns = [
-            _KNOWN_PAPER_HOST_PATTERN,
-            _KNOWN_PUBLISHER_DOI_PATTERN,
-        ]
-
-        cleaned = _first_valid_paper_match(url_patterns, readme)
-        if cleaned:
-            return f'=HYPERLINK("{cleaned}", "Yes")'
-        
-        if homepage:
-            cleaned = _first_valid_paper_match(url_patterns, homepage)
-            if cleaned:
-                return f'=HYPERLINK("{cleaned}", "Yes")'
-
+        for text in (readme, homepage or ""):
+            matches = _find_paper_matches(text)
+            if matches:
+                best = min(matches, key=lambda m: (m[2], not m[1], m[0]))
+                return f'=HYPERLINK("{best[3]}", "Yes")'
         return "No"
     except Exception:
         return "No"
