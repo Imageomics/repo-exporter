@@ -54,7 +54,7 @@ PAPER_HOST_DOMAINS = {
 
 _PAPER_HOST_DOMAIN_CODES = "|".join(re.escape(d) for d in PAPER_HOST_DOMAINS)
 _KNOWN_PAPER_HOST_PATTERN = (
-    rf"https?://(?:{_PAPER_HOST_DOMAIN_CODES})/[A-Za-z0-9_\-./]+"
+    rf"https?://(?:[A-Za-z0-9-]+\.)*(?:{_PAPER_HOST_DOMAIN_CODES})/[A-Za-z0-9_\-./]+"
 )
 
 class GitHubExporter(BaseExporter):

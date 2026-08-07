@@ -675,7 +675,16 @@ def test_get_associated_paper_publication_takes_priority_over_preprint():
     result = exporter.get_associated_paper(readme)
     assert result == '=HYPERLINK("https://www.nature.com/articles/s41586", "Yes")'
 
-
+def test_get_associated_paper_matches_subdomained_publisher_host():
+    """
+    Wiley journal links live on subdomains 
+    (e.g. besjournals.onlinelibrary.wiley.com, the wildwing paper URL). 
+    The host pattern should match them, not just the bare domain.
+    """
+    exporter = make_exporter()
+    readme = "Paper: https://besjournals.onlinelibrary.wiley.com/doi/10.1111/2041-210X.70018"
+    result = exporter.get_associated_paper(readme)
+    assert result == '=HYPERLINK("https://besjournals.onlinelibrary.wiley.com/doi/10.1111/2041-210X.70018", "Yes")'
 def test_get_associated_paper_breaks_ties_by_position():
     """When two matches have the same preprint status and DOI-vs-URL type,
     the one appearing first in the text wins."""
