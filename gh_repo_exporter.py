@@ -386,7 +386,7 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         ".zenodo.json": has_file(repo, ".zenodo.json"),
         "CONTRIBUTING": has_file(repo, "CONTRIBUTING.md"),
         "AGENTS": has_file(repo, "AGENTS.md"),
-        "Language": get_primary_language(repo),
+        "Primary Language": get_primary_language(repo),
         "Visibility": "Private" if repo.private else "Public",
         "Is Fork": "Yes" if repo.fork else "No",
         "Has Forks": repo.forks_count if repo.forks_count > 0 else "No",
@@ -396,7 +396,8 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
         "Model": get_model(readme_content_lower),
         "Paper Association": get_associated_paper(readme_content_lower, repo.homepage),
-        "DOI for GitHub Repo TEST": has_doi(repo,  readme_content_lower),
+        "DOI for GitHub Repo": has_doi(repo,  readme_content_lower),
+        "Test Column": "Yes",   # add: temporary test column
     }
 
 def extract_display_name(val: str) -> str:
