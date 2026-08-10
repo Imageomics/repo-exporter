@@ -397,6 +397,7 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         "Model": get_model(readme_content_lower),
         "Paper Association": get_associated_paper(readme_content_lower, repo.homepage),
         "DOI for GitHub Repo": has_doi(repo,  readme_content_lower),
+        "TEST_COLUMN": "test123"
     }
 
 def extract_display_name(val: str) -> str:
@@ -419,6 +420,14 @@ def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, 
     # Pull current header
     HEADER_ROW_INDEX = 2
     header = sheet.row_values(HEADER_ROW_INDEX)
+    
+    new_columns = [col for col in df.columns if col not in header]
+
+    if new_columns:
+        start_col = len(header) + 1  # next empty column, 1-indexed
+        header_range = f"'{sheet.title}'!{gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, start_col)}"
+        sheet.update(header_range, [new_columns])
+        header = header + new_columns
 
     # Find 
     try: 
