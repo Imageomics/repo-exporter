@@ -425,8 +425,8 @@ def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, 
 
     if new_columns:
         start_col = len(header) + 1  # next empty column, 1-indexed
-        header_range = f"'{sheet.title}'!{gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, start_col)}"
-        sheet.update(header_range, [new_columns])
+        header_range = gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, start_col)
+        sheet.update(range_name=header_range, values=[new_columns])
         header = header + new_columns
 
     # Find 
