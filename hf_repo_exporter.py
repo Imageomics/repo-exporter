@@ -314,12 +314,11 @@ def get_repo_info(api, repo, repo_type: str, token: str | None = None, org_name:
         "Inactive": is_inactive(repo),
         "Homepage": extract_link_from_text(readme_text, "Homepage"), 
         "Repo": extract_link_from_text(readme_text, "Repository"),
-        "TEST Paper": extract_link_from_text(readme_text, "Paper"),
+        "Paper": extract_link_from_text(readme_text, "Paper"),
         "Associated Datasets": get_associated_datasets(repo),
         "Associated Models": get_associated_models(api, repo, repo_type),
         "Associated Spaces": get_associated_spaces(api, repo),
         "DOI": get_doi(repo), 
-        "test column": "test123"
     }
 
 # Convert all data types to string representation
