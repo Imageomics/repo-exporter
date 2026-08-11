@@ -314,11 +314,12 @@ def get_repo_info(api, repo, repo_type: str, token: str | None = None, org_name:
         "Inactive": is_inactive(repo),
         "Homepage": extract_link_from_text(readme_text, "Homepage"), 
         "Repo": extract_link_from_text(readme_text, "Repository"),
-        "Paper": extract_link_from_text(readme_text, "Paper"),
+        "TEST Paper": extract_link_from_text(readme_text, "Paper"),
         "Associated Datasets": get_associated_datasets(repo),
         "Associated Models": get_associated_models(api, repo, repo_type),
         "Associated Spaces": get_associated_spaces(api, repo),
         "DOI": get_doi(repo), 
+        "test column": "test123"
     }
 
 # Convert all data types to string representation
@@ -352,6 +353,14 @@ def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, 
     # Pull current header
     HEADER_ROW_INDEX = 2
     header = sheet.row_values(HEADER_ROW_INDEX)
+    
+    new_columns = [col for col in df.columns if col not in header]
+
+    if new_columns:
+        start_col = len(header) + 1  # next empty column, 1-indexed
+        header_range = gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, start_col)
+        sheet.update(range_name=header_range, values=[new_columns])
+        header = header + new_columns
 
     # Find 
     try: 

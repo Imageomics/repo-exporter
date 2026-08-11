@@ -147,11 +147,12 @@ def test_get_repo_info_matches_expected_output():
         "Inactive": "No",
         "Homepage": '=HYPERLINK("https://example.org/cool-dataset", "https://example.org/cool-dataset")',
         "Repo": '=HYPERLINK("https://github.com/Imageomics/cool-dataset", "https://github.com/Imageomics/cool-dataset")',
-        "Paper": '=HYPERLINK("https://arxiv.org/abs/1234.5678", "https://arxiv.org/abs/1234.5678")',
+        "TEST Paper": '=HYPERLINK("https://arxiv.org/abs/1234.5678", "https://arxiv.org/abs/1234.5678")',
         "Associated Datasets": "imageomics/cool-data-source",
         "Associated Models": "No",
         "Associated Spaces": "imageomics/cool-space",
         "DOI": "10.57967/hf/1234567",
+        "test column": "test123",
     }
 
     assert result == expected
@@ -195,11 +196,12 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Inactive"] == "No"
     assert result["Homepage"] == "No"
     assert result["Repo"] == "No"
-    assert result["Paper"] == "No"
+    assert result["TEST Paper"] == "No"
     assert result["Associated Datasets"] == "No"
     assert result["Associated Models"] == "No"
     assert result["Associated Spaces"] == "No"
     assert result["DOI"] == "No"
+    assert result["test column"] == "test123"
 
 
 def test_get_repo_info_space_type_and_inactive_repo():
@@ -232,8 +234,9 @@ def test_get_repo_info_space_type_and_inactive_repo():
     assert result["Inactive"] == "Yes"
     assert result["Homepage"] == '=HYPERLINK("https://example.org/cool-dataset", "https://example.org/cool-dataset")'
     assert result["Repo"] == '=HYPERLINK("https://github.com/Imageomics/cool-dataset", "https://github.com/Imageomics/cool-dataset")'
-    assert result["Paper"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "https://arxiv.org/abs/1234.5678")'
+    assert result["TEST Paper"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "https://arxiv.org/abs/1234.5678")'
     assert result["Associated Datasets"] == "No"
     assert result["Associated Models"] == "No"
     assert result["Associated Spaces"] == "No"
     assert result["DOI"] == "No"
+    assert result["test column"] == "test123"

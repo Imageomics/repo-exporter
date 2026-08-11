@@ -179,7 +179,7 @@ def test_get_repo_info_matches_expected_output():
         ".zenodo.json": "Yes",
         "CONTRIBUTING": "Yes",
         "AGENTS": "Yes",
-        "Primary Language": "Python",
+        "Language": "Python",
         "Visibility": "Public",
         "Is Fork": "No",
         "Has Forks": 2,
@@ -190,7 +190,6 @@ def test_get_repo_info_matches_expected_output():
         "Model": '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "Yes")',
         "Paper Association": '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")',
         "DOI for GitHub Repo": "https://doi.org/10.5281/zenodo.1234567",
-        "Test Column": "Yes",
     }
 
     assert result == expected
@@ -230,7 +229,7 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result[".zenodo.json"] == "No"
     assert result["CONTRIBUTING"] == "No"
     assert result["AGENTS"] == "No"
-    assert result["Primary Language"] == "N/A"
+    assert result["Language"] == "N/A"
     assert result["Visibility"] == "Private"
     assert result["Is Fork"] == "No"
     assert result["Has Forks"] == "No"
@@ -241,7 +240,6 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Model"] == "No"
     assert result["Paper Association"] == "No"
     assert result["DOI for GitHub Repo"] == "No"
-    assert result["Test Column"] == "Yes"
 
 
 def test_get_repo_info_forked_and_archived_repo():
@@ -289,4 +287,3 @@ def test_get_repo_info_forked_and_archived_repo():
     assert result["Model"] == '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "Yes")'
     assert result["Paper Association"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")'
     assert result["DOI for GitHub Repo"] == "No"
-    assert result["Test Column"] == "Yes"
