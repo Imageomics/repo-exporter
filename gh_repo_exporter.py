@@ -395,8 +395,9 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         "Website Reference": get_website_reference(repo.homepage),
         "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
         "Model": get_model(readme_content_lower),
-        "Paper Association": get_associated_paper(readme_content_lower, repo.homepage),
+        "TEST Paper Association": get_associated_paper(readme_content_lower, repo.homepage),
         "DOI for GitHub Repo": has_doi(repo,  readme_content_lower),
+        "test column": "test123"
     }
 
 def extract_display_name(val: str) -> str:
@@ -423,8 +424,15 @@ def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, 
     new_columns = [col for col in df.columns if col not in header]
 
     if new_columns:
+        required_cols = len(header) + len(new_columns)
+        if required_cols > sheet.col_count:
+            sheet.add_cols(required_cols - sheet.col_count)
         start_col = len(header) + 1  # next empty column, 1-indexed
-        header_range = gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, start_col)
+        end_col = required_cols
+        header_range = (
+            f"{gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, start_col)}:"
+            f"{gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, end_col)}"
+        )
         sheet.update(range_name=header_range, values=[new_columns])
         header = header + new_columns
 

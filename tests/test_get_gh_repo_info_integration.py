@@ -188,8 +188,9 @@ def test_get_repo_info_matches_expected_output():
         "Website Reference": '=HYPERLINK("https://example.org/cool-project", "Yes")',
         "Dataset": '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-data", "Yes")',
         "Model": '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "Yes")',
-        "Paper Association": '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")',
+        "TEST Paper Association": '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")',
         "DOI for GitHub Repo": "https://doi.org/10.5281/zenodo.1234567",
+        "test column": "test123",
     }
 
     assert result == expected
@@ -238,8 +239,9 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Website Reference"] == "No"
     assert result["Dataset"] == "No"
     assert result["Model"] == "No"
-    assert result["Paper Association"] == "No"
+    assert result["TEST Paper Association"] == "No"
     assert result["DOI for GitHub Repo"] == "No"
+    assert result["test column"] == "test123"
 
 
 def test_get_repo_info_forked_and_archived_repo():
@@ -285,5 +287,6 @@ def test_get_repo_info_forked_and_archived_repo():
     assert result["Website Reference"] == '=HYPERLINK("https://example.org/cool-project", "Yes")'
     assert result["Dataset"] == '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-data", "Yes")'
     assert result["Model"] == '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "Yes")'
-    assert result["Paper Association"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")'
+    assert result["TEST Paper Association"] == '=HYPERLINK("https://arxiv.org/abs/1234.5678", "Yes")'
     assert result["DOI for GitHub Repo"] == "No"
+    assert result["test column"] == "test123"
