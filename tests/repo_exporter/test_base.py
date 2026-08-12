@@ -94,7 +94,7 @@ def test_get_column_index_found_and_missing():
 def test_sync_new_columns_no_new_columns_returns_header_unchanged():
     exporter = make_exporter()
     sheet = MagicMock()
-    sheet.col_count = 10
+    sheet.col_count = 2
     header = ["Repository Name", "Stars"]
     df = pd.DataFrame([{"Repository Name": "r", "Stars": 5}])
 
