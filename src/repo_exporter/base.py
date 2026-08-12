@@ -66,8 +66,6 @@ class BaseExporter(ABC):
             return ""
         if isinstance(value, list):
             return ", ".join(str(v) for v in value)
-        if isinstance(value, dict):
-            return str(value)
         return str(value)
   
     @abstractmethod
