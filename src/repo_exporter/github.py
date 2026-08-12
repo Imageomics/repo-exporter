@@ -16,6 +16,47 @@ PACKAGE_REQUIREMENT_FILES = [
     "package.json", "package-lock.json", "yarn.lock", "bower.json",
 ]
 
+# DOI registrant prefixes for known paper-hosting publishers.
+DOI_REGISTRANT_PREFIXES = {
+    "48550": "arXiv",
+    "1109": "IEEE",
+    "1111": "Wiley",
+    "1073": "PNAS",
+    "1126": "Science / AAAS",
+    "7717": "PeerJ",
+    "1038": "Nature",
+    "1007": "Springer",
+    "1145": "ACM",
+    "1101": "bioRxiv / Cold Spring Harbor",
+    "1080": "Taylor & Francis",
+}
+
+_DOI_PUB_CODES = "|".join(DOI_REGISTRANT_PREFIXES)
+_KNOWN_PUBLISHER_DOI_PATTERN = (
+    rf"https?://doi\.org/10\.(?:{_DOI_PUB_CODES})/[A-Za-z0-9\-./]+"
+)
+
+# Direct (non-DOI) URL patterns for known paper-hosting publishers.
+PAPER_HOST_DOMAINS = {
+    "arxiv.org": "arXiv",
+    "ieeexplore.ieee.org": "IEEE",
+    "onlinelibrary.wiley.com": "Wiley",
+    "www.pnas.org": "PNAS",
+    "www.science.org": "Science / AAAS",
+    "peerj.com": "PeerJ",
+    "www.nature.com": "Nature",
+    "link.springer.com": "Springer",
+    "dl.acm.org": "ACM",
+    "www.biorxiv.org": "bioRxiv / Cold Spring Harbor",
+    "www.researchgate.net": "ResearchGate",
+    "www.tandfonline.com": "Taylor & Francis",
+}
+
+_PAPER_HOST_DOMAIN_CODES = "|".join(re.escape(d) for d in PAPER_HOST_DOMAINS)
+_KNOWN_PAPER_HOST_PATTERN = (
+    rf"https?://(?:[A-Za-z0-9-]+\.)*(?:{_PAPER_HOST_DOMAIN_CODES})/[A-Za-z0-9_\-./]+"
+)
+
 class GitHubExporter(BaseExporter):
     """
     Exports GitHub org repo metadata to a Google Sheet.
@@ -396,10 +437,69 @@ class GitHubExporter(BaseExporter):
         except Exception:
             return "No"
 
+    # Publisher labels considered preprints rather than final publications.
+    PREPRINT_LABELS = {"arXiv", "bioRxiv / Cold Spring Harbor"}
+
+    @staticmethod
+    def _is_preprint_doi(url: str) -> bool:
+        """
+        Return True if url is a DOI link whose registrant prefix maps to a
+        preprint publisher (arXiv, bioRxiv).
+
+        Parameters:
+        ------------
+        url - String. A doi.org URL.
+        """
+        match = re.search(r"doi\.org/10\.(\d+)/", url, re.IGNORECASE)
+        if not match:
+            return False
+        return DOI_REGISTRANT_PREFIXES.get(match.group(1)) in GitHubExporter.PREPRINT_LABELS
+
+    @staticmethod
+    def _is_preprint_host(url: str) -> bool:
+        """
+        Return True if url's domain maps to a preprint publisher (arXiv, bioRxiv).
+
+        Parameters:
+        ------------
+        url - String. A direct paper-host URL.
+        """
+        url_lower = url.lower()
+        for domain, label in PAPER_HOST_DOMAINS.items():
+            if domain in url_lower:
+                return label in GitHubExporter.PREPRINT_LABELS
+        return False
+
+    def _find_paper_matches(self, text: str) -> list[tuple[int, bool, bool, str]]:
+        """
+        Find every known-publisher DOI and direct-host paper link in text.
+
+        Returns a list of (position, is_doi, is_preprint, cleaned_url) tuples
+        so get_associated_paper can rank matches by publication status, DOI
+        preference, and position in the text.
+
+        Parameters:
+        ------------
+        text - String to search.
+        """
+        matches = []
+        for pattern, is_doi in [(_KNOWN_PUBLISHER_DOI_PATTERN, True),
+                                 (_KNOWN_PAPER_HOST_PATTERN, False)]:
+            for m in re.finditer(pattern, text, re.IGNORECASE):
+                url = m.group(0).rstrip(").],};:>\"'")
+                is_preprint = self._is_preprint_doi(url) if is_doi else self._is_preprint_host(url)
+                matches.append((m.start(), is_doi, is_preprint, url))
+        return matches
+
     def get_associated_paper(self, readme: str, homepage: str | None = None) -> str:
         """
-        Search README for a markdown link labeled "paper" or "arxiv" pointing to
-        a known publisher URL. Falls back to homepage. Returns a HYPERLINK formula or "No".
+        Check the README and then homepage as fallback for a link to an
+        associated paper, matched against known publisher DOI and direct
+        URL patterns. Publications are preferred over preprints, DOI links
+        are preferred over direct URLs, and ties are broken by whichever
+        link appears first in the text. 
+        
+        Returns a HYPERLINK formula pointing to the paper if found, or "No".
 
         Parameters:
         ------------
@@ -407,31 +507,11 @@ class GitHubExporter(BaseExporter):
         homepage - String | None. Repo homepage URL as a fallback.
         """
         try:
-            url_patterns = [
-                r"https?://arxiv\.org/[A-Za-z0-9_\-./]+",
-                r"https?://doi\.org/[A-Za-z0-9_\-./]+",
-                r"https?://link\.springer\.com/[A-Za-z0-9_\-./]+",
-                r"https?://www\.nature\.com/[A-Za-z0-9_\-./]+",
-                r"https?://dl\.acm\.org/[A-Za-z0-9_\-./]+",
-                r"https?://ieeexplore\.ieee\.org/[A-Za-z0-9_\-./]+",
-                r"https?://www\.researchgate\.net/[A-Za-z0-9_\-./]+",
-            ]
-            markdown_link_pattern = r"\[([^\]]+)\]\((.*?)\)"
-
-            for label, url in re.findall(markdown_link_pattern, readme):
-                if label.strip().lower() not in {"paper", "arxiv"}:
-                    continue
-                for pattern in url_patterns:
-                    if re.search(pattern, url, re.IGNORECASE):
-                        cleaned = url.rstrip(").],};:>\"'").replace('"', '""')
-                        return f'=HYPERLINK("{cleaned}", "Yes")'
-
-            if homepage:
-                for pattern in url_patterns:
-                    if re.search(pattern, homepage, re.IGNORECASE):
-                        cleaned = homepage.rstrip(").],};:>\"'").replace('"', '""')
-                        return f'=HYPERLINK("{cleaned}", "Yes")'
-
+            for text in (readme, homepage or ""):
+                matches = self._find_paper_matches(text)
+                if matches:
+                    best = min(matches, key=lambda m: (m[2], not m[1], m[0]))
+                    return f'=HYPERLINK("{best[3]}", "Yes")'
             return "No"
         except Exception:
             return "No"

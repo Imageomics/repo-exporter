@@ -174,7 +174,7 @@ title: Cool Project
 doi: 10.5281/zenodo.1234567
 """
 
-# get_repo_info golden tests
+# get_repo_info() golden tests
 
 def test_get_repo_info_matches_expected_output():
     """Golden test: a fully-populated repo should produce this exact row."""
@@ -322,7 +322,7 @@ def test_get_repo_info_forked_and_archived_repo():
     assert result["DOI for GitHub Repo"] == "No"
 
 
-# get_repo_creator (cache hit / fallback paths)
+# get_repo_creator() (cache hit / fallback paths)
 
 def _make_repo_for_creator(name: str, created_at_str: str) -> MagicMock:
     repo = MagicMock()
@@ -469,7 +469,7 @@ def test_get_repo_creator_correct_last_page_index_is_requested():
     commits.get_page.assert_called_once_with(expected_page)
 
 
-# is_valid_doi / has_doi
+# is_valid_doi() / has_doi()
 
 def test_is_valid_doi_accepts_zenodo_doi():
     exporter = make_exporter()
@@ -564,3 +564,134 @@ def test_has_doi_no_citation_and_no_badge_returns_no():
     repo = MagicMock()
     repo.get_contents.side_effect = GithubException(404, "Not Found", None)
     assert exporter.has_doi(repo, "no badge here") == "No"
+
+# _find_paper_matches()
+
+def test_find_paper_matches_finds_direct_and_doi_matches():
+    exporter = make_exporter()
+    text = "https://arxiv.org/abs/1234 and https://doi.org/10.1038/s41586-020-1234-5"
+    matches = exporter._find_paper_matches(text)
+    urls = {m[3] for m in matches}
+    assert urls == {
+        "https://arxiv.org/abs/1234",
+        "https://doi.org/10.1038/s41586-020-1234-5",
+    }
+
+
+def test_find_paper_matches_flags_preprints():
+    exporter = make_exporter()
+    matches = exporter._find_paper_matches("https://arxiv.org/abs/1234")
+    assert matches[0][2] is True  # is_preprint
+
+
+def test_find_paper_matches_flags_publications():
+    exporter = make_exporter()
+    matches = exporter._find_paper_matches("https://www.nature.com/articles/s41586")
+    assert matches[0][2] is False  # is_preprint
+
+
+def test_find_paper_matches_strips_trailing_punctuation():
+    exporter = make_exporter()
+    matches = exporter._find_paper_matches("(see https://arxiv.org/abs/1234).")
+    assert matches[0][3] == "https://arxiv.org/abs/1234"
+
+
+def test_find_paper_matches_returns_empty_list_when_no_match():
+    exporter = make_exporter()
+    assert exporter._find_paper_matches("nothing relevant here") == []
+    
+# get_associated_paper() priority rules 
+
+
+def test_get_associated_paper_matches_known_doi_prefix():
+    """A doi.org link with a recognized registrant prefix (Springer) should match."""
+    exporter = make_exporter()
+    readme = "See https://doi.org/10.1007/s00442-020-04756-5 for details."
+    result = exporter.get_associated_paper(readme)
+    assert result == '=HYPERLINK("https://doi.org/10.1007/s00442-020-04756-5", "Yes")'
+
+
+def test_get_associated_paper_rejects_unknown_doi_prefix():
+    """A doi.org link whose registrant prefix isn't in DOI_REGISTRANT_PREFIXES
+    should not be treated as a paper link."""
+    exporter = make_exporter()
+    readme = "See https://doi.org/10.9999/unknownjournal.123 for details."
+    assert exporter.get_associated_paper(readme) == "No"
+
+
+def test_get_associated_paper_matches_direct_publisher_domain():
+    """A direct (non-DOI) link to a known paper host, e.g. bioRxiv, should match
+    even without any doi.org URL present."""
+    exporter = make_exporter()
+    readme = "Preprint: https://www.biorxiv.org/content/10.1101/2020.01.01.123456v1"
+    result = exporter.get_associated_paper(readme)
+    assert result == '=HYPERLINK("https://www.biorxiv.org/content/10.1101/2020.01.01.123456v1", "Yes")'
+
+
+def test_get_associated_paper_homepage_fallback_matches_doi_prefix():
+    """The homepage fallback should also be checked against the known DOI
+    registrant prefixes, not just direct publisher domains."""
+    exporter = make_exporter()
+    result = exporter.get_associated_paper(
+        "nothing relevant here", homepage="https://doi.org/10.1038/s41586-020-1234-5"
+    )
+    assert result == '=HYPERLINK("https://doi.org/10.1038/s41586-020-1234-5", "Yes")'
+
+def test_get_associated_paper_strips_trailing_punctuation():
+    """A URL followed by closing punctuation (parens, periods, etc.) should
+    have that punctuation stripped from the matched link."""
+    exporter = make_exporter()
+    result = exporter.get_associated_paper("(see https://arxiv.org/abs/2301.01234).")
+    assert result == '=HYPERLINK("https://arxiv.org/abs/2301.01234", "Yes")'
+
+
+def test_get_associated_paper_no_match_in_readme_or_homepage_returns_no():
+    """No known-publisher link anywhere should return 'No'."""
+    exporter = make_exporter()
+    result = exporter.get_associated_paper("nothing relevant", homepage="https://example.com")
+    assert result == "No"
+    
+def test_get_associated_paper_doi_takes_priority_over_direct_domain():
+    """When both a doi.org link and a direct known-host link are present
+    and neither is a preprint, the DOI link wins, regardless of which
+    URL appears earlier in the text."""
+    exporter = make_exporter()
+    readme = (
+        "First https://doi.org/10.1007/s00442-020-04756-5 "
+        "then https://www.nature.com/articles/s41586"
+    )
+    result = exporter.get_associated_paper(readme)
+    assert result == '=HYPERLINK("https://doi.org/10.1007/s00442-020-04756-5", "Yes")'
+
+
+def test_get_associated_paper_publication_takes_priority_over_preprint():
+    """A known-publisher (non-preprint) link wins over a preprint link,
+    even if the preprint link is a DOI and appears earlier in the text."""
+    exporter = make_exporter()
+    readme = (
+        "Preprint: https://doi.org/10.48550/arXiv.1234.5678 "
+        "Published: https://www.nature.com/articles/s41586"
+    )
+    result = exporter.get_associated_paper(readme)
+    assert result == '=HYPERLINK("https://www.nature.com/articles/s41586", "Yes")'
+
+def test_get_associated_paper_matches_subdomained_publisher_host():
+    """
+    Wiley journal links live on subdomains 
+    (e.g. besjournals.onlinelibrary.wiley.com, the wildwing paper URL). 
+    The host pattern should match them, not just the bare domain.
+    """
+    exporter = make_exporter()
+    readme = "Paper: https://besjournals.onlinelibrary.wiley.com/doi/10.1111/2041-210X.70018"
+    result = exporter.get_associated_paper(readme)
+    assert result == '=HYPERLINK("https://besjournals.onlinelibrary.wiley.com/doi/10.1111/2041-210X.70018", "Yes")'
+def test_get_associated_paper_breaks_ties_by_position():
+    """When two matches have the same preprint status and DOI-vs-URL type,
+    the one appearing first in the text wins."""
+    exporter = make_exporter()
+    readme = (
+        "https://doi.org/10.1038/s41586-020-1234-5 "
+        "https://doi.org/10.1007/s00442-020-04756-5"
+    )
+    result = exporter.get_associated_paper(readme)
+    assert result == '=HYPERLINK("https://doi.org/10.1038/s41586-020-1234-5", "Yes")'
