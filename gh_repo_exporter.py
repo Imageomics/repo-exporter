@@ -419,7 +419,22 @@ def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, 
     # Pull current header
     HEADER_ROW_INDEX = 2
     header = sheet.row_values(HEADER_ROW_INDEX)
+    
+    new_columns = [col for col in df.columns if col not in header]
 
+    if new_columns:
+        required_cols = len(header) + len(new_columns)
+        if required_cols > sheet.col_count:
+            sheet.add_cols(required_cols - sheet.col_count)
+        start_col = len(header) + 1  # next empty column, 1-indexed
+        end_col = required_cols
+        header_range = (
+            f"{gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, start_col)}:"
+            f"{gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, end_col)}"
+        )
+        sheet.update(range_name=header_range, values=[new_columns])
+        header = header + new_columns
+        
     # Find 
     try: 
         repo_col_index = header.index("Repository Name")
