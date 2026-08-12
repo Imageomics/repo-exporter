@@ -435,24 +435,7 @@ def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, 
         )
         sheet.update(range_name=header_range, values=[new_columns])
         header = header + new_columns
-
-        sheet.spreadsheet.batch_update({
-                "requests": [{
-                    "updateBorders": {
-                        "range": {
-                            "sheetId": sheet.id,
-                            "startRowIndex": 0,
-                            "endRowIndex": HEADER_ROW_INDEX + len(df),
-                            "startColumnIndex": start_col - 1,
-                            "endColumnIndex": end_col,
-                        },
-                        "left": {"style": "SOLID_THICK"},
-                        "right": {"style": "SOLID_THICK"},
-                        "innerVertical": {"style": "SOLID_THICK"}
-                    }
-                }]
-            })
-    
+        
     # Find 
     try: 
         repo_col_index = header.index("Repository Name")
