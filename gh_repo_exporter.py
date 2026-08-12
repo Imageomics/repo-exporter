@@ -395,9 +395,8 @@ def get_repo_info(repo, existing_df: pd.DataFrame = None) -> dict[str, str | int
         "Website Reference": get_website_reference(repo.homepage),
         "Dataset": get_dataset(readme_content_lower, repo.name.lower()),
         "Model": get_model(readme_content_lower),
-        "TEST Paper Association": get_associated_paper(readme_content_lower, repo.homepage),
+        "Paper Association": get_associated_paper(readme_content_lower, repo.homepage),
         "DOI for GitHub Repo": has_doi(repo,  readme_content_lower),
-        "test column": "test123"
     }
 
 def extract_display_name(val: str) -> str:
