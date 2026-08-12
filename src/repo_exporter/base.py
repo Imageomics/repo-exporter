@@ -112,6 +112,37 @@ class BaseExporter(ABC):
         client = gspread.authorize(creds)
         return client.open_by_key(self.spreadsheet_id).worksheet(self.sheet_name)
     
+    def _sync_new_columns(self, sheet, df: pd.DataFrame, header: list) -> list:
+        """
+        Add any DataFrame columns missing from the sheet header as new columns,
+        expanding the sheet if needed. Returns the updated header list.
+
+        Parameters:
+        ------------
+        sheet  - gspread Worksheet object.
+        df     - pd.DataFrame. Data to write.
+        header - List of column header strings already fetched from the sheet.
+        """
+        HEADER_ROW_INDEX = 2
+
+        new_columns = [col for col in df.columns if col not in header]
+        if not new_columns:
+            return header
+
+        required_cols = len(header) + len(new_columns)
+        if required_cols > sheet.col_count:
+            sheet.add_cols(required_cols - sheet.col_count)
+
+        start_col = len(header) + 1  # next empty column, 1-indexed
+        end_col = required_cols
+        header_range = (
+            f"{gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, start_col)}:"
+            f"{gspread.utils.rowcol_to_a1(HEADER_ROW_INDEX, end_col)}"
+        )
+        sheet.update(range_name=header_range, values=[new_columns])
+
+        return header + new_columns
+    
     def get_column_index(self, header:list[str], col_name: str) -> int | None:
         try:
             return header.index(col_name)
@@ -253,6 +284,7 @@ class BaseExporter(ABC):
         """
         sheet = self._get_sheet()
         header = sheet.row_values(2)
+        header = self._sync_new_columns(sheet, df, header)
         batch_body, _ = self._build_batch_body(sheet, df, header)
         self._write_batch(sheet, batch_body)
         

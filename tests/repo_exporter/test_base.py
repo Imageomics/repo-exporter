@@ -89,6 +89,75 @@ def test_get_column_index_found_and_missing():
     assert exporter.get_column_index(header, "Nonexistent") is None
 
 
+# _sync_new_columns
+
+def test_sync_new_columns_no_new_columns_returns_header_unchanged():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.col_count = 10
+    header = ["Repository Name", "Stars"]
+    df = pd.DataFrame([{"Repository Name": "r", "Stars": 5}])
+
+    result = exporter._sync_new_columns(sheet, df, header)
+
+    assert result == header
+    sheet.update.assert_not_called()
+    sheet.add_cols.assert_not_called()
+
+
+def test_sync_new_columns_appends_single_new_column():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.col_count = 10
+    header = ["Repository Name", "Stars"]
+    df = pd.DataFrame([{"Repository Name": "r", "Stars": 5, "License": "MIT"}])
+
+    result = exporter._sync_new_columns(sheet, df, header)
+
+    assert result == ["Repository Name", "Stars", "License"]
+    _, kwargs = sheet.update.call_args
+    assert kwargs["values"] == [["License"]]
+    assert kwargs["range_name"] == "C2:C2"  # 3rd column, header row 2
+
+
+def test_sync_new_columns_appends_multiple_new_columns_in_order():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.col_count = 10
+    header = ["Repository Name"]
+    df = pd.DataFrame([{"Repository Name": "r", "Stars": 5, "License": "MIT"}])
+
+    result = exporter._sync_new_columns(sheet, df, header)
+
+    assert result == ["Repository Name", "Stars", "License"]
+    _, kwargs = sheet.update.call_args
+    assert kwargs["values"] == [["Stars", "License"]]
+    assert kwargs["range_name"] == "B2:C2"
+
+
+def test_sync_new_columns_expands_sheet_when_col_count_insufficient():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.col_count = 2  # only enough room for the existing header
+    header = ["Repository Name", "Stars"]
+    df = pd.DataFrame([{"Repository Name": "r", "Stars": 5, "License": "MIT"}])
+
+    exporter._sync_new_columns(sheet, df, header)
+
+    sheet.add_cols.assert_called_once_with(1)  # 3 required - 2 existing
+
+
+def test_sync_new_columns_does_not_expand_sheet_when_col_count_sufficient():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.col_count = 10
+    header = ["Repository Name", "Stars"]
+    df = pd.DataFrame([{"Repository Name": "r", "Stars": 5, "License": "MIT"}])
+
+    exporter._sync_new_columns(sheet, df, header)
+
+    sheet.add_cols.assert_not_called()
+
 # _build_batch_body
 
 def test_build_batch_body_updates_existing_row():
