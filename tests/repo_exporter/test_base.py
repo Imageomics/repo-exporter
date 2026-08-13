@@ -243,21 +243,91 @@ def test_write_batch_calls_values_batch_update():
     sheet.spreadsheet.values_batch_update.assert_called_once_with(
         body={"value_input_option": "USER_ENTERED", "data": batch_body}
     )
+    
+
+# _normalize_color
+
+def test_normalize_color_fills_missing_channels_as_zero():
+    assert BaseExporter._normalize_color({"red": 1}) == {"red": 1, "green": 0, "blue": 0}
+
+def test_normalize_color_leaves_full_color_unchanged():
+    color = {"red": 1, "green": 0.5, "blue": 0.5}
+    assert BaseExporter._normalize_color(color) == color
+
+def test_normalize_color_equal_after_normalizing_partial_and_full():
+    partial = {"green": 0.5}
+    full = {"red": 0, "green": 0.5, "blue": 0}
+    assert BaseExporter._normalize_color(partial) == BaseExporter._normalize_color(full)
 
 
-# _apply_conditional_formatting
+# ensure_string_value: formula injection guard
 
-def test_apply_conditional_formatting_builds_rules_for_known_columns():
+def test_ensure_string_value_escapes_leading_equals():
+    assert BaseExporter.ensure_string_value("=cmd|' /C calc'!A1") == "'=cmd|' /C calc'!A1"
+
+def test_ensure_string_value_does_not_escape_hyperlink_formula():
+    val = '=HYPERLINK("https://github.com/Imageomics/repo", "repo")'
+    assert BaseExporter.ensure_string_value(val) == val
+
+def test_ensure_string_value_hyperlink_case_insensitive():
+    val = '=hyperlink("https://github.com/Imageomics/repo", "repo")'
+    assert BaseExporter.ensure_string_value(val) == val
+
+def test_ensure_string_value_list_with_leading_equals_is_escaped():
+    # join happens first, then the injection guard checks the joined string
+    assert BaseExporter.ensure_string_value(["=SUM(A1:A2)", "b"]) == "'=SUM(A1:A2), b"
+
+
+# _build_conditional_rule
+
+def test_build_conditional_rule_shape():
+    exporter = make_exporter()
+    rule = exporter._build_conditional_rule(
+        sheet_id=42, col_index=1, end_row=5, color={"red": 1, "green": 0, "blue": 0}
+    )
+
+    assert rule["ranges"][0]["sheetId"] == 42
+    assert rule["ranges"][0]["startRowIndex"] == 2  # HEADER_ROW_INDEX
+    assert rule["ranges"][0]["endRowIndex"] == 5
+    assert rule["ranges"][0]["startColumnIndex"] == 1
+    assert rule["ranges"][0]["endColumnIndex"] == 2
+    assert rule["booleanRule"]["condition"]["type"] == "TEXT_EQ"
+    assert rule["booleanRule"]["condition"]["values"] == [{"userEnteredValue": "No"}]
+    assert rule["booleanRule"]["format"]["backgroundColor"] == {"red": 1, "green": 0, "blue": 0}
+
+
+# _apply_conditional_formatting (diff-based): replaces the two old add-only tests
+
+def _metadata_with_rules(sheet_id, rules):
+    """Build a fake fetch_sheet_metadata() response with given (col_index, color, end_row) rules."""
+    conditional_formats = []
+    for col_index, color, end_row in rules:
+        conditional_formats.append({
+            "ranges": [{
+                "sheetId": sheet_id,
+                "startRowIndex": 2,
+                "endRowIndex": end_row,
+                "startColumnIndex": col_index,
+                "endColumnIndex": col_index + 1,
+            }],
+            "booleanRule": {
+                "condition": {"type": "TEXT_EQ", "values": [{"userEnteredValue": "No"}]},
+                "format": {"backgroundColor": color},
+            },
+        })
+    return {"sheets": [{"properties": {"sheetId": sheet_id}, "conditionalFormats": conditional_formats}]}
+
+
+def test_apply_conditional_formatting_adds_rules_when_none_exist():
     exporter = make_exporter()
     sheet = MagicMock()
     sheet.id = 42
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(42, [])
     header = ["Repository Name", "README", "License", "DOI for GitHub Repo"]
     df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
 
     exporter._apply_conditional_formatting(
-        sheet,
-        header,
-        df,
+        sheet, header, df,
         red_columns={"README", "License"},
         secondary_columns={"DOI for GitHub Repo"},
         secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
@@ -265,12 +335,15 @@ def test_apply_conditional_formatting_builds_rules_for_known_columns():
 
     sheet.spreadsheet.batch_update.assert_called_once()
     requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
-    assert len(requests) == 3  # README, License, DOI
+    assert len(requests) == 3
+    assert all("addConditionalFormatRule" in r for r in requests)
+
 
 def test_apply_conditional_formatting_skips_missing_columns():
     exporter = make_exporter()
     sheet = MagicMock()
     sheet.id = 42
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(42, [])
     header = ["Repository Name"]
     df = pd.DataFrame([{"Repository Name": "r"}])
 
@@ -279,6 +352,112 @@ def test_apply_conditional_formatting_skips_missing_columns():
         red_columns={"Nonexistent"},
         secondary_columns=set(),
         secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    sheet.spreadsheet.batch_update.assert_not_called()
+
+
+def test_apply_conditional_formatting_noop_when_rule_already_correct():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+    end_row = 2 + len(df)  # HEADER_ROW_INDEX + len(df)
+    color = {"red": 1, "green": 0.5, "blue": 0.5}
+
+    # An existing rule that already exactly matches what would be desired
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
+        42, [(1, color, end_row)]
+    )
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    sheet.spreadsheet.batch_update.assert_not_called()
+
+
+def test_apply_conditional_formatting_updates_stale_rule_in_place():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+    end_row = 2 + len(df)
+
+    # Existing rule has a stale endRowIndex (as if fewer rows existed before)
+    stale_color = {"red": 1, "green": 0.5, "blue": 0.5}
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
+        42, [(1, stale_color, end_row + 5)]
+    )
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    assert len(requests) == 1
+    assert "updateConditionalFormatRule" in requests[0]
+    assert requests[0]["updateConditionalFormatRule"]["index"] == 0
+
+
+def test_apply_conditional_formatting_deletes_stale_column_rule():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README", "License"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+    end_row = 2 + len(df)
+
+    # An existing rule on the "License" column (index 2), which is no longer desired
+    old_color = {"red": 1, "green": 0.5, "blue": 0.5}
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
+        42, [(2, old_color, end_row)]
+    )
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns=set(),          # License no longer in red_columns
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    assert len(requests) == 1
+    assert "deleteConditionalFormatRule" in requests[0]
+    assert requests[0]["deleteConditionalFormatRule"]["index"] == 0
+
+
+def test_apply_conditional_formatting_treats_omitted_zero_channels_as_equal():
+    """Regression test: API responses that omit zero-valued color channels
+    should still compare equal via _normalize_color, producing no spurious update."""
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "DOI for GitHub Repo"]
+    df = pd.DataFrame([{"Repository Name": "r", "DOI for GitHub Repo": "No"}])
+    end_row = 2 + len(df)
+
+    # secondary_color has a zero blue channel that the API omits in its response
+    secondary_color = {"red": 1, "green": 0.8, "blue": 0}
+    api_returned_color = {"red": 1, "green": 0.8}  # blue omitted
+
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
+        42, [(1, api_returned_color, end_row)]
+    )
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns=set(),
+        secondary_columns={"DOI for GitHub Repo"},
+        secondary_color=secondary_color,
     )
 
     sheet.spreadsheet.batch_update.assert_not_called()

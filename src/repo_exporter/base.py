@@ -65,10 +65,15 @@ class BaseExporter(ABC):
         if value is None:
             return ""
         if isinstance(value, list):
-            return ", ".join(str(v) for v in value)
-        if isinstance(value, dict):
-            return str(value)
-        return str(value)
+            s = ", ".join(str(v) for v in value)
+        else:
+            s = str(value)
+
+        # Prevent formula injection when using value_input_option="USER_ENTERED".
+        if s.startswith("=") and not s.upper().startswith('=HYPERLINK('):
+            s = "'" + s
+
+        return s
   
     @abstractmethod
     def fetch_repos(self) -> list:
@@ -215,7 +220,54 @@ class BaseExporter(ABC):
                 "data": batch_body,
             }
         )
+    
+    @staticmethod
+    def _normalize_color(color: dict) -> dict:
+        """
+        Fill in missing red/green/blue keys as 0, so colors from the API
+        (which can omit zero-valued channels) compare equal to literal
+        color dicts that always include all three keys.
+
+        Parameters:
+        ------------
+        color - Dict with zero or more of "red", "green", "blue" keys (0-1 floats).
+        """
+        return {
+            "red": color.get("red", 0),
+            "green": color.get("green", 0),
+            "blue": color.get("blue", 0),
+        }
         
+    @staticmethod
+    def _build_conditional_rule(sheet_id: int, col_index: int, end_row: int, color: dict) -> dict:
+        """
+        Build a "No" conditional format rule dict for a single column.
+
+        Parameters:
+        ------------
+        sheet_id  - Integer. Google Sheets sheetId.
+        col_index - Integer. 0-indexed column the rule applies to.
+        end_row   - Integer. Exclusive end row index for the rule's range.
+        color     - Dict with "red", "green", "blue" keys (0-1 floats).
+        """
+        HEADER_ROW_INDEX = 2
+        return {
+            "ranges": [{
+                "sheetId": sheet_id,
+                "startRowIndex": HEADER_ROW_INDEX,
+                "endRowIndex": end_row,
+                "startColumnIndex": col_index,
+                "endColumnIndex": col_index + 1,
+            }],
+            "booleanRule": {
+                "condition": {
+                    "type": "TEXT_EQ",
+                    "values": [{"userEnteredValue": "No"}],
+                },
+                "format": {"backgroundColor": color},
+            },
+        }
+          
     def _apply_conditional_formatting(
         self,
         sheet,
@@ -226,7 +278,9 @@ class BaseExporter(ABC):
         secondary_color: dict,
     ) -> None:
         """
-        Apply "No" conditional formatting rules to specified columns.
+        Sync "No" conditional formatting rules to specified columns, diffing
+        against the sheet's existing rules instead of always appending new
+        ones, so repeated runs don't accumulate duplicate rules.
 
         Parameters:
         ------------
@@ -235,44 +289,78 @@ class BaseExporter(ABC):
         df               - pd.DataFrame. Used to determine row count.
         red_columns      - Set of column names to highlight red when "No".
         secondary_columns - Set of column names to highlight with secondary_color when "No".
-        secondary_color  - Dict with keys "red", "green", "blue" (0–1 floats).
+        secondary_color  - Dict with keys "red", "green", "blue" (0-1 floats).
         """
         HEADER_ROW_INDEX = 2
+        sheet_id = sheet.id
+        end_row = HEADER_ROW_INDEX + len(df)
 
-        rules = []
+        desired = {}  # col_index -> color
         for col_set, color in [
             (red_columns, {"red": 1, "green": 0.5, "blue": 0.5}),
             (secondary_columns, secondary_color),
         ]:
             for col_name in col_set:
                 col_index = self.get_column_index(header, col_name)
-                if col_index is None:
+                if col_index is not None:
+                    desired[col_index] = color
+
+        existing_rules = {}  # col_index -> (rule_index, rule_dict)
+        metadata = sheet.spreadsheet.fetch_sheet_metadata()
+        for sheet_meta in metadata.get("sheets", []):
+            if sheet_meta["properties"]["sheetId"] != sheet_id:
+                continue
+            for i, rule in enumerate(sheet_meta.get("conditionalFormats", [])):
+                ranges = rule.get("ranges", [{}])
+                if not ranges:
                     continue
-                rules.append({
+                existing_rules[ranges[0].get("startColumnIndex")] = (i, rule)
+            break
+
+        requests = []
+
+        # 1. Updates first; index safe since nothing has shifted yet.
+        for col_index, color in desired.items():
+            if col_index not in existing_rules:
+                continue
+            rule_index, existing_rule = existing_rules[col_index]
+            existing_range = existing_rule.get("ranges", [{}])[0]
+            existing_color = (
+                existing_rule.get("booleanRule", {}).get("format", {}).get("backgroundColor", {})
+            )
+            if existing_range.get("endRowIndex") != end_row or self._normalize_color(existing_color) != self._normalize_color(color):
+                requests.append({
+                    "updateConditionalFormatRule": {
+                        "index": rule_index,
+                        "sheetId": sheet_id,
+                        "rule": self._build_conditional_rule(sheet_id, col_index, end_row, color),
+                    }
+                })
+
+        # 2. Deletes next, highest index first; deleting descending never
+        # shifts the index of a rule we still need to delete
+        stale_indices = sorted(
+            (rule_index for col_index, (rule_index, _) in existing_rules.items() if col_index not in desired),
+            reverse=True,
+        )
+        for rule_index in stale_indices:
+            requests.append({"deleteConditionalFormatRule": {"sheetId": sheet_id, "index": rule_index}})
+
+        # 3. Adds last, always at index 0. Order doesn't matter once nothing
+        #    else references an existing index.
+        for col_index, color in desired.items():
+            if col_index not in existing_rules:
+                requests.append({
                     "addConditionalFormatRule": {
-                        "rule": {
-                            "ranges": [{
-                                "sheetId": sheet.id,
-                                "startRowIndex": HEADER_ROW_INDEX,
-                                "endRowIndex": HEADER_ROW_INDEX + len(df),
-                                "startColumnIndex": col_index,
-                                "endColumnIndex": col_index + 1,
-                            }],
-                            "booleanRule": {
-                                "condition": {
-                                    "type": "TEXT_EQ",
-                                    "values": [{"userEnteredValue": "No"}],
-                                },
-                                "format": {"backgroundColor": color},
-                            },
-                        },
+                        "rule": self._build_conditional_rule(sheet_id, col_index, end_row, color),
                         "index": 0,
                     }
                 })
-        if not rules:
+
+        if not requests:
             return
 
-        sheet.spreadsheet.batch_update({"requests": rules})
+        sheet.spreadsheet.batch_update({"requests": requests})
         
     def update_google_sheet(self, df: pd.DataFrame) -> None:
         """
