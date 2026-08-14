@@ -267,6 +267,36 @@ class BaseExporter(ABC):
                 "format": {"backgroundColor": color},
             },
         }
+        
+    @staticmethod
+    def _is_managed_rule(rule: dict) -> bool:
+        """
+        Return True only for conditional format rules that match the
+        exporter's own signature (TEXT_EQ == "No", starting at the header
+        row). Rules that don't match -- e.g. manually added in the Sheets UI,
+        or using a different condition -- are left untouched by the diff.
+
+        Parameters:
+        ------------
+        rule - Dict. A single conditionalFormats entry from fetch_sheet_metadata().
+        """
+        HEADER_ROW_INDEX = 2
+
+        ranges = rule.get("ranges", [{}])
+        if not ranges:
+            return False
+        if ranges[0].get("startRowIndex") != HEADER_ROW_INDEX:
+            return False
+
+        condition = rule.get("booleanRule", {}).get("condition", {})
+        if condition.get("type") != "TEXT_EQ":
+            return False
+
+        values = condition.get("values", [])
+        if not values or values[0].get("userEnteredValue") != "No":
+            return False
+
+        return True
           
     def _apply_conditional_formatting(
         self,
@@ -311,9 +341,9 @@ class BaseExporter(ABC):
             if sheet_meta["properties"]["sheetId"] != sheet_id:
                 continue
             for i, rule in enumerate(sheet_meta.get("conditionalFormats", [])):
-                ranges = rule.get("ranges", [{}])
-                if not ranges:
+                if not self._is_managed_rule(rule):
                     continue
+                ranges = rule.get("ranges", [{}])
                 existing_rules[ranges[0].get("startColumnIndex")] = (i, rule)
             break
 

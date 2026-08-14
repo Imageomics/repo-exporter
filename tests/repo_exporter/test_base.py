@@ -434,6 +434,124 @@ def test_apply_conditional_formatting_deletes_stale_column_rule():
     assert "deleteConditionalFormatRule" in requests[0]
     assert requests[0]["deleteConditionalFormatRule"]["index"] == 0
 
+def _unmanaged_rule(sheet_id, col_index, condition_type="TEXT_EQ", value="Yes", start_row=2):
+    """Build a conditionalFormats entry that does NOT match the exporter's signature."""
+    return {
+        "ranges": [{
+            "sheetId": sheet_id,
+            "startRowIndex": start_row,
+            "endRowIndex": start_row + 5,
+            "startColumnIndex": col_index,
+            "endColumnIndex": col_index + 1,
+        }],
+        "booleanRule": {
+            "condition": {"type": condition_type, "values": [{"userEnteredValue": value}]},
+            "format": {"backgroundColor": {"red": 0, "green": 1, "blue": 0}},
+        },
+    }
+
+
+def test_apply_conditional_formatting_ignores_unmanaged_rule_different_condition():
+    """A manually-added rule with a different condition type on a desired
+    column should be left alone -- the exporter should ADD its own rule
+    alongside it, not touch or delete the existing one."""
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+
+    metadata = {"sheets": [{
+        "properties": {"sheetId": 42},
+        "conditionalFormats": [_unmanaged_rule(42, col_index=1, condition_type="TEXT_CONTAINS", value="foo")],
+    }]}
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = metadata
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    assert len(requests) == 1
+    assert "addConditionalFormatRule" in requests[0]  # exporter's own rule added, not an update/delete
+
+
+def test_apply_conditional_formatting_ignores_unmanaged_rule_on_undesired_column():
+    """A manually-added rule on a column the exporter doesn't manage at all
+    should never be queued for deletion."""
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README", "Notes"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+
+    metadata = {"sheets": [{
+        "properties": {"sheetId": 42},
+        "conditionalFormats": [_unmanaged_rule(42, col_index=2, condition_type="TEXT_EQ", value="Yes")],
+    }]}
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = metadata
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    # Only the README add should happen; the "Notes" column rule must not be deleted
+    assert len(requests) == 1
+    assert "addConditionalFormatRule" in requests[0]
+    assert not any("deleteConditionalFormatRule" in r for r in requests)
+
+
+def test_apply_conditional_formatting_ignores_rule_starting_at_wrong_row():
+    """A rule that matches condition/value but starts at a different row
+    (e.g. someone formatted the header row itself) should not be managed."""
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+
+    metadata = {"sheets": [{
+        "properties": {"sheetId": 42},
+        "conditionalFormats": [_unmanaged_rule(42, col_index=1, condition_type="TEXT_EQ", value="No", start_row=0)],
+    }]}
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = metadata
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    assert len(requests) == 1
+    assert "addConditionalFormatRule" in requests[0]
+
+
+# _is_managed_rule
+
+def test_is_managed_rule_true_for_exporter_signature():
+    rule = BaseExporter._build_conditional_rule(sheet_id=42, col_index=1, end_row=5, color={"red": 1})
+    assert BaseExporter._is_managed_rule(rule) is True
+
+def test_is_managed_rule_false_for_wrong_condition_type():
+    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_CONTAINS", value="No")
+    assert BaseExporter._is_managed_rule(rule) is False
+
+def test_is_managed_rule_false_for_wrong_value():
+    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_EQ", value="Yes")
+    assert BaseExporter._is_managed_rule(rule) is False
+
+def test_is_managed_rule_false_for_wrong_start_row():
+    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_EQ", value="No", start_row=0)
+    assert BaseExporter._is_managed_rule(rule) is False
 
 def test_apply_conditional_formatting_treats_omitted_zero_channels_as_equal():
     """Regression test: API responses that omit zero-valued color channels
