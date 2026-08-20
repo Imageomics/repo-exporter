@@ -11,7 +11,7 @@ from .__about__ import __version__ as version
 GH_ORG_NAME = os.getenv("GH_ORG_NAME")
 GH_TOKEN = os.getenv("GH_TOKEN")
 GH_SHEET_NAME = os.getenv("GH_SHEET_NAME", "GH-Repos")
-GH_REPO_TYPE = os.getenv("GH_REPO_TYPE")
+GH_REPO_TYPE = os.getenv("GH_REPO_TYPE", "all")
 HF_ORG_NAME = os.getenv("HF_ORG_NAME")
 HF_TOKEN = os.getenv("HF_TOKEN")
 HF_SHEET_NAME = os.getenv("HF_SHEET_NAME", "HF-Repos")
@@ -50,7 +50,7 @@ def export_repos(
         token = (token or GH_TOKEN or "").strip() or None
         org_name = org_name or GH_ORG_NAME
         sheet_name = sheet_name or GH_SHEET_NAME
-        repo_type = repo_type or GH_REPO_TYPE or "all"
+        repo_type = repo_type or GH_REPO_TYPE 
         
         _validate_required({"GH_ORG_NAME": org_name, "SPREADSHEET_ID": spreadsheet_id})
 
