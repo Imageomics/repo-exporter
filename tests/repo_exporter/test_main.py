@@ -42,8 +42,8 @@ def test_export_repos_github_builds_exporter_with_explicit_args(mock_gh_cls):
     mock_exporter.run.assert_called_once()
 
 
-def test_export_repos_github_defaults_repo_type_to_all(monkeypatch):
-    monkeypatch.setattr(main_module, "GH_REPO_TYPE", None)
+def test_export_repos_github_defaults_repo_type_when_not_passed(monkeypatch):
+    monkeypatch.setattr(main_module, "GH_REPO_TYPE", "all")
     with patch.object(main_module, "GitHubExporter") as mock_gh_cls:
         mock_gh_cls.return_value = MagicMock()
 
