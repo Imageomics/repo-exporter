@@ -1,6 +1,6 @@
 # Repository Exporter [![DOI](https://zenodo.org/badge/1080019710.svg)](https://doi.org/10.5281/zenodo.17835081)
 
-Python scripts that gather metadata for all repositories in a provided GitHub or Hugging Face organization and automatically export the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
+Python package that gathers metadata for all repositories in a provided GitHub or Hugging Face organization and automatically exports the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
 
 ## Contents
 - [Features](#features)  
@@ -10,6 +10,7 @@ Python scripts that gather metadata for all repositories in a provided GitHub or
   - [Create a Hugging Face Token](#create-a-hugging-face-token)   
   - [Set up Google Cloud Service Account Access](#set-up-google-cloud-service-account-access)  
 - [Run repo exporter locally](#run-repo-exporter-locally)  
+  - [Command-line options](#command-line-options)
 - [Environment Variables](#environment-variables)  
 - [Testing](#testing)
 
@@ -23,7 +24,7 @@ Python scripts that gather metadata for all repositories in a provided GitHub or
   - Creator and top 4 contributors (`N/A` creator means it was either a transferred repository or a forked repository and `None (<GitHub Username>)` means there was no full name attached to their GitHub account)
   - Number of stars and number of branches for GitHub repositories, for Hugging Face repos, the analogous number of likes and open Discussions/PRs are collected
   - Standard file/metadata checks:
-      - **For GitHub:** `README.md`, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, `.zenodo.json`, and `CONTRIBUTING.md` files
+      - **For GitHub:** `README.md`, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, `.zenodo.json`, `CONTRIBUTING.md`, and `AGENTS.md` files
       - **For Hugging Face:** `README.md` ([dataset or model card](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/About-Templates/)/Space README) and license (read from `yaml`)
       - DOI for the repository (HF generated or from Zenodo for GitHub repos)
   - Primary Programming Language (**GitHub only**)
@@ -104,38 +105,70 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
    conda activate repo-exporter
    ```
     
-3. Create a `.env` file in the root of the project to configure required [environment variables](#environment-variables). See [`.env.example`](.env.example) for an example; the default sheet names are included and can be removed.
+3. Create a `.env` file in the root of the project to configure required [environment variables](#environment-variables). See [`.env.example`](.env.example) for an example; the default sheet names are included and can be removed. Any value in `.env` can also be overridden with a CLI flag. See [Command-line options](#command-line-options) below.
 
-4. Install Python dependencies:
-    ```
-    pip install -r requirements.txt
-    ```
+
+4. Install the package (this installs the `repo-exporter` CLI along with all dependencies, as defined in `pyproject.toml`):
+   ```
+   pip install -e .
+   ```
     
-5. Run the exporters
-
-   You can run **either exporter individually** or **both**, depending on your needs:
+5. Run the exporters with the `repo-exporter` command, specifying the platform as a subcommand:
 
     - **Run only the GitHub repository exporter**
       ```
-      python gh_repo_exporter.py
+      repo-exporter github
       ```
 
     - **Run only the Hugging Face repository exporter**
       ```
-      python hf_repo_exporter.py
+      repo-exporter huggingface
       ```
 
     - **Run both exporters (wait for one to finish before running the other)**
       ```
-      python hf_repo_exporter.py
-      python gh_repo_exporter.py
+      repo-exporter huggingface
+      repo-exporter github
       ```
+    
+    - Check the installed version at any time with:
+      ``` 
+      repo-exporter --version
+      ```
+
+### Command-line options
+
+All options fall back to the corresponding [environment variable](#environment-variables) when omitted, so you can mix and match `.env` values with one-off CLI overrides.
+
+**`repo-exporter github [options]`**
+
+| Flag | Overrides | Description |
+|---|---|---|
+| `--org` | `GH_ORG_NAME` | GitHub organization name |
+| `--token` | `GH_TOKEN` | GitHub personal access token |
+| `--repo-type` | `GH_REPO_TYPE` | Repo type filter: `all`, `public`, `private`, `forks`, `sources`, `member` (default: `all`) |
+| `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
+| `--sheet-name` | `GH_SHEET_NAME` | Sheet tab name (default: `GH-Repos`) |
+| `--credentials-path` | `GOOGLE_CREDENTIALS_PATH` | Path to `service_account.json` (default: `service_account.json`) |
+
+**`repo-exporter huggingface [options]`**
+
+| Flag | Overrides | Description |
+|---|---|---|
+| `--org` | `HF_ORG_NAME` | Hugging Face organization name (case-sensitive) |
+| `--token` | `HF_TOKEN` | Hugging Face token |
+| `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
+| `--sheet-name` | `HF_SHEET_NAME` | Sheet tab name (default: `HF-Repos`) |
+| `--credentials-path` | `GOOGLE_CREDENTIALS_PATH` | Path to `service_account.json` (default: `service_account.json`) |
+
+Run `repo-exporter github --help` or `repo-exporter huggingface --help` to see these options from the command line.
 
 ## Environment Variables
 
 > [!NOTE]
 > `SPREADSHEET_ID` and Google service account credentials are required for both GitHub and Hugging Face exports, as well as the platform-prefaced variables (e.g., `GH_ORG_NAME` and `HF_ORG_NAME`)
 > * Both exporters support optional custom sheet name variables (`GH_SHEET_NAME` and `HF_SHEET_NAME`; these must be *distinct*).
+> * Any of these values may instead be passed as a CLI flag. See [Command-line options](#command-line-options).
 
 > [!WARNING]  
 > Tokens and Google service account credentials must be saved as repository *secrets*. All other values may be saved as environment variables assuming your spreadsheet is appropriately protected.
@@ -145,6 +178,7 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
 * Set `GH_ORG_NAME` to your GitHub organization name (for API calls).
 * Set `SPREADSHEET_ID` to the Google Sheet ID used by the exporter.
 * `GH_SHEET_NAME` is optional. If not provided, the exporter uses "GH-Repos".
+* `GH_REPO_TYPE` is optional. If not provided, the exporter uses "all" (also accepts `public`, `private`, `forks`, `sources`, `member`). 
 * `GH_TOKEN` is required to access GitHub repositories.
 
 ### Hugging Face exporter
