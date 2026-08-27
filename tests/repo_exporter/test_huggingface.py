@@ -184,10 +184,10 @@ def test_get_repo_info_matches_expected_output():
 def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     """A repo missing optional metadata/links should yield 'No'/'N/A' fallbacks.
 
-    NOTE: License comes out as "N/A" here, not "No" — get_card_field() returns
-    the string "N/A" when nothing matches, and "N/A" or "No" short-circuits to
-    "N/A" since it's already truthy. This differs from the old script's
-    behavior. Flagging this in case it's not intentional.
+    License comes out as "No" here: get_card_field() returns "N/A" when
+    nothing matches CardData, and get_repo_info() now maps both "" and
+    "N/A" to "No" so the Google Sheets red-column conditional formatting
+    (which flags the literal "No") still catches a missing license.
     """
     exporter = make_exporter()
     repo = make_mock_repo(
@@ -216,7 +216,7 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Likes"] == 0
     assert result["# of Open PRs"] == 0
     assert result["README"] == "Yes"
-    assert result["License"] == "N/A"
+    assert result["License"] == "No"
     assert result["Visibility"] == "Private"
     assert result["Inactive"] == "No"
     assert result["Homepage"] == "No"
