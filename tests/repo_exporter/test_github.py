@@ -559,6 +559,27 @@ def test_has_doi_prefers_citation_doi_over_badge():
     assert exporter.has_doi(repo, readme) == "https://doi.org/10.5281/zenodo.11288083"
 
 
+def test_has_doi_reads_identifiers_type_doi_value():
+    exporter = make_exporter()
+    citation = """title: Test
+identifiers:
+  - type: doi
+    value: \"10.5281/zenodo.11288083\"
+"""
+    repo = _repo_with_citation(citation)
+    assert exporter.has_doi(repo, "") == "https://doi.org/10.5281/zenodo.11288083"
+
+
+def test_has_doi_reads_identifiers_inline_doi_key():
+    exporter = make_exporter()
+    citation = """title: Test
+identifiers:
+  - doi: \"10.5281/zenodo.11288083\"
+"""
+    repo = _repo_with_citation(citation)
+    assert exporter.has_doi(repo, "") == "https://doi.org/10.5281/zenodo.11288083"
+
+
 def test_has_doi_no_citation_and_no_badge_returns_no():
     exporter = make_exporter()
     repo = MagicMock()

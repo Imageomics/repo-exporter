@@ -345,7 +345,7 @@ class HuggingFaceExporter(BaseExporter):
             "Likes": getattr(repo, "likes", "N/A"),
             "# of Open PRs": self.get_open_pr_count(repo.id, repo_type),
             "README": "Yes" if readme_text else "No",
-            "License": self.get_card_field(repo, ["license"]) or "No",
+            "License": (lic if (lic := self.get_card_field(repo, ["license"])) not in ("", "N/A") else "No"),
             "Visibility": "Private" if getattr(repo, "private", False) else "Public",
             "Inactive": self.is_inactive(getattr(repo, "lastModified", None)),
             "Homepage": self.extract_link_from_text(readme_text, "Homepage"),
