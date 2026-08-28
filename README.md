@@ -1,6 +1,6 @@
 # Repository Exporter [![DOI](https://zenodo.org/badge/1080019710.svg)](https://doi.org/10.5281/zenodo.17835081)
 
-Python package that gathers metadata for all repositories in a provided GitHub or Hugging Face organization and automatically exports the data into a desired Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
+Python package that gathers metadata for all repositories in a provided GitHub or Hugging Face organization and automatically exports the data into a designated Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
 
 ## Contents
 - [Features](#features)  
@@ -125,7 +125,7 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
       repo-exporter huggingface
       ```
 
-    - **Run both exporters (wait for one to finish before running the other)**
+    - **Run both exporters (each is run individually)**
       ```
       repo-exporter huggingface
       repo-exporter github
@@ -155,7 +155,7 @@ All options fall back to the corresponding [environment variable](#environment-v
 
 | Flag | Overrides | Description |
 |---|---|---|
-| `--org` | `HF_ORG_NAME` | Hugging Face organization name (case-sensitive) |
+| `--org` | `HF_ORG_NAME` | Hugging Face organization name (**case-sensitive**) |
 | `--token` | `HF_TOKEN` | Hugging Face token |
 | `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
 | `--sheet-name` | `HF_SHEET_NAME` | Sheet tab name (default: `HF-Repos`) |
