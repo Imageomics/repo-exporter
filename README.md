@@ -115,16 +115,16 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
     
 5. Each exporter run individually with the `repo-exporter` command, specifying the platform as a subcommand:
 
-    - **Run only the GitHub repository exporter**
+    - **Run the GitHub repository exporter**
       ```
       repo-exporter github
       ```
 
-    - **Run only the Hugging Face repository exporter**
+    - **Run the Hugging Face repository exporter**
       ```
       repo-exporter huggingface
       ```
-      
+
     - Check the installed version at any time with:
       ``` 
       repo-exporter --version
