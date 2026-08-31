@@ -113,7 +113,7 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
    pip install -e .
    ```
     
-5. Each exporter run individually with the `repo-exporter` command, specifying the platform as a subcommand:
+5. Each exporter runs individually with the `repo-exporter` command, specifying the platform as a subcommand:
 
     - **Run the GitHub repository exporter**
       ```
