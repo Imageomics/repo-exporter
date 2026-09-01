@@ -110,7 +110,7 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
 
 4. Install the package (this installs the `repo-exporter` CLI along with all dependencies, as defined in `pyproject.toml`):
    ```
-   pip install -e .
+   pip install -e ".[dev]"
    ```
     
 5. Each exporter run individually with the `repo-exporter` command, specifying the platform as a subcommand:
