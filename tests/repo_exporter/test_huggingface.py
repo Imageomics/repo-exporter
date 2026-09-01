@@ -1,30 +1,46 @@
 """
-Integration test for hf_repo_exporter.get_repo_info().
+Integration tests for HuggingFaceExporter (src/repo_exporter/huggingface.py).
 
-Builds mocked Hugging Face repo and API objects (no network calls) and checks
-get_repo_info() against a frozen "golden" expected dict, so that
-refactoring (splitting modules, moving into src/repo_exporter, etc.)
-doesn't silently change the exported data.
+Mirrors the legacy hf_repo_exporter.py golden tests, but exercises the
+class-based HuggingFaceExporter.get_repo_info() and its instance-method
+helpers so the refactor into src/repo_exporter/ doesn't silently change
+the exported data.
 """
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-import hf_repo_exporter as exporter
+
+from repo_exporter import base as base_module
+from repo_exporter.huggingface import HuggingFaceExporter
 
 # Freeze "now" so the exported "Inactive" field is deterministic.
 _FIXED_NOW = datetime(2026, 6, 12, tzinfo=timezone.utc)
 
+
 @pytest.fixture(autouse=True)
-def _freeze_exporter_now(monkeypatch):
+def _freeze_base_now(monkeypatch):
     class _FixedDateTime(datetime):
         @classmethod
         def now(cls, tz=None):
             if tz is None:
                 return _FIXED_NOW.replace(tzinfo=None)
             return _FIXED_NOW.astimezone(tz)
-    monkeypatch.setattr(exporter, "datetime", _FixedDateTime)
+    monkeypatch.setattr(base_module, "datetime", _FixedDateTime)
+
+
+def make_exporter(**overrides) -> HuggingFaceExporter:
+    defaults = dict(
+        org_name="imageomics",
+        spreadsheet_id="sheet123",
+        sheet_name="HF-Repos",
+        creds_path="fake.json",
+        token=None,
+    )
+    defaults.update(overrides)
+    return HuggingFaceExporter(**defaults)
+
 
 class FakeAuthor:
     def __init__(self, user: str):
@@ -54,7 +70,6 @@ def make_mock_repo(
     tags=None,
     doi_attr=None,
 ):
-    
     repo = MagicMock()
     repo.id = repo_id
     repo.created_at = created_at
@@ -63,7 +78,6 @@ def make_mock_repo(
     repo.likes = likes
     repo.tags = tags if tags is not None else []
     repo.doi = doi_attr
-    # Explicitly set to None so get_license() doesn't pick up a truthy MagicMock
     repo.license = None
 
     _card_data = card_data if card_data is not None else {"license": "mit", "description": description}
@@ -79,13 +93,14 @@ def make_mock_api(
     open_pr_count=1,
     associated_spaces=None,
     associated_models=None,
+    repo=None,
 ):
-    """Build a MagicMock that mimics a HfApi object for the functions under test."""
+    """Build a MagicMock that stands in for exporter.api."""
     api = MagicMock()
 
-    # Newest commit first, oldest last — get_author uses commits[-1] for the creator,
-    # so janedoe must be last. To avoid tie-order ambiguity in Counter.most_common(),
-    # give jsmith strictly more commits than janedoe.
+    # Newest commit first, oldest last — get_author uses commits[-1] for the
+    # creator, so janedoe must be last. jsmith has strictly more commits than
+    # janedoe to avoid tie-order ambiguity in Counter.most_common().
     api.list_repo_commits.return_value = commits if commits is not None else [
         FakeCommit("jsmith"),
         FakeCommit("jsmith"),
@@ -101,8 +116,14 @@ def make_mock_api(
     api.list_models.return_value = (
         [MagicMock(id=m) for m in associated_models] if associated_models is not None else []
     )
-
+    
+    if repo is not None:
+        api.model_info.return_value = repo   
+        api.dataset_info.return_value = repo 
+        api.space_info.return_value = repo
+        
     return api
+
 
 FULL_README = """\
 ---
@@ -116,20 +137,23 @@ Repository: https://github.com/Imageomics/cool-dataset
 Paper: https://arxiv.org/abs/1234.5678
 """
 
+# get_repo_info golden tests
 
 def test_get_repo_info_matches_expected_output():
     """Golden test: a fully-populated dataset repo should produce this exact row."""
+    exporter = make_exporter()
     repo = make_mock_repo(
-        tags=["dataset:imageomics/cool-data-source", "doi:10.57967/hf/1234567"],
+        tags=["dataset:imageomics/cool-data-source", "doi:10.57967/hf/1234567"]
     )
-    api = make_mock_api(
+    exporter.api = make_mock_api(
         open_pr_count=2,
         associated_spaces=["imageomics/cool-space"],
+        repo=repo,
     )
 
-    with patch("hf_repo_exporter.hf_hub_download", return_value="/fake/README.md"), \
+    with patch("repo_exporter.huggingface.hf_hub_download", return_value="/fake/README.md"), \
          patch("builtins.open", mock_open(read_data=FULL_README)):
-        result = exporter.get_repo_info(api, repo, "dataset")
+        result = exporter.get_repo_info(repo, "dataset")
 
     expected = {
         "Repository Name": '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-dataset", "datasets/imageomics/cool-dataset")',
@@ -158,11 +182,17 @@ def test_get_repo_info_matches_expected_output():
 
 
 def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
-    """A repo missing optional metadata/links should yield 'No'/'N/A' fallbacks."""
+    """A repo missing optional metadata/links should yield 'No'/'N/A' fallbacks.
+
+    License comes out as "No" here: get_card_field() returns "N/A" when
+    nothing matches CardData, and get_repo_info() now maps both "" and
+    "N/A" to "No" so the Google Sheets red-column conditional formatting
+    (which flags the literal "No") still catches a missing license.
+    """
+    exporter = make_exporter()
     repo = make_mock_repo(
         repo_id="imageomics/bare-repo",
         description=None,
-        # Recent enough that is_inactive() returns "No" (within the last year)
         last_modified=datetime(2025, 12, 1, tzinfo=timezone.utc),
         private=True,
         likes=0,
@@ -170,15 +200,11 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
         tags=[],
         doi_attr=None,
     )
-    api = make_mock_api(
-        commits=[],
-        open_pr_count=0,
-    )
+    exporter.api = make_mock_api(commits=[], open_pr_count=0, repo=repo)
 
-    with patch("hf_repo_exporter.hf_hub_download", return_value="/fake/README.md"), \
-         patch("builtins.open", mock_open(read_data="Just a plain readme with nothing special.")), \
-         patch("hf_repo_exporter.HF_ORG_NAME", "imageomics"):
-        result = exporter.get_repo_info(api, repo, "model", org_name="imageomics")
+    with patch("repo_exporter.huggingface.hf_hub_download", return_value="/fake/README.md"), \
+         patch("builtins.open", mock_open(read_data="Just a plain readme with nothing special.")):
+        result = exporter.get_repo_info(repo, "model")
 
     assert result["Repository Name"] == '=HYPERLINK("https://huggingface.co/imageomics/bare-repo", "imageomics/bare-repo")'
     assert result["Repository Type"] == "model"
@@ -189,7 +215,7 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Top 4 Contributors/Curators"] == "imageomics"
     assert result["Likes"] == 0
     assert result["# of Open PRs"] == 0
-    assert result["README"] == "No"
+    assert result["README"] == "Yes"
     assert result["License"] == "No"
     assert result["Visibility"] == "Private"
     assert result["Inactive"] == "No"
@@ -203,19 +229,20 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
 
 
 def test_get_repo_info_space_type_and_inactive_repo():
-    """Intermediate case: a Space repo type that is also inactive (last modified
-    over a year ago). Keeps repo_type URL/display logic and Inactive isolated
-    from the bare/minimal repo's edge cases."""
+    """Intermediate case: a Space repo type that is also inactive (last
+    modified over a year ago). Keeps repo_type URL/display logic and
+    Inactive isolated from the bare/minimal repo's edge cases."""
+    exporter = make_exporter()
     repo = make_mock_repo(
         repo_id="imageomics/cool-space",
         description="A cool research demo",
         last_modified=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
-    api = make_mock_api(open_pr_count=0)
+    exporter.api = make_mock_api(open_pr_count=0, repo=repo)
 
-    with patch("hf_repo_exporter.hf_hub_download", return_value="/fake/README.md"), \
+    with patch("repo_exporter.huggingface.hf_hub_download", return_value="/fake/README.md"), \
          patch("builtins.open", mock_open(read_data=FULL_README)):
-        result = exporter.get_repo_info(api, repo, "space")
+        result = exporter.get_repo_info(repo, "space")
 
     assert result["Repository Name"] == '=HYPERLINK("https://huggingface.co/spaces/imageomics/cool-space", "spaces/imageomics/cool-space")'
     assert result["Repository Type"] == "space"
@@ -237,3 +264,46 @@ def test_get_repo_info_space_type_and_inactive_repo():
     assert result["Associated Models"] == "No"
     assert result["Associated Spaces"] == "No"
     assert result["DOI"] == "No"
+
+
+def test_get_repo_info_readme_download_failure_gives_no_readme():
+    """If hf_hub_download raises, README/Homepage/Repo/Paper should all
+    fall back to 'No' rather than crashing get_repo_info()."""
+    exporter = make_exporter()
+    repo = make_mock_repo(repo_id="imageomics/no-readme-repo")
+    exporter.api = make_mock_api(open_pr_count=0, repo=repo)
+
+    with patch("repo_exporter.huggingface.hf_hub_download", side_effect=Exception("404 Not Found")):
+        result = exporter.get_repo_info(repo, "model")
+
+    assert result["README"] == "No"
+    assert result["Homepage"] == "No"
+    assert result["Repo"] == "No"
+    assert result["Paper"] == "No"
+
+# get_doi / get_associated_datasets
+
+def test_get_doi_prefers_direct_attribute():
+    exporter = make_exporter()
+    repo = make_mock_repo(doi_attr="doi:10.1234/abcd")
+    assert exporter.get_doi(repo) == "10.1234/abcd"
+
+def test_get_doi_falls_back_to_tags():
+    exporter = make_exporter()
+    repo = make_mock_repo(doi_attr=None, card_data={}, tags=["doi:10.5555/xyz"])
+    assert exporter.get_doi(repo) == "10.5555/xyz"
+
+def test_get_doi_returns_no_when_missing():
+    exporter = make_exporter()
+    repo = make_mock_repo(doi_attr=None, card_data={}, tags=[])
+    assert exporter.get_doi(repo) == "No"
+
+def test_get_associated_datasets_extracts_dataset_tags():
+    exporter = make_exporter()
+    repo = make_mock_repo(tags=["dataset:imageomics/data-a", "dataset:imageomics/data-b", "other-tag"])
+    assert exporter.get_associated_datasets(repo) == "imageomics/data-a, imageomics/data-b"
+
+def test_get_associated_datasets_returns_no_when_missing():
+    exporter = make_exporter()
+    repo = make_mock_repo(tags=[])
+    assert exporter.get_associated_datasets(repo) == "No"
