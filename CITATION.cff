@@ -8,12 +8,12 @@ authors:
   - family-names: Radhakrishnan
     given-names: Balaji
 cff-version: 1.2.0
-date-released: "2026-07-07"
+date-released: "2026-08-12"
 identifiers:
-  - description: "The GitHub release URL of tag v1.1.0."
+  - description: "The GitHub release URL of tag v1.1.1."
     type: URL
-    value: "https://github.com/Imageomics/repo-exporter/releases/tag/v1.1.0"
-  - description: "The GitHub URL of the commit tagged with v1.1.0."
+    value: "https://github.com/Imageomics/repo-exporter/releases/tag/v1.1.1"
+  - description: "The GitHub URL of the commit tagged with v1.1.1."
     type: URL
     value: "https://github.com/Imageomics/repo-exporter/commit/<commit-hash>" # update on release
 keywords:
@@ -33,6 +33,6 @@ license: MIT
 message: "If you use this software, please cite it using the information below."
 repository-code: https://github.com/Imageomics/repo-exporter
 title: "Repository Exporter"
-version: "1.1.0"
+version: "1.1.1"
 type: software
 doi: "10.5281/zenodo.17835081"
