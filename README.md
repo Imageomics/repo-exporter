@@ -108,7 +108,7 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
 
 4. Install Python dependencies:
     ```
-    pip install -r requirements.txt
+    pip install repo-exporter
     ```
     
 5. Run the exporters
