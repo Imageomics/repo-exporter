@@ -108,10 +108,10 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
 3. Create a `.env` file in the root of the project to configure required [environment variables](#environment-variables). See [`.env.example`](.env.example) for an example; the default sheet names are included and can be removed. Any value in `.env` can also be overridden with a CLI flag. See [Command-line options](#command-line-options) below.
 
 
-4. Install Python dependencies:
-    ```
-    pip install repo-exporter
-    ```
+4. Install the package (this installs the `repo-exporter` CLI along with all dependencies, as defined in `pyproject.toml`):
+   ```
+   pip install repo-exporter
+   ```
     
 5. Each exporter runs individually with the `repo-exporter` command, specifying the platform as a subcommand:
 
