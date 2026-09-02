@@ -1,0 +1,648 @@
+"""
+Unit tests for BaseExporter shared logic (base.py).
+
+Static helpers are tested directly on the class. Non-abstract instance
+methods (_build_batch_body, _apply_conditional_formatting, run) can't be
+exercised on BaseExporter itself since it's an ABC, so GitHubExporter is
+used as the concrete test vehicle for those -- only base.py behavior is
+under test here, not GitHubExporter-specific logic (that's in test_github.py).
+"""
+
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock
+
+import pandas as pd
+import pytest
+
+from repo_exporter.base import BaseExporter
+from repo_exporter.github import GitHubExporter
+
+
+def make_exporter() -> GitHubExporter:
+    return GitHubExporter(
+        org_name="imageomics",
+        spreadsheet_id="sheet123",
+        sheet_name="GH-Repos",
+        creds_path="fake.json",
+        token=None,
+    )
+
+# is_inactive
+
+def test_is_inactive_true_for_old_aware_datetime():
+    old = datetime.now(timezone.utc) - timedelta(days=400)
+    assert BaseExporter.is_inactive(old) == "Yes"
+
+def test_is_inactive_false_for_recent_aware_datetime():
+    recent = datetime.now(timezone.utc) - timedelta(days=10)
+    assert BaseExporter.is_inactive(recent) == "No"
+
+def test_is_inactive_handles_naive_datetime():
+    naive_old = datetime.now() - timedelta(days=400)
+    assert BaseExporter.is_inactive(naive_old) == "Yes"
+
+def test_is_inactive_none_returns_na():
+    assert BaseExporter.is_inactive(None) == "N/A"
+
+def test_is_inactive_boundary_exactly_one_year_is_inactive():
+    # "< one_year_ago" means exactly 365 days ago should already read as inactive
+    # once fractional seconds from test execution are taken into account.
+    exactly_one_year_ago = datetime.now(timezone.utc) - timedelta(days=365, seconds=1)
+    assert BaseExporter.is_inactive(exactly_one_year_ago) == "Yes"
+
+
+# extract_display_name
+
+def test_extract_display_name_from_hyperlink_formula():
+    val = '=HYPERLINK("https://github.com/Imageomics/my-repo", "my-repo")'
+    assert BaseExporter.extract_display_name(val) == "my-repo"
+
+def test_extract_display_name_plain_string_passthrough():
+    assert BaseExporter.extract_display_name("just-a-name") == "just-a-name"
+
+def test_extract_display_name_hf_style_hyperlink():
+    val = '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool", "datasets/imageomics/cool")'
+    assert BaseExporter.extract_display_name(val) == "datasets/imageomics/cool"
+
+# ensure_string_value
+
+def test_ensure_string_value_none_returns_empty_string():
+    assert BaseExporter.ensure_string_value(None) == ""
+
+def test_ensure_string_value_list_joins_with_comma():
+    assert BaseExporter.ensure_string_value(["a", "b", "c"]) == "a, b, c"
+
+def test_ensure_string_value_dict_stringifies():
+    assert BaseExporter.ensure_string_value({"a": 1}) == "{'a': 1}"
+
+def test_ensure_string_value_passes_through_ints_and_strings():
+    assert BaseExporter.ensure_string_value(5) == "5"
+    assert BaseExporter.ensure_string_value("hello") == "hello"
+
+
+# get_column_index
+
+def test_get_column_index_found_and_missing():
+    exporter = make_exporter()
+    header = ["Repository Name", "Stars", "License"]
+    assert exporter.get_column_index(header, "Stars") == 1
+    assert exporter.get_column_index(header, "Nonexistent") is None
+
+
+# _sync_new_columns
+
+def test_sync_new_columns_no_new_columns_returns_header_unchanged():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.col_count = 2
+    header = ["Repository Name", "Stars"]
+    df = pd.DataFrame([{"Repository Name": "r", "Stars": 5}])
+
+    result = exporter._sync_new_columns(sheet, df, header)
+
+    assert result == header
+    sheet.update.assert_not_called()
+    sheet.add_cols.assert_not_called()
+
+
+def test_sync_new_columns_appends_single_new_column():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.col_count = 10
+    header = ["Repository Name", "Stars"]
+    df = pd.DataFrame([{"Repository Name": "r", "Stars": 5, "License": "MIT"}])
+
+    result = exporter._sync_new_columns(sheet, df, header)
+
+    assert result == ["Repository Name", "Stars", "License"]
+    _, kwargs = sheet.update.call_args
+    assert kwargs["values"] == [["License"]]
+    assert kwargs["range_name"] == "C2:C2"  # 3rd column, header row 2
+
+
+def test_sync_new_columns_appends_multiple_new_columns_in_order():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.col_count = 10
+    header = ["Repository Name"]
+    df = pd.DataFrame([{"Repository Name": "r", "Stars": 5, "License": "MIT"}])
+
+    result = exporter._sync_new_columns(sheet, df, header)
+
+    assert result == ["Repository Name", "Stars", "License"]
+    _, kwargs = sheet.update.call_args
+    assert kwargs["values"] == [["Stars", "License"]]
+    assert kwargs["range_name"] == "B2:C2"
+
+
+def test_sync_new_columns_expands_sheet_when_col_count_insufficient():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.col_count = 2  # only enough room for the existing header
+    header = ["Repository Name", "Stars"]
+    df = pd.DataFrame([{"Repository Name": "r", "Stars": 5, "License": "MIT"}])
+
+    exporter._sync_new_columns(sheet, df, header)
+
+    sheet.add_cols.assert_called_once_with(1)  # 3 required - 2 existing
+
+
+def test_sync_new_columns_does_not_expand_sheet_when_col_count_sufficient():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.col_count = 10
+    header = ["Repository Name", "Stars"]
+    df = pd.DataFrame([{"Repository Name": "r", "Stars": 5, "License": "MIT"}])
+
+    exporter._sync_new_columns(sheet, df, header)
+
+    sheet.add_cols.assert_not_called()
+
+# _build_batch_body
+
+def test_build_batch_body_updates_existing_row():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.title = "GH-Repos"
+    # Row 0 = title row, row 1 = header row -> data starts at index 2 (HEADER_ROW_INDEX)
+    sheet.get_all_values.return_value = [
+        ["Imageomics GH Repos"],
+        ["Repository Name", "Stars"],
+        ['=HYPERLINK("u", "existing-repo")', "3"],
+    ]
+    header = ["Repository Name", "Stars"]
+    df = pd.DataFrame([
+        {"Repository Name": '=HYPERLINK("u", "existing-repo")', "Stars": 8},
+    ])
+
+    batch_body, existing = exporter._build_batch_body(sheet, df, header)
+
+     # one update per column
+    assert len(batch_body) == 2 
+    # no new row appended
+    assert len(existing) == 3  
+    ranges = [item["range"] for item in batch_body]
+    # Stars column, row 3 (1-indexed)
+    assert any("B3" in r for r in ranges)  
+
+
+def test_build_batch_body_appends_new_row_for_unseen_repo():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.title = "GH-Repos"
+    sheet.get_all_values.return_value = [
+        ["Imageomics GH Repos"],
+        ["Repository Name", "Stars"],
+    ]
+    header = ["Repository Name", "Stars"]
+    df = pd.DataFrame([
+        {"Repository Name": '=HYPERLINK("u", "new-repo")', "Stars": 5},
+    ])
+
+    batch_body, existing = exporter._build_batch_body(sheet, df, header)
+
+    assert len(batch_body) == 2
+     # blank row appended for the new repo
+    assert len(existing) == 3 
+
+
+def test_build_batch_body_raises_when_repository_name_column_missing():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.title = "GH-Repos"
+    sheet.get_all_values.return_value = [["title"], ["Stars"]]
+    header = ["Stars"]
+    df = pd.DataFrame([{"Stars": 5}])
+
+    with pytest.raises(ValueError, match="Repository Name"):
+        exporter._build_batch_body(sheet, df, header)
+
+def test_build_batch_body_skips_columns_not_in_df():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.title = "GH-Repos"
+    sheet.get_all_values.return_value = [["title"], ["Repository Name", "Stars", "License"]]
+    header = ["Repository Name", "Stars", "License"]
+    df = pd.DataFrame([{"Repository Name": '=HYPERLINK("u", "r")', "Stars": 5}])
+
+    batch_body, _ = exporter._build_batch_body(sheet, df, header)
+
+    # Only Repository Name + Stars should produce cells, not License (absent from df)
+    assert len(batch_body) == 2
+    
+
+# _write_batch
+
+def test_write_batch_calls_values_batch_update():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    batch_body = [{"range": "A1", "majorDimension": "ROWS", "values": [["x"]]}]
+
+    exporter._write_batch(sheet, batch_body)
+
+    sheet.spreadsheet.values_batch_update.assert_called_once_with(
+        body={"value_input_option": "USER_ENTERED", "data": batch_body}
+    )
+    
+
+# _normalize_color
+
+def test_normalize_color_fills_missing_channels_as_zero():
+    assert BaseExporter._normalize_color({"red": 1}) == {"red": 1, "green": 0, "blue": 0}
+
+def test_normalize_color_leaves_full_color_unchanged():
+    color = {"red": 1, "green": 0.5, "blue": 0.5}
+    assert BaseExporter._normalize_color(color) == color
+
+def test_normalize_color_equal_after_normalizing_partial_and_full():
+    partial = {"green": 0.5}
+    full = {"red": 0, "green": 0.5, "blue": 0}
+    assert BaseExporter._normalize_color(partial) == BaseExporter._normalize_color(full)
+
+
+# ensure_string_value: formula injection guard
+
+def test_ensure_string_value_escapes_leading_equals():
+    assert BaseExporter.ensure_string_value("=cmd|' /C calc'!A1") == "'=cmd|' /C calc'!A1"
+
+def test_ensure_string_value_does_not_escape_hyperlink_formula():
+    val = '=HYPERLINK("https://github.com/Imageomics/repo", "repo")'
+    assert BaseExporter.ensure_string_value(val) == val
+
+def test_ensure_string_value_hyperlink_case_insensitive():
+    val = '=hyperlink("https://github.com/Imageomics/repo", "repo")'
+    assert BaseExporter.ensure_string_value(val) == val
+
+def test_ensure_string_value_list_with_leading_equals_is_escaped():
+    # join happens first, then the injection guard checks the joined string
+    assert BaseExporter.ensure_string_value(["=SUM(A1:A2)", "b"]) == "'=SUM(A1:A2), b"
+
+
+# _build_conditional_rule
+
+def test_build_conditional_rule_shape():
+    exporter = make_exporter()
+    rule = exporter._build_conditional_rule(
+        sheet_id=42, col_index=1, end_row=5, color={"red": 1, "green": 0, "blue": 0}
+    )
+
+    assert rule["ranges"][0]["sheetId"] == 42
+    assert rule["ranges"][0]["startRowIndex"] == 2  # HEADER_ROW_INDEX
+    assert rule["ranges"][0]["endRowIndex"] == 5
+    assert rule["ranges"][0]["startColumnIndex"] == 1
+    assert rule["ranges"][0]["endColumnIndex"] == 2
+    assert rule["booleanRule"]["condition"]["type"] == "TEXT_EQ"
+    assert rule["booleanRule"]["condition"]["values"] == [{"userEnteredValue": "No"}]
+    assert rule["booleanRule"]["format"]["backgroundColor"] == {"red": 1, "green": 0, "blue": 0}
+
+
+# _apply_conditional_formatting (diff-based): replaces the two old add-only tests
+
+def _metadata_with_rules(sheet_id, rules):
+    """Build a fake fetch_sheet_metadata() response with given (col_index, color, end_row) rules."""
+    conditional_formats = []
+    for col_index, color, end_row in rules:
+        conditional_formats.append({
+            "ranges": [{
+                "sheetId": sheet_id,
+                "startRowIndex": 2,
+                "endRowIndex": end_row,
+                "startColumnIndex": col_index,
+                "endColumnIndex": col_index + 1,
+            }],
+            "booleanRule": {
+                "condition": {"type": "TEXT_EQ", "values": [{"userEnteredValue": "No"}]},
+                "format": {"backgroundColor": color},
+            },
+        })
+    return {"sheets": [{"properties": {"sheetId": sheet_id}, "conditionalFormats": conditional_formats}]}
+
+
+def test_apply_conditional_formatting_adds_rules_when_none_exist():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(42, [])
+    header = ["Repository Name", "README", "License", "DOI for GitHub Repo"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README", "License"},
+        secondary_columns={"DOI for GitHub Repo"},
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    sheet.spreadsheet.batch_update.assert_called_once()
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    assert len(requests) == 3
+    assert all("addConditionalFormatRule" in r for r in requests)
+
+
+def test_apply_conditional_formatting_skips_missing_columns():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(42, [])
+    header = ["Repository Name"]
+    df = pd.DataFrame([{"Repository Name": "r"}])
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"Nonexistent"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    sheet.spreadsheet.batch_update.assert_not_called()
+
+
+def test_apply_conditional_formatting_noop_when_rule_already_correct():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+    end_row = 2 + len(df)  # HEADER_ROW_INDEX + len(df)
+    color = {"red": 1, "green": 0.5, "blue": 0.5}
+
+    # An existing rule that already exactly matches what would be desired
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
+        42, [(1, color, end_row)]
+    )
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    sheet.spreadsheet.batch_update.assert_not_called()
+
+
+def test_apply_conditional_formatting_updates_stale_rule_in_place():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+    end_row = 2 + len(df)
+
+    # Existing rule has a stale endRowIndex (as if fewer rows existed before)
+    stale_color = {"red": 1, "green": 0.5, "blue": 0.5}
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
+        42, [(1, stale_color, end_row + 5)]
+    )
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    assert len(requests) == 1
+    assert "updateConditionalFormatRule" in requests[0]
+    assert requests[0]["updateConditionalFormatRule"]["index"] == 0
+
+
+def test_apply_conditional_formatting_deletes_stale_column_rule():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README", "License"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+    end_row = 2 + len(df)
+
+    # An existing rule on the "License" column (index 2), which is no longer desired
+    old_color = {"red": 1, "green": 0.5, "blue": 0.5}
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
+        42, [(2, old_color, end_row)]
+    )
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns=set(),          # License no longer in red_columns
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    assert len(requests) == 1
+    assert "deleteConditionalFormatRule" in requests[0]
+    assert requests[0]["deleteConditionalFormatRule"]["index"] == 0
+
+def _unmanaged_rule(sheet_id, col_index, condition_type="TEXT_EQ", value="Yes", start_row=2):
+    """Build a conditionalFormats entry that does NOT match the exporter's signature."""
+    return {
+        "ranges": [{
+            "sheetId": sheet_id,
+            "startRowIndex": start_row,
+            "endRowIndex": start_row + 5,
+            "startColumnIndex": col_index,
+            "endColumnIndex": col_index + 1,
+        }],
+        "booleanRule": {
+            "condition": {"type": condition_type, "values": [{"userEnteredValue": value}]},
+            "format": {"backgroundColor": {"red": 0, "green": 1, "blue": 0}},
+        },
+    }
+
+
+def test_apply_conditional_formatting_ignores_unmanaged_rule_different_condition():
+    """A manually-added rule with a different condition type on a desired
+    column should be left alone -- the exporter should ADD its own rule
+    alongside it, not touch or delete the existing one."""
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+
+    metadata = {"sheets": [{
+        "properties": {"sheetId": 42},
+        "conditionalFormats": [_unmanaged_rule(42, col_index=1, condition_type="TEXT_CONTAINS", value="foo")],
+    }]}
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = metadata
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    assert len(requests) == 1
+    assert "addConditionalFormatRule" in requests[0]  # exporter's own rule added, not an update/delete
+
+
+def test_apply_conditional_formatting_ignores_unmanaged_rule_on_undesired_column():
+    """A manually-added rule on a column the exporter doesn't manage at all
+    should never be queued for deletion."""
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README", "Notes"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+
+    metadata = {"sheets": [{
+        "properties": {"sheetId": 42},
+        "conditionalFormats": [_unmanaged_rule(42, col_index=2, condition_type="TEXT_EQ", value="Yes")],
+    }]}
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = metadata
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    # Only the README add should happen; the "Notes" column rule must not be deleted
+    assert len(requests) == 1
+    assert "addConditionalFormatRule" in requests[0]
+    assert not any("deleteConditionalFormatRule" in r for r in requests)
+
+
+def test_apply_conditional_formatting_ignores_rule_starting_at_wrong_row():
+    """A rule that matches condition/value but starts at a different row
+    (e.g. someone formatted the header row itself) should not be managed."""
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README"]
+    df = pd.DataFrame([{"Repository Name": "r", "README": "No"}])
+
+    metadata = {"sheets": [{
+        "properties": {"sheetId": 42},
+        "conditionalFormats": [_unmanaged_rule(42, col_index=1, condition_type="TEXT_EQ", value="No", start_row=0)],
+    }]}
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = metadata
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    assert len(requests) == 1
+    assert "addConditionalFormatRule" in requests[0]
+
+
+# _is_managed_rule
+
+def test_is_managed_rule_true_for_exporter_signature():
+    rule = BaseExporter._build_conditional_rule(sheet_id=42, col_index=1, end_row=5, color={"red": 1})
+    assert BaseExporter._is_managed_rule(rule) is True
+
+def test_is_managed_rule_false_for_wrong_condition_type():
+    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_CONTAINS", value="No")
+    assert BaseExporter._is_managed_rule(rule) is False
+
+def test_is_managed_rule_false_for_wrong_value():
+    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_EQ", value="Yes")
+    assert BaseExporter._is_managed_rule(rule) is False
+
+def test_is_managed_rule_false_for_wrong_start_row():
+    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_EQ", value="No", start_row=0)
+    assert BaseExporter._is_managed_rule(rule) is False
+
+def test_apply_conditional_formatting_treats_omitted_zero_channels_as_equal():
+    """Regression test: API responses that omit zero-valued color channels
+    should still compare equal via _normalize_color, producing no spurious update."""
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "DOI for GitHub Repo"]
+    df = pd.DataFrame([{"Repository Name": "r", "DOI for GitHub Repo": "No"}])
+    end_row = 2 + len(df)
+
+    # secondary_color has a zero blue channel that the API omits in its response
+    secondary_color = {"red": 1, "green": 0.8, "blue": 0}
+    api_returned_color = {"red": 1, "green": 0.8}  # blue omitted
+
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
+        42, [(1, api_returned_color, end_row)]
+    )
+
+    exporter._apply_conditional_formatting(
+        sheet, header, df,
+        red_columns=set(),
+        secondary_columns={"DOI for GitHub Repo"},
+        secondary_color=secondary_color,
+    )
+
+    sheet.spreadsheet.batch_update.assert_not_called()
+
+
+# run() orchestration
+
+def test_run_writes_sorted_dataframe_and_reports_success(capsys):
+    exporter = make_exporter()
+    exporter.fetch_repos = MagicMock(return_value=["repo-b", "repo-a"])
+    exporter.get_repo_info = MagicMock(side_effect=[
+        {"Repository Name": "zzz-repo"},
+        {"Repository Name": "aaa-repo"},
+    ])
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    exporter.update_google_sheet.assert_called_once()
+    written_df = exporter.update_google_sheet.call_args[0][0]
+    assert list(written_df["Repository Name"]) == ["aaa-repo", "zzz-repo"]
+
+    out = capsys.readouterr().out
+    assert "Finished fetching info for 2 repositories" in out
+
+
+def test_run_skips_repo_that_raises_and_continues(capsys):
+    exporter = make_exporter()
+    exporter.fetch_repos = MagicMock(return_value=["repo-a", "repo-b"])
+
+    def fake_get_repo_info(repo):
+        if repo == "repo-b":
+            raise RuntimeError("boom")
+        return {"Repository Name": "repo-a"}
+
+    exporter.get_repo_info = fake_get_repo_info
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    exporter.update_google_sheet.assert_called_once()
+    written_df = exporter.update_google_sheet.call_args[0][0]
+    assert len(written_df) == 1
+    out = capsys.readouterr().out
+    assert "ERROR: Cannot fetch" in out
+
+
+def test_run_reports_error_and_returns_when_fetch_repos_fails(capsys):
+    exporter = make_exporter()
+    exporter.fetch_repos = MagicMock(side_effect=RuntimeError("no access"))
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    exporter.update_google_sheet.assert_not_called()
+    out = capsys.readouterr().out
+    assert "ERROR: Could not fetch repos" in out
+
+
+def test_run_reports_error_when_no_data_collected(capsys):
+    exporter = make_exporter()
+    exporter.fetch_repos = MagicMock(return_value=["repo-a"])
+    exporter.get_repo_info = MagicMock(side_effect=RuntimeError("boom"))
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    exporter.update_google_sheet.assert_not_called()
+    out = capsys.readouterr().out
+    assert "ERROR: No data collected" in out

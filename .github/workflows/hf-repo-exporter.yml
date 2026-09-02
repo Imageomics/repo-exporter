@@ -24,10 +24,10 @@ jobs:
       with:
         python-version: "3.x"
 
-    - name: Install dependencies
+    - name: Install package
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install . 
 
     - name: Write Google credentials
       run: printf "%s" '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service_account.json
@@ -38,4 +38,4 @@ jobs:
         GOOGLE_CREDENTIALS_PATH: service_account.json
         HF_ORG_NAME: ${{ vars.HF_ORG_NAME }}
         SPREADSHEET_ID: ${{ vars.SPREADSHEET_ID }}
-      run: python hf_repo_exporter.py
+      run: repo-exporter huggingface
