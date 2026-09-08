@@ -17,11 +17,29 @@ class BaseExporter(ABC):
     self.creds_path in their __init__.
     """
 
-    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str):
+    VALID_ERROR_MODES = {"log", "none"}
+    
+    def __init__(
+        self,
+        org_name: str,
+        spreadsheet_id: str,
+        sheet_name: str,
+        creds_path: str,
+        error_mode: str = "none",
+        error_log_path: str | None = None,
+    ):
         self.org_name = org_name
         self.spreadsheet_id = spreadsheet_id
         self.sheet_name = sheet_name
         self.creds_path = creds_path
+
+        error_mode = (error_mode or "none").strip().lower()
+        if error_mode not in self.VALID_ERROR_MODES:
+            raise ValueError(
+                f"Invalid error_mode '{error_mode}'. Must be one of {sorted(self.VALID_ERROR_MODES)}."
+            )
+        self.error_mode = error_mode
+        self.error_log_path = error_log_path or "repo_exporter_errors.log"
         
     @staticmethod
     def is_inactive(dt: datetime | None) -> str:
@@ -439,6 +457,26 @@ class BaseExporter(ABC):
         repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
         return f"/{getattr(repo, 'name', getattr(repo, 'id', str(repo)))}"
 
+    def _log_error(self, repo_args, error: Exception) -> None:
+        """
+        Append a timestamped error line to self.error_log_path, for
+        error_mode="log". Never raises -- a logging failure shouldn't abort
+        the run.
+
+        Parameters:
+        ------------
+        repo_args - A single repo object or a tuple whose first element is the repo.
+        error     - The exception raised while fetching this repo's info.
+        """
+        label = self._repo_label(repo_args)
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        line = f"[{timestamp}] {self.org_name}{label} - {type(error).__name__}: {error}\n"
+        try:
+            with open(self.error_log_path, "a", encoding="utf-8") as f:
+                f.write(line)
+        except Exception as log_err:
+            tqdm.write(f"Warning: Could not write to error log '{self.error_log_path}': {log_err}")
+
     # Shared run() orchestration
 
     def run(self) -> None:
@@ -479,8 +517,13 @@ class BaseExporter(ABC):
             except Exception as e:
                 tqdm.write(
                     f"ERROR: Cannot fetch {self._repo_label(repo_args)} info, "
-                    f"due to {type(e).__name__}: {e}. Skipping..."
+                    f"due to {type(e).__name__}: {e}."
                 )
+                if self.error_mode == "log":
+                    self._log_error(repo_args, e)
+                    tqdm.write(f"  Logged to {self.error_log_path}. Skipping...")
+                else:
+                    tqdm.write("  Skipping...")
 
         if not data:
             print("ERROR: No data collected")

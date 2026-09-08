@@ -307,3 +307,16 @@ def test_get_associated_datasets_returns_no_when_missing():
     exporter = make_exporter()
     repo = make_mock_repo(tags=[])
     assert exporter.get_associated_datasets(repo) == "No"
+    
+# error_mode / error_log_path forwarding
+
+def test_huggingface_exporter_forwards_error_mode_and_log_path():
+    exporter = make_exporter(error_mode="log", error_log_path="custom-hf.log")
+    assert exporter.error_mode == "log"
+    assert exporter.error_log_path == "custom-hf.log"
+
+
+def test_huggingface_exporter_defaults_error_mode_to_none():
+    exporter = make_exporter()
+    assert exporter.error_mode == "none"
+    assert exporter.error_log_path == "repo_exporter_errors.log"

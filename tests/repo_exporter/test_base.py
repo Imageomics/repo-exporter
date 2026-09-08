@@ -646,3 +646,107 @@ def test_run_reports_error_when_no_data_collected(capsys):
     exporter.update_google_sheet.assert_not_called()
     out = capsys.readouterr().out
     assert "ERROR: No data collected" in out
+    
+# _log_error / error_mode
+
+def _make_error_mode_exporter(tmp_path, error_mode):
+    """
+    Build a GitHubExporter with update_google_sheet mocked out, so no real
+    Google Sheets access is needed to test BaseExporter's error_mode logic.
+    """
+    log_path = tmp_path / "errors.log"
+    exporter = GitHubExporter(
+        org_name="TestOrg",
+        spreadsheet_id="fake-id",
+        sheet_name="fake-sheet",
+        creds_path="fake-creds.json",
+        error_mode=error_mode,
+        error_log_path=str(log_path),
+    )
+    exporter.update_google_sheet = MagicMock()
+    return exporter, log_path
+
+
+def _good_and_bad_repos():
+    good_repo = MagicMock(name="good_repo")
+    good_repo.name = "good-repo"
+
+    bad_repo = MagicMock(name="bad_repo")
+    bad_repo.name = "bad-repo"
+
+    return good_repo, bad_repo
+
+
+def _fake_get_repo_info(bad_repo):
+    """Return a get_repo_info stub that raises only for bad_repo."""
+    def _inner(repo):
+        if repo is bad_repo:
+            raise RuntimeError("Simulated failure for testing")
+        return {"Repository Name": repo.name, "Stars": 42}
+    return _inner
+
+
+def test_error_mode_log_writes_failed_repo_to_log_file(tmp_path):
+    exporter, log_path = _make_error_mode_exporter(tmp_path, error_mode="log")
+    good_repo, bad_repo = _good_and_bad_repos()
+
+    exporter.fetch_repos = MagicMock(return_value=[good_repo, bad_repo])
+    exporter.get_repo_info = _fake_get_repo_info(bad_repo)
+
+    exporter.run()
+
+    assert exporter.update_google_sheet.called
+    written_df = exporter.update_google_sheet.call_args[0][0]
+    assert list(written_df["Repository Name"]) == ["good-repo"]
+
+    assert log_path.exists()
+    log_contents = log_path.read_text()
+    assert "TestOrg" in log_contents
+    assert "/bad-repo" in log_contents
+    assert "RuntimeError" in log_contents
+    assert "Simulated failure for testing" in log_contents
+
+
+def test_error_mode_none_does_not_write_log_file(tmp_path):
+    exporter, log_path = _make_error_mode_exporter(tmp_path, error_mode="none")
+    good_repo, bad_repo = _good_and_bad_repos()
+
+    exporter.fetch_repos = MagicMock(return_value=[good_repo, bad_repo])
+    exporter.get_repo_info = _fake_get_repo_info(bad_repo)
+
+    exporter.run()
+
+    assert exporter.update_google_sheet.called
+    written_df = exporter.update_google_sheet.call_args[0][0]
+    assert list(written_df["Repository Name"]) == ["good-repo"]
+
+    assert not log_path.exists()
+
+
+def test_invalid_error_mode_raises_value_error():
+    with pytest.raises(ValueError, match="Invalid error_mode"):
+        GitHubExporter(
+            org_name="TestOrg",
+            spreadsheet_id="fake-id",
+            sheet_name="fake-sheet",
+            creds_path="fake-creds.json",
+            error_mode="bogus",
+        )
+
+
+def test_error_mode_log_failure_does_not_raise(tmp_path):
+    """
+    If writing to the log file itself fails, run() should still complete
+    (a log write failure shouldn't abort the export).
+    """
+    bad_log_path = tmp_path / "no_such_dir" / "errors.log"
+    exporter, _ = _make_error_mode_exporter(tmp_path, error_mode="log")
+    exporter.error_log_path = str(bad_log_path)
+
+    good_repo, bad_repo = _good_and_bad_repos()
+    exporter.fetch_repos = MagicMock(return_value=[good_repo, bad_repo])
+    exporter.get_repo_info = _fake_get_repo_info(bad_repo)
+
+    exporter.run()  # should not raise
+
+    assert exporter.update_google_sheet.called
