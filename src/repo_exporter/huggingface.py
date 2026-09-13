@@ -61,6 +61,26 @@ class HuggingFaceExporter(BaseExporter):
             repos.append((s, "space"))
         return repos
 
+    def _error_repo_name(self, repo_args) -> str:
+        """
+        Build a HYPERLINK formula for a repo whose fetch failed, using only
+        the summary object's id/type from fetch_repos() -- avoids calling
+        model_info/dataset_info/space_info again just to report the error.
+
+        Parameters:
+        ------------
+        repo_args - A (repo_summary, repo_type) tuple, matching fetch_repos()'s output.
+        """
+        repo_summary, repo_type = repo_args
+        url = self.get_repo_url(repo_summary, repo_type)
+        if repo_type == "dataset":
+            display_id = f"datasets/{repo_summary.id}"
+        elif repo_type == "space":
+            display_id = f"spaces/{repo_summary.id}"
+        else:
+            display_id = repo_summary.id
+        return f'=HYPERLINK("{url}", "{display_id}")'
+
     # Repo metadata helpers
 
     def get_repo_url(self, repo, repo_type: str) -> str:

@@ -17,7 +17,7 @@ class BaseExporter(ABC):
     self.creds_path in their __init__.
     """
 
-    VALID_ERROR_MODES = {"log", "none"}
+    VALID_ERROR_MODES = {"log", "column", "none"}
     
     def __init__(
         self,
@@ -410,29 +410,104 @@ class BaseExporter(ABC):
 
         sheet.spreadsheet.batch_update({"requests": requests})
         
-    def update_google_sheet(self, df: pd.DataFrame) -> None:
+    def update_google_sheet(self, df: pd.DataFrame, errors: list[dict] | None = None) -> None:
         """
         Write df to the configured Google sheet tab using subclass column/color config.
+        If errors is given (error_mode="column"), also writes each entry's
+        Status (and Repository Name, for a repo never seen before) directly,
+        touching only those cells so any previously-written data for that
+        repo is left alone.
 
         Parameters:
         ------------
-        df - pd.DataFrame. Data to write, with columns matching sheet headers.
+        df     - pd.DataFrame. Data to write, with columns matching sheet headers.
+        errors - List[dict] | None. Each dict has "Repository Name" and "Status"
+                keys, for repos whose fetch failed entirely (error_mode="column" only).
         """
         sheet = self._get_sheet()
         header = sheet.row_values(2)
         header = self._sync_new_columns(sheet, df, header)
-        batch_body, _ = self._build_batch_body(sheet, df, header)
-        self._write_batch(sheet, batch_body)
-        
-        self._apply_conditional_formatting(
-            sheet,
-            header,
-            df,
-            red_columns=self.red_columns,
-            secondary_columns=self.secondary_columns,
-            secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
-        )
 
+        if errors and self.get_column_index(header, "Status") is None:
+            # All repos failed this run (df has no rows to sync "Status"
+            # from) -- still need the column to exist before writing errors.
+            header = self._sync_new_columns(sheet, pd.DataFrame(columns=["Status"]), header)
+
+        if not df.empty:
+            batch_body, _ = self._build_batch_body(sheet, df, header)
+            self._write_batch(sheet, batch_body)
+
+            self._apply_conditional_formatting(
+                sheet,
+                header,
+                df,
+                red_columns=self.red_columns,
+                secondary_columns=self.secondary_columns,
+                secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+            )
+
+        if errors:
+            self._write_error_statuses(sheet, header, errors)
+
+    def _write_error_statuses(self, sheet, header: list, errors: list[dict]) -> None:
+        """
+        Write each error entry's Status cell (and Repository Name, only for a
+        repo with no existing row) directly to the sheet. Only these two
+        cells are touched per row -- a failed repo's previously-written data
+        (README, Stars, etc.) from an earlier successful run is left as-is.
+
+        Parameters:
+        ------------
+        sheet  - gspread Worksheet object.
+        header - List of column header strings, already synced to include "Status".
+        errors - List of {"Repository Name": ..., "Status": ...} dicts.
+        """
+        HEADER_ROW_INDEX = 2
+
+        status_col_index = self.get_column_index(header, "Status")
+        if status_col_index is None:
+            return
+
+        name_col_index = self.get_column_index(header, "Repository Name")
+
+        existing = sheet.get_all_values()
+        data_rows = existing[HEADER_ROW_INDEX:]
+
+        name_to_row = {}
+        if name_col_index is not None:
+            for offset, row in enumerate(data_rows, start=HEADER_ROW_INDEX + 1):
+                if len(row) <= name_col_index:
+                    continue
+                sheet_repo_name = self.extract_display_name(row[name_col_index])
+                name_to_row[sheet_repo_name] = offset
+
+        batch_body = []
+        for err in errors:
+            repo_name = self.extract_display_name(err["Repository Name"])
+
+            if repo_name in name_to_row:
+                row_idx = name_to_row[repo_name]
+            else:
+                row_idx = len(existing) + 1
+                existing.append([""] * len(header))
+                if name_col_index is not None:
+                    cell = f"'{sheet.title}'!{gspread.utils.rowcol_to_a1(row_idx, name_col_index + 1)}"
+                    batch_body.append({
+                        "range": cell,
+                        "majorDimension": "ROWS",
+                        "values": [[self.ensure_string_value(err["Repository Name"])]],
+                    })
+
+            cell = f"'{sheet.title}'!{gspread.utils.rowcol_to_a1(row_idx, status_col_index + 1)}"
+            batch_body.append({
+                "range": cell,
+                "majorDimension": "ROWS",
+                "values": [[self.ensure_string_value(err["Status"])]],
+            })
+
+        if batch_body:
+            self._write_batch(sheet, batch_body)
+        
     def _fetch_one(self, repo_args) -> dict:
         """
         Unpack repo_args and call get_repo_info.
@@ -477,6 +552,21 @@ class BaseExporter(ABC):
         except Exception as log_err:
             tqdm.write(f"Warning: Could not write to error log '{self.error_log_path}': {log_err}")
 
+    def _error_repo_name(self, repo_args) -> str:
+        """
+        Best-effort "Repository Name" cell value for a repo whose fetch
+        failed, used only in error_mode="column". Default falls back to a
+        plain label; subclasses override to build a real HYPERLINK formula
+        from data already fetched before the failing call (name/id + URL),
+        so no extra API request is needed just to report the error.
+
+        Parameters:
+        ------------
+        repo_args - A single repo object or a tuple whose first element is the repo.
+        """
+        repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
+        return str(getattr(repo, "name", getattr(repo, "id", repo)))
+
     # Shared run() orchestration
 
     def run(self) -> None:
@@ -484,6 +574,16 @@ class BaseExporter(ABC):
         Main orchestration: fetch repos, collect metadata, write to sheet.
         Subclasses set self.org_name, self.spreadsheet_id, self.sheet_name,
         self.creds_path before calling run().
+
+        A repo whose fetch fails entirely (not just one field) is handled
+        per self.error_mode:
+        - "none"   -> console message only; the repo's existing sheet row
+                        (if any) is left untouched this run.
+        - "log"    -> same, plus appended to self.error_log_path.
+        - "column" -> same for the repo's other columns, but its Status
+                        cell is set to the error so it's visible in the
+                        sheet; a never-before-seen repo gets a new row with
+                        just its name and Status.
         """
         start_time = time.time()
 
@@ -497,6 +597,7 @@ class BaseExporter(ABC):
             return
 
         data = []
+        errors = []
         tqdm_kwargs = {}
         if os.environ.get("CI") == "true":
             tqdm_kwargs = {"mininterval": 1, "dynamic_ncols": False, "leave": False}
@@ -510,8 +611,10 @@ class BaseExporter(ABC):
             **tqdm_kwargs,
         ):
             try:
-                # repo_args is either a single repo or a tuple — subclass handles it
+                # repo_args is either a single repo or a tuple, subclass handles it
                 info = self._fetch_one(repo_args)
+                if self.error_mode == "column":
+                    info["Status"] = "OK"
                 data.append(info)
                 tqdm.write(f"Fetched info for {self._repo_label(repo_args)}")
             except Exception as e:
@@ -522,20 +625,34 @@ class BaseExporter(ABC):
                 if self.error_mode == "log":
                     self._log_error(repo_args, e)
                     tqdm.write(f"  Logged to {self.error_log_path}. Skipping...")
+                elif self.error_mode == "column":
+                    try:
+                        repo_name_value = self._error_repo_name(repo_args)
+                    except Exception:
+                        repo_name_value = self._repo_label(repo_args).lstrip("/")
+                    errors.append({
+                        "Repository Name": repo_name_value,
+                        "Status": f"ERROR: {type(e).__name__}: {e}",
+                    })
+                    tqdm.write("  Recorded in Status column...")
                 else:
                     tqdm.write("  Skipping...")
 
-        if not data:
+        if not data and not errors:
             print("ERROR: No data collected")
             return
 
         print("----------------\n")
 
         df = pd.DataFrame(data)
-        df.sort_values(by="Repository Name", inplace=True)
+        if not df.empty:
+            df.sort_values(by="Repository Name", inplace=True)
 
-        self.update_google_sheet(df)
+        self.update_google_sheet(df, errors=errors or None)
+
         print(f"Finished fetching info for {len(df)} repositories from {self.org_name}")
+        if errors:
+            print(f"Recorded {len(errors)} error(s) in the Status column")
 
         elapsed = time.time() - start_time
         minutes, seconds = divmod(int(elapsed), 60)

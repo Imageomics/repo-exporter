@@ -123,8 +123,9 @@ def create_parser():
     credentials_arg = {'help': f"Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})"}
     error_mode_arg = {
         'default': None,
-        'choices': ['log', 'none'],
+        'choices': ['log', 'column', 'none'],
         'help': f"How to surface repos that fail entirely: 'log' appends to --error-log-path, "
+                f"'column' writes the error into a Status column in the sheet, "
                 f"'none' is console-only (overrides ERROR_MODE in .env; default: {ERROR_MODE})",
     }
     error_log_path_arg = {

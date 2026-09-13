@@ -491,7 +491,29 @@ def test_is_valid_doi_rejects_none_and_non_string():
     assert exporter.is_valid_doi(None) is False
     assert exporter.is_valid_doi(12345) is False
 
+# _error_repo_name
 
+def test_error_repo_name_builds_hyperlink_from_name_and_html_url():
+    exporter = make_exporter()
+    repo = MagicMock()
+    repo.name = "bad-repo"
+    repo.html_url = "https://github.com/Imageomics/bad-repo"
+
+    result = exporter._error_repo_name(repo)
+
+    assert result == '=HYPERLINK("https://github.com/Imageomics/bad-repo", "bad-repo")'
+
+
+def test_error_repo_name_falls_back_to_plain_name_when_no_html_url():
+    exporter = make_exporter()
+    repo = MagicMock()
+    repo.name = "bad-repo"
+    repo.html_url = None
+
+    result = exporter._error_repo_name(repo)
+
+    assert result == "bad-repo"
+    
 # get_website_reference / get_dataset / get_model / get_associated_paper
 
 def test_get_website_reference_returns_hyperlink_for_real_site():

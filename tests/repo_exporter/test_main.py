@@ -330,3 +330,7 @@ def test_parser_rejects_invalid_error_mode_choice():
     parser = main_module.create_parser()
     with pytest.raises(SystemExit):
         parser.parse_args(["github", "--error-mode", "bogus"])
+        
+def test_parser_accepts_error_mode_column():
+    args = main_module.parse_args(["github", "--error-mode", "column"])
+    assert args.error_mode == "column"

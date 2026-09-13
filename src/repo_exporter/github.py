@@ -147,6 +147,23 @@ class GitHubExporter(BaseExporter):
 
         return repos
 
+    def _error_repo_name(self, repo_args) -> str:
+        """
+        Build a HYPERLINK formula for a repo whose fetch failed, using only
+        the name/html_url already present on the repo object from
+        org.get_repos() -- no extra API call needed.
+
+        Parameters:
+        ------------
+        repo_args - A single PyGitHub Repository object (GitHub repos aren't tuples).
+        """
+        repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
+        name = getattr(repo, "name", None)
+        url = getattr(repo, "html_url", None)
+        if name and url:
+            return f'=HYPERLINK("{url}", "{name}")'
+        return str(name or repo)
+
     def has_file(self, repo, *paths: str) -> str:
         """
         Return "Yes" if any of the given paths exist in the repo, else "No".
