@@ -12,6 +12,8 @@ GH_ORG_NAME = os.getenv("GH_ORG_NAME")
 GH_TOKEN = os.getenv("GH_TOKEN")
 GH_SHEET_NAME = os.getenv("GH_SHEET_NAME", "GH-Repos")
 GH_REPO_TYPE = os.getenv("GH_REPO_TYPE", "all")
+ERROR_MODE = os.getenv("ERROR_MODE", "none")
+ERROR_LOG_PATH = os.getenv("ERROR_LOG_PATH", "repo_exporter_errors.log")
 HF_ORG_NAME = os.getenv("HF_ORG_NAME")
 HF_TOKEN = os.getenv("HF_TOKEN")
 HF_SHEET_NAME = os.getenv("HF_SHEET_NAME", "HF-Repos")
@@ -27,6 +29,8 @@ def export_repos(
     sheet_name: str | None = None,
     creds_path: str | None = None,
     repo_type: str | None = None,
+    error_mode: str | None = None,
+    error_log_path: str | None = None,
 ) -> None:
     """
     Build the appropriate exporter for the given platform and run it.
@@ -40,10 +44,14 @@ def export_repos(
     sheet_name     - String | None. Sheet tab name; falls back to platform default.
     creds_path     - String | None. Path to service_account.json; falls back to GOOGLE_CREDENTIALS_PATH env var.
     repo_type      - String | None. GitHub-only repo type filter; falls back to GH_REPO_TYPE env var.
+    error_mode     - String | None. "log" or "none"; falls back to ERROR_MODE env var (default "none").
+    error_log_path - String | None. Path for error_mode="log"; falls back to ERROR_LOG_PATH env var.
     """
     platform = platform.strip().lower()
     spreadsheet_id = spreadsheet_id or SPREADSHEET_ID
     creds_path = creds_path or GOOGLE_CREDENTIALS_PATH
+    error_mode = error_mode or ERROR_MODE
+    error_log_path = error_log_path or ERROR_LOG_PATH
 
     if platform == "github":
     
@@ -61,6 +69,8 @@ def export_repos(
             sheet_name=sheet_name,
             creds_path=creds_path,
             repo_type=repo_type,
+            error_mode=error_mode,
+            error_log_path=error_log_path,
         )
 
     elif platform == "huggingface":
@@ -76,11 +86,13 @@ def export_repos(
             spreadsheet_id=spreadsheet_id,
             sheet_name=sheet_name,
             creds_path=creds_path,
+            error_mode=error_mode,
+            error_log_path=error_log_path,
         )
 
     else:
         raise ValueError(f"Unknown platform: {platform}")
-
+ 
     exporter.run()
 
 
@@ -109,6 +121,17 @@ def create_parser():
     # Shared args
     spreadsheet_arg = {'help': 'Google Sheets spreadsheet ID (overrides SPREADSHEET_ID in .env)'}
     credentials_arg = {'help': f"Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})"}
+    error_mode_arg = {
+        'default': None,
+        'choices': ['log', 'column', 'none'],
+        'help': f"How to surface repos that fail entirely: 'log' appends to --error-log-path, "
+                f"'column' writes the error into a Status column in the sheet, "
+                f"'none' is console-only (overrides ERROR_MODE in .env; default: {ERROR_MODE})",
+    }
+    error_log_path_arg = {
+        'default': None,
+        'help': f"Path to write errors when --error-mode=log (overrides ERROR_LOG_PATH in .env; default: {ERROR_LOG_PATH})",
+    }
 
     # GitHub command
     gh_parser = subparsers.add_parser("github", help="Export GitHub repositories.")
@@ -123,6 +146,8 @@ def create_parser():
     gh_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
     gh_parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides GH_SHEET_NAME in .env; default: {GH_SHEET_NAME})")
     gh_parser.add_argument("--credentials-path", **credentials_arg)
+    gh_parser.add_argument("--error-mode", **error_mode_arg)
+    gh_parser.add_argument("--error-log-path", **error_log_path_arg)
 
     # Hugging Face command
     hf_parser = subparsers.add_parser("huggingface", help="Export Hugging Face repositories.")
@@ -131,7 +156,8 @@ def create_parser():
     hf_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
     hf_parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")
     hf_parser.add_argument("--credentials-path", **credentials_arg)
-
+    hf_parser.add_argument("--error-mode", **error_mode_arg)
+    hf_parser.add_argument("--error-log-path", **error_log_path_arg)
     return parser
 
 def parse_args(input_args=None):
@@ -149,7 +175,9 @@ def main():
             spreadsheet_id=args.spreadsheet_id,
             sheet_name=args.sheet_name,
             creds_path=args.credentials_path,
-            repo_type=getattr(args, "repo_type", None)
+            repo_type=getattr(args, "repo_type", None),
+            error_mode=args.error_mode,
+            error_log_path=args.error_log_path,
         )
     except ValueError as e:
         raise SystemExit(str(e))
