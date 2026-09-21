@@ -34,7 +34,7 @@ Python package that gathers metadata for all repositories in a provided GitHub o
     - Hugging Face: `HF_SHEET_NAME` defaults to `HF-Repos`
 - Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list
 - For [**Standard Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#standard-files) highlights **No** data cell values with red cell colors and for [**Recommended Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#recommended-files) and **Filters** highlights **No** data cell values with orange cell colors
-- Opt-in `--error-mode` for surfacing repos whose fetch failed entirely (console-only, log file, or a `Status` column in the sheet) so a failure doesn't silently leave a stale row untouched
+-  Supports an opt-in `--error-mode` flag for surfacing repos whose fetch failed entirely (console-only, log file, or a `Status` column in the sheet) so a failure doesn't silently leave a stale row untouched
 
 ## Usage
 The workflow runs automatically each week (9am UTC on Mondays); however, you can also run the GitHub Actions workflow manually:
@@ -139,7 +139,7 @@ All options fall back to the corresponding [environment variable](#environment-v
 | `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
 | `--sheet-name` | `GH_SHEET_NAME` | Sheet tab name (default: `GH-Repos`) |
 | `--credentials-path` | `GOOGLE_CREDENTIALS_PATH` | Path to `service_account.json` (default: `service_account.json`) |
-| `--error-mode` | `ERROR_MODE` | Failure reporting mode: log, column, or none (default: none) |
+| `--error-mode` | `ERROR_MODE` | Failure reporting mode: `log`, `column`, or `none` (default: `none`) |
 | `--error-log-path` | `ERROR_LOG_PATH` | Path to write errors when `--error-mode=log` (default: `repo_exporter_errors.log`) |
 
 **`repo-exporter huggingface [options]`**
@@ -151,7 +151,7 @@ All options fall back to the corresponding [environment variable](#environment-v
 | `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
 | `--sheet-name` | `HF_SHEET_NAME` | Sheet tab name (default: `HF-Repos`) |
 | `--credentials-path` | `GOOGLE_CREDENTIALS_PATH` | Path to `service_account.json` (default: `service_account.json`) |
-| `--error-mode` | `ERROR_MODE` | Failure reporting mode: log, column, or none (default: none) |
+| `--error-mode` | `ERROR_MODE` | Failure reporting mode: `log`, `column`, or `none` (default: `none`) |
 | `--error-log-path` | `ERROR_LOG_PATH` | Path to write errors when `--error-mode=log` (default: `repo_exporter_errors.log`) |
 
 Run `repo-exporter github --help` or `repo-exporter huggingface --help` to see these options from the command line.
@@ -186,9 +186,9 @@ Run `repo-exporter github --help` or `repo-exporter huggingface --help` to see t
 Applies to both exporters.
 
 * `ERROR_MODE` is optional. Controls how a repo whose fetch fails completely is reported (default: `"none"`):
-  - `"none"` — console message only; the repo's existing sheet row (if any) is left untouched.
-  - `"log"` — same, plus appended to `ERROR_LOG_PATH`.
-  - `"column"` — same, plus the repo's `Status` cell is set to the error message so it's visible in the sheet; a repo with no existing row gets a new one with just its name and Status.
+  - `"none"` — Prints a message to the console; the repo's existing row in the sheet, if any, is left unchanged.
+  - `"log"` — Prints a message to the console and appends a timestamped entry to `ERROR_LOG_PATH`; the repo's existing row in the sheet, if any, is left unchanged.
+  - `"column"` — Prints a message to the console and writes the error into the repo's `Status` column in the sheet, making failures visible without checking logs. A repo with no existing row gets a new one containing just its name and Status.
 * `ERROR_LOG_PATH` is optional. Path to write errors when `ERROR_MODE="log"` (defaults to `repo_exporter_errors.log`).
 
 ### Shared configuration
