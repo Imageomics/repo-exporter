@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
 from tqdm import tqdm
@@ -101,6 +102,18 @@ class BaseExporter(ABC):
     @abstractmethod
     def secondary_columns(self) -> set[str]:
         """Columns to color with the secondary color when value is 'No'."""
+        pass
+    
+    # optional second-pass hooks for exporters with deferred work
+    def has_pending_work(self) -> bool:
+        """Return True if resolve_pending() has work to do after the main pass."""
+        return False
+
+    def resolve_pending(self, data: list[dict]) -> None:
+        """
+        Resolve deferred work for rows in data, mutating them in place.
+        Called once, after the main ThreadPoolExecutor pass completes.
+        """
         pass
     
     def _get_sheet(self):
@@ -439,6 +452,19 @@ class BaseExporter(ABC):
         repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
         return f"/{getattr(repo, 'name', getattr(repo, 'id', str(repo)))}"
 
+    @staticmethod
+    def _strip_internal_keys(data: list[dict]) -> list[dict]:
+        """
+        Drop any "_"-prefixed correlation keys exporters use internally
+        (e.g. to match deferred results back to their row) before the
+        data is turned into a DataFrame and written to the sheet.
+
+        Parameters:
+        ------------
+        data - List of per-repo metadata dicts.
+        """
+        return [{k: v for k, v in row.items() if not k.startswith("_")} for row in data]
+    
     # Shared run() orchestration
 
     def run(self) -> None:
@@ -463,29 +489,40 @@ class BaseExporter(ABC):
         if os.environ.get("CI") == "true":
             tqdm_kwargs = {"mininterval": 1, "dynamic_ncols": False, "leave": False}
 
-        for repo_args in tqdm(
-            repos,
-            desc=f"Fetching repos from {self.org_name}...",
-            unit="repo",
-            colour="green",
-            ncols=100,
-            **tqdm_kwargs,
-        ):
-            try:
-                # repo_args is either a single repo or a tuple — subclass handles it
-                info = self._fetch_one(repo_args)
-                data.append(info)
-                tqdm.write(f"Fetched info for {self._repo_label(repo_args)}")
-            except Exception as e:
-                tqdm.write(
-                    f"ERROR: Cannot fetch {self._repo_label(repo_args)} info, "
-                    f"due to {type(e).__name__}: {e}. Skipping..."
-                )
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(self._fetch_one, repo_args): repo_args for repo_args in repos}
+
+            with tqdm(
+                total=len(repos),
+                desc=f"Fetching repos from {self.org_name}...",
+                unit="repo",
+                colour="green",
+                ncols=100,
+                **tqdm_kwargs,
+            ) as pbar:
+                for future in as_completed(futures):
+                    repo_args = futures[future]
+                    try:
+                        info = future.result(timeout=90)
+                        data.append(info)
+                        tqdm.write(f"Fetched info for {self._repo_label(repo_args)}")
+                    except Exception as e:
+                        tqdm.write(
+                            f"ERROR: Cannot fetch {self._repo_label(repo_args)} info, "
+                            f"due to {type(e).__name__}: {e}. Skipping..."
+                        )
+                    pbar.update(1)
 
         if not data:
             print("ERROR: No data collected")
             return
+        
+        if self.has_pending_work():
+            print("Resolving deferred data for large repos...")
+            self.resolve_pending(data)
 
+        data = self._strip_internal_keys(data)
+        
         print("----------------\n")
 
         df = pd.DataFrame(data)
