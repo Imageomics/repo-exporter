@@ -646,3 +646,382 @@ def test_run_reports_error_when_no_data_collected(capsys):
     exporter.update_google_sheet.assert_not_called()
     out = capsys.readouterr().out
     assert "ERROR: No data collected" in out
+    
+# _log_error / error_mode
+
+def _make_error_mode_exporter(tmp_path, error_mode):
+    """
+    Build a GitHubExporter with update_google_sheet mocked out, so no real
+    Google Sheets access is needed to test BaseExporter's error_mode logic.
+    """
+    log_path = tmp_path / "errors.log"
+    exporter = GitHubExporter(
+        org_name="TestOrg",
+        spreadsheet_id="fake-id",
+        sheet_name="fake-sheet",
+        creds_path="fake-creds.json",
+        error_mode=error_mode,
+        error_log_path=str(log_path),
+    )
+    exporter.update_google_sheet = MagicMock()
+    return exporter, log_path
+
+
+def _good_and_bad_repos():
+    good_repo = MagicMock(name="good_repo")
+    good_repo.name = "good-repo"
+
+    bad_repo = MagicMock(name="bad_repo")
+    bad_repo.name = "bad-repo"
+
+    return good_repo, bad_repo
+
+
+def _fake_get_repo_info(bad_repo):
+    """Return a get_repo_info stub that raises only for bad_repo."""
+    def _inner(repo):
+        if repo is bad_repo:
+            raise RuntimeError("Simulated failure for testing")
+        return {"Repository Name": repo.name, "Stars": 42}
+    return _inner
+
+
+def test_error_mode_log_writes_failed_repo_to_log_file(tmp_path):
+    exporter, log_path = _make_error_mode_exporter(tmp_path, error_mode="log")
+    good_repo, bad_repo = _good_and_bad_repos()
+
+    exporter.fetch_repos = MagicMock(return_value=[good_repo, bad_repo])
+    exporter.get_repo_info = _fake_get_repo_info(bad_repo)
+
+    exporter.run()
+
+    assert exporter.update_google_sheet.called
+    written_df = exporter.update_google_sheet.call_args[0][0]
+    assert list(written_df["Repository Name"]) == ["good-repo"]
+
+    assert log_path.exists()
+    log_contents = log_path.read_text()
+    assert "TestOrg" in log_contents
+    assert "/bad-repo" in log_contents
+    assert "RuntimeError" in log_contents
+    assert "Simulated failure for testing" in log_contents
+
+
+def test_error_mode_none_does_not_write_log_file(tmp_path):
+    exporter, log_path = _make_error_mode_exporter(tmp_path, error_mode="none")
+    good_repo, bad_repo = _good_and_bad_repos()
+
+    exporter.fetch_repos = MagicMock(return_value=[good_repo, bad_repo])
+    exporter.get_repo_info = _fake_get_repo_info(bad_repo)
+
+    exporter.run()
+
+    assert exporter.update_google_sheet.called
+    written_df = exporter.update_google_sheet.call_args[0][0]
+    assert list(written_df["Repository Name"]) == ["good-repo"]
+
+    assert not log_path.exists()
+
+
+def test_invalid_error_mode_raises_value_error():
+    with pytest.raises(ValueError, match="Invalid error_mode"):
+        GitHubExporter(
+            org_name="TestOrg",
+            spreadsheet_id="fake-id",
+            sheet_name="fake-sheet",
+            creds_path="fake-creds.json",
+            error_mode="bogus",
+        )
+
+
+def test_error_mode_log_failure_does_not_raise(tmp_path):
+    """
+    If writing to the log file itself fails, run() should still complete
+    (a log write failure shouldn't abort the export).
+    """
+    bad_log_path = tmp_path / "no_such_dir" / "errors.log"
+    exporter, _ = _make_error_mode_exporter(tmp_path, error_mode="log")
+    exporter.error_log_path = str(bad_log_path)
+
+    good_repo, bad_repo = _good_and_bad_repos()
+    exporter.fetch_repos = MagicMock(return_value=[good_repo, bad_repo])
+    exporter.get_repo_info = _fake_get_repo_info(bad_repo)
+
+    exporter.run()  # should not raise
+
+    assert exporter.update_google_sheet.called
+    
+# error_mode="column": run() behavior
+
+def test_error_mode_column_marks_successes_with_status_ok():
+    exporter = make_exporter()
+    exporter.error_mode = "column"
+    exporter.fetch_repos = MagicMock(return_value=["repo-a", "repo-b"])
+    exporter.get_repo_info = MagicMock(side_effect=[
+        {"Repository Name": "repo-a"},
+        {"Repository Name": "repo-b"},
+    ])
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    args, kwargs = exporter.update_google_sheet.call_args
+    written_df = args[0]
+    assert list(written_df["Status"]) == ["OK", "OK"]
+    assert kwargs["errors"] is None
+
+
+def test_error_mode_column_records_failed_repo_and_keeps_successes():
+    exporter = make_exporter()
+    exporter.error_mode = "column"
+    good_repo = MagicMock()
+    good_repo.name = "good-repo"
+    bad_repo = MagicMock()
+    bad_repo.name = "bad-repo"
+    bad_repo.html_url = "https://github.com/Imageomics/bad-repo"
+
+    exporter.fetch_repos = MagicMock(return_value=[good_repo, bad_repo])
+
+    def fake_get_repo_info(repo):
+        if repo is bad_repo:
+            raise RuntimeError("boom")
+        return {"Repository Name": "good-repo"}
+
+    exporter.get_repo_info = fake_get_repo_info
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    args, kwargs = exporter.update_google_sheet.call_args
+    written_df = args[0]
+    assert list(written_df["Repository Name"]) == ["good-repo"]
+    assert list(written_df["Status"]) == ["OK"]
+
+    errors = kwargs["errors"]
+    assert len(errors) == 1
+    assert errors[0]["Repository Name"] == '=HYPERLINK("https://github.com/Imageomics/bad-repo", "bad-repo")'
+    assert errors[0]["Status"].startswith("ERROR: RuntimeError: boom")
+
+
+def test_error_mode_column_falls_back_when_error_repo_name_raises():
+    exporter = make_exporter()
+    exporter.error_mode = "column"
+    bad_repo = MagicMock()
+    bad_repo.name = "bad-repo"
+    exporter._error_repo_name = MagicMock(side_effect=Exception("broken helper"))
+    exporter.fetch_repos = MagicMock(return_value=[bad_repo])
+    exporter.get_repo_info = MagicMock(side_effect=RuntimeError("boom"))
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    _, kwargs = exporter.update_google_sheet.call_args
+    errors = kwargs["errors"]
+    # falls back to _repo_label() ("/bad-repo") with the leading slash stripped
+    assert errors[0]["Repository Name"] == "bad-repo"
+
+
+def test_error_mode_column_all_repos_fail_still_writes_errors(capsys):
+    exporter = make_exporter()
+    exporter.error_mode = "column"
+    bad_repo = MagicMock()
+    bad_repo.name = "bad-repo"
+    bad_repo.html_url = "https://github.com/Imageomics/bad-repo"
+    exporter.fetch_repos = MagicMock(return_value=[bad_repo])
+    exporter.get_repo_info = MagicMock(side_effect=RuntimeError("boom"))
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    exporter.update_google_sheet.assert_called_once()
+    args, kwargs = exporter.update_google_sheet.call_args
+    assert args[0].empty
+    assert len(kwargs["errors"]) == 1
+
+    out = capsys.readouterr().out
+    assert "ERROR: No data collected" not in out
+
+
+def test_error_mode_none_does_not_add_status_key():
+    exporter = make_exporter()  # default error_mode "none"
+    exporter.fetch_repos = MagicMock(return_value=["repo-a"])
+    exporter.get_repo_info = MagicMock(return_value={"Repository Name": "repo-a"})
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    args, kwargs = exporter.update_google_sheet.call_args
+    assert "Status" not in args[0].columns
+    assert kwargs["errors"] is None
+
+
+def test_column_error_mode_is_valid():
+    exporter = GitHubExporter(
+        org_name="TestOrg",
+        spreadsheet_id="fake-id",
+        sheet_name="fake-sheet",
+        creds_path="fake-creds.json",
+        error_mode="column",
+    )
+    assert exporter.error_mode == "column"
+
+
+# _write_error_statuses
+
+def test_write_error_statuses_updates_only_status_cell_for_existing_row():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.title = "GH-Repos"
+    sheet.get_all_values.return_value = [
+        ["Imageomics GH Repos"],
+        ["Repository Name", "Stars", "Status"],
+        ['=HYPERLINK("https://github.com/Imageomics/bad-repo", "bad-repo")', "5", ""],
+    ]
+    header = ["Repository Name", "Stars", "Status"]
+    errors = [{
+        "Repository Name": '=HYPERLINK("https://github.com/Imageomics/bad-repo", "bad-repo")',
+        "Status": "ERROR: RuntimeError: boom",
+    }]
+
+    exporter._write_error_statuses(sheet, header, errors)
+
+    sheet.spreadsheet.values_batch_update.assert_called_once()
+    body = sheet.spreadsheet.values_batch_update.call_args.kwargs["body"]
+    data = body["data"]
+    assert len(data) == 1  # only Status cell touched, not Repository Name or Stars
+    assert "C3" in data[0]["range"]  # Status = 3rd column, row 3 (1-indexed, after 2 header rows)
+    assert data[0]["values"] == [["ERROR: RuntimeError: boom"]]
+
+
+def test_write_error_statuses_appends_new_row_for_unseen_repo():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.title = "GH-Repos"
+    sheet.get_all_values.return_value = [
+        ["Imageomics GH Repos"],
+        ["Repository Name", "Stars", "Status"],
+    ]
+    header = ["Repository Name", "Stars", "Status"]
+    errors = [{
+        "Repository Name": '=HYPERLINK("https://github.com/Imageomics/new-bad-repo", "new-bad-repo")',
+        "Status": "ERROR: RuntimeError: boom",
+    }]
+
+    exporter._write_error_statuses(sheet, header, errors)
+
+    body = sheet.spreadsheet.values_batch_update.call_args.kwargs["body"]
+    data = body["data"]
+    assert len(data) == 2  # Repository Name + Status cells; Stars is left blank
+    ranges = [item["range"] for item in data]
+    assert any("A3" in r for r in ranges)
+    assert any("C3" in r for r in ranges)
+
+
+def test_write_error_statuses_noop_when_status_column_missing():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    header = ["Repository Name", "Stars"]  # no Status column synced yet
+    errors = [{"Repository Name": "r", "Status": "ERROR: x"}]
+
+    exporter._write_error_statuses(sheet, header, errors)
+
+    sheet.get_all_values.assert_not_called()
+    sheet.spreadsheet.values_batch_update.assert_not_called()
+
+
+def test_write_error_statuses_noop_when_errors_empty():
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.get_all_values.return_value = [["title"], ["Repository Name", "Status"]]
+    header = ["Repository Name", "Status"]
+
+    exporter._write_error_statuses(sheet, header, [])
+
+    sheet.spreadsheet.values_batch_update.assert_not_called()
+
+
+# update_google_sheet: errors wiring
+
+def test_update_google_sheet_calls_write_error_statuses_when_errors_given():
+    exporter = make_exporter()
+    exporter._get_sheet = MagicMock()
+    sheet = exporter._get_sheet.return_value
+    sheet.row_values.return_value = ["Repository Name", "Stars", "Status"]
+    exporter._sync_new_columns = MagicMock(side_effect=lambda s, d, h: h)
+    exporter._build_batch_body = MagicMock(return_value=([], []))
+    exporter._write_batch = MagicMock()
+    exporter._apply_conditional_formatting = MagicMock()
+    exporter._write_error_statuses = MagicMock()
+
+    df = pd.DataFrame([{"Repository Name": "r", "Status": "OK"}])
+    errors = [{"Repository Name": "bad", "Status": "ERROR: x"}]
+
+    exporter.update_google_sheet(df, errors=errors)
+
+    exporter._write_error_statuses.assert_called_once()
+
+
+def test_update_google_sheet_no_errors_skips_write_error_statuses():
+    exporter = make_exporter()
+    exporter._get_sheet = MagicMock()
+    sheet = exporter._get_sheet.return_value
+    sheet.row_values.return_value = ["Repository Name"]
+    exporter._sync_new_columns = MagicMock(side_effect=lambda s, d, h: h)
+    exporter._build_batch_body = MagicMock(return_value=([], []))
+    exporter._write_batch = MagicMock()
+    exporter._apply_conditional_formatting = MagicMock()
+    exporter._write_error_statuses = MagicMock()
+
+    df = pd.DataFrame([{"Repository Name": "r"}])
+
+    exporter.update_google_sheet(df)
+
+    exporter._write_error_statuses.assert_not_called()
+
+
+def test_update_google_sheet_skips_normal_write_when_df_empty():
+    exporter = make_exporter()
+    exporter._get_sheet = MagicMock()
+    sheet = exporter._get_sheet.return_value
+    sheet.row_values.return_value = ["Repository Name"]
+    exporter._sync_new_columns = MagicMock(side_effect=lambda s, d, h: h)
+    exporter._build_batch_body = MagicMock()
+    exporter._write_batch = MagicMock()
+    exporter._apply_conditional_formatting = MagicMock()
+    exporter._write_error_statuses = MagicMock()
+
+    df = pd.DataFrame()
+    errors = [{"Repository Name": "bad", "Status": "ERROR: x"}]
+
+    exporter.update_google_sheet(df, errors=errors)
+
+    exporter._build_batch_body.assert_not_called()
+    exporter._write_batch.assert_not_called()
+    exporter._apply_conditional_formatting.assert_not_called()
+    exporter._write_error_statuses.assert_called_once()
+
+
+def test_update_google_sheet_ensures_status_column_when_all_repos_failed():
+    exporter = make_exporter()
+    exporter._get_sheet = MagicMock()
+    sheet = exporter._get_sheet.return_value
+    sheet.row_values.return_value = ["Repository Name"]
+
+    # First _sync_new_columns call (df is empty) adds nothing; the fallback
+    # call with pd.DataFrame(columns=["Status"]) is what adds "Status".
+    def fake_sync(s, d, h):
+        if "Status" in d.columns and "Status" not in h:
+            return h + ["Status"]
+        return h
+
+    exporter._sync_new_columns = MagicMock(side_effect=fake_sync)
+    exporter._write_error_statuses = MagicMock()
+
+    df = pd.DataFrame()
+    errors = [{"Repository Name": "bad", "Status": "ERROR: x"}]
+
+    exporter.update_google_sheet(df, errors=errors)
+
+    assert exporter._sync_new_columns.call_count == 2
+    header_passed = exporter._write_error_statuses.call_args[0][1]
+    assert "Status" in header_passed

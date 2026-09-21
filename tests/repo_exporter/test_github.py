@@ -491,7 +491,29 @@ def test_is_valid_doi_rejects_none_and_non_string():
     assert exporter.is_valid_doi(None) is False
     assert exporter.is_valid_doi(12345) is False
 
+# _error_repo_name
 
+def test_error_repo_name_builds_hyperlink_from_name_and_html_url():
+    exporter = make_exporter()
+    repo = MagicMock()
+    repo.name = "bad-repo"
+    repo.html_url = "https://github.com/Imageomics/bad-repo"
+
+    result = exporter._error_repo_name(repo)
+
+    assert result == '=HYPERLINK("https://github.com/Imageomics/bad-repo", "bad-repo")'
+
+
+def test_error_repo_name_falls_back_to_plain_name_when_no_html_url():
+    exporter = make_exporter()
+    repo = MagicMock()
+    repo.name = "bad-repo"
+    repo.html_url = None
+
+    result = exporter._error_repo_name(repo)
+
+    assert result == "bad-repo"
+    
 # get_website_reference / get_dataset / get_model / get_associated_paper
 
 def test_get_website_reference_returns_hyperlink_for_real_site():
@@ -716,3 +738,16 @@ def test_get_associated_paper_breaks_ties_by_position():
     )
     result = exporter.get_associated_paper(readme)
     assert result == '=HYPERLINK("https://doi.org/10.1038/s41586-020-1234-5", "Yes")'
+    
+# error_mode / error_log_path forwarding
+
+def test_github_exporter_forwards_error_mode_and_log_path():
+    exporter = make_exporter(error_mode="log", error_log_path="custom-gh.log")
+    assert exporter.error_mode == "log"
+    assert exporter.error_log_path == "custom-gh.log"
+
+
+def test_github_exporter_defaults_error_mode_to_none():
+    exporter = make_exporter()
+    assert exporter.error_mode == "none"
+    assert exporter.error_log_path == "repo_exporter_errors.log"
