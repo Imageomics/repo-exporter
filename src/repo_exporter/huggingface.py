@@ -10,7 +10,10 @@ class HuggingFaceExporter(BaseExporter):
     Exports Hugging Face org repo metadata to a Google Sheet.
     """
 
-    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str, token: str | None = None):
+    VALID_REPO_TYPES = {"all", "model", "dataset", "space"}
+
+    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
+                 token: str | None = None, repo_type: str | None = None):
         """
         Parameters:
         ------------
@@ -19,10 +22,20 @@ class HuggingFaceExporter(BaseExporter):
         sheet_name     - String. Sheet tab name.
         creds_path     - String. Path to service_account.json.
         token          - String | None. Hugging Face token.
+        repo_type      - String | None. Repo type filter (all, model, dataset, space).
         """
         super().__init__(org_name, spreadsheet_id, sheet_name, creds_path)
         self.creds_path = creds_path
         self.token = token
+
+        repo_type = (repo_type or "all").strip().lower()
+        if repo_type not in self.VALID_REPO_TYPES:
+            raise ValueError(
+                f'Invalid repo_type "{repo_type}". '
+                f'Must be one of: {", ".join(sorted(self.VALID_REPO_TYPES))}'
+            )
+        self.repo_type = repo_type
+
         self.api = HfApi(token=token)
         
     @property
@@ -45,16 +58,19 @@ class HuggingFaceExporter(BaseExporter):
 
     def fetch_repos(self) -> list:
         """
-        Fetch all models, datasets, and spaces for the org.
+        Fetch models, datasets, and/or spaces for the org, filtered by self.repo_type.
         Returns a list of (repo, repo_type) tuples.
         """
         repos = []
-        for m in self.api.list_models(author=self.org_name):
-            repos.append((m, "model"))
-        for d in self.api.list_datasets(author=self.org_name):
-            repos.append((d, "dataset"))
-        for s in self.api.list_spaces(author=self.org_name):
-            repos.append((s, "space"))
+        if self.repo_type in ("all", "model"):
+            for m in self.api.list_models(author=self.org_name):
+                repos.append((m, "model"))
+        if self.repo_type in ("all", "dataset"):
+            for d in self.api.list_datasets(author=self.org_name):
+                repos.append((d, "dataset"))
+        if self.repo_type in ("all", "space"):
+            for s in self.api.list_spaces(author=self.org_name):
+                repos.append((s, "space"))
         return repos
 
     # Repo metadata helpers
