@@ -77,7 +77,8 @@ def test_export_repos_github_strips_whitespace_only_token_to_none(mock_gh_cls):
 
 
 @patch.object(main_module, "HuggingFaceExporter")
-def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls):
+def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls, monkeypatch):
+    monkeypatch.setattr(main_module, "HF_REPO_TYPE", "all")
     mock_exporter = MagicMock()
     mock_hf_cls.return_value = mock_exporter
 
@@ -98,6 +99,7 @@ def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls
         spreadsheet_id="sheet123",
         sheet_name="HF-Repos",
         creds_path="creds.json",
+        repo_type="all",
         error_mode="log",
         error_log_path="hf-errors.log",
     )
@@ -210,8 +212,7 @@ def test_parser_huggingface_defaults():
     assert args.platform == "huggingface"
     assert args.org is None
     assert args.token is None
-    # HF subparser has no --repo-type
-    assert not hasattr(args, "repo_type")  
+    assert args.repo_type is None
     assert args.error_mode is None
     assert args.error_log_path is None
 
@@ -247,6 +248,10 @@ def test_parser_version_flag_exits_cleanly(capsys):
     with pytest.raises(SystemExit) as exc_info:
         parser.parse_args(["--version"])
     assert exc_info.value.code == 0
+    
+def test_parser_huggingface_repo_type_flag():
+    args = main_module.parse_args(["huggingface", "--repo-type", "model"])
+    assert args.repo_type == "model"
 
 
 # main()
@@ -278,9 +283,9 @@ def test_main_raises_systemexit_on_value_error(mock_export_repos, monkeypatch):
 
 
 @patch.object(main_module, "export_repos")
-def test_main_huggingface_repo_type_is_none_not_missing_attr(mock_export_repos, monkeypatch):
-    """huggingface subparser has no --repo-type; main() uses getattr(..., None)
-    so it shouldn't raise AttributeError."""
+def test_main_huggingface_repo_type_defaults_to_none_when_not_passed(mock_export_repos, monkeypatch):
+    """When --repo-type isn't passed on the huggingface subcommand, args.repo_type
+    is None and main() forwards that through via getattr(..., None)."""
     fake_args = main_module.create_parser().parse_args([
         "huggingface", "--org", "imageomics", "--spreadsheet-id", "sheet123",
     ])
