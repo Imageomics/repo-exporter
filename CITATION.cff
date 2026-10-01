@@ -15,7 +15,7 @@ identifiers:
     value: "https://github.com/Imageomics/repo-exporter/releases/tag/v2.0.0"
   - description: "The GitHub URL of the commit tagged with v2.0.0."
     type: URL
-    value: "https://github.com/Imageomics/repo-exporter/commit/<ebf61b1>" # update on release
+    value: "https://github.com/Imageomics/repo-exporter/commit/ebf61b12ea69e2d02bd859d568d66df26ac686b9" # update on release
 keywords:
   - imageomics
   - "GitHub"
