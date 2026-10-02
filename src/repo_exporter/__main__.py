@@ -27,7 +27,7 @@ def export_repos(
     spreadsheet_id: str | None = None,
     sheet_name: str | None = None,
     creds_path: str | None = None,
-    repo_type: str | None = None,
+    repo_type: str | list[str] | None = None,
 ) -> None:
     """
     Build the appropriate exporter for the given platform and run it.
@@ -40,7 +40,7 @@ def export_repos(
     spreadsheet_id - String | None. Google Sheets spreadsheet ID; falls back to SPREADSHEET_ID env var.
     sheet_name     - String | None. Sheet tab name; falls back to platform default.
     creds_path     - String | None. Path to service_account.json; falls back to GOOGLE_CREDENTIALS_PATH env var.
-    repo_type      - String | None. Repo type filter; falls back to GH_REPO_TYPE / HF_REPO_TYPE env var depending on platform.
+    repo_type      - String | list[str] | None. Repo type filter. HF accepts several (e.g. ["model", "dataset"]); GitHub takes a single value. Falls back to GH_REPO_TYPE / HF_REPO_TYPE env var depending on platform.
     """
     platform = platform.strip().lower()
     spreadsheet_id = spreadsheet_id or SPREADSHEET_ID
@@ -133,9 +133,13 @@ def create_parser():
     hf_parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
     hf_parser.add_argument(
         "--repo-type",
+        nargs="+",
         default=None,
-        help=f"Repo type filter: all, model, dataset, space "
-             f"(overrides HF_REPO_TYPE in .env; default: {HF_REPO_TYPE})"
+        help=f"Repo type filter: all, model, dataset, space. Accepts several, "
+            f"e.g. --repo-type model dataset "
+            f"(overrides HF_REPO_TYPE in .env, which can be comma-separated, "
+            f"e.g. model,dataset; default: {HF_REPO_TYPE})"
+            
     )
     hf_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
     hf_parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")

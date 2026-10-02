@@ -12,8 +12,39 @@ class HuggingFaceExporter(BaseExporter):
 
     VALID_REPO_TYPES = {"all", "model", "dataset", "space"}
 
+    @classmethod
+    def _parse_repo_types(cls, repo_type) -> set[str]:
+        """
+        Normalize repo_type (None, a string, a comma-separated string, or a
+        list of strings) into a set of concrete types. "all" expands to
+        {"model", "dataset", "space"}.
+
+        Parameters:
+        ------------
+        repo_type - None, String, or list of Strings. Requested repo type(s).
+        """
+        if repo_type is None:
+            raw = ["all"]
+        elif isinstance(repo_type, str):
+            raw = repo_type.split(",")
+        else:
+            raw = [part for item in repo_type for part in item.split(",")]
+
+        types = {t.strip().lower() for t in raw if t.strip()} or {"all"}
+
+        invalid = types - cls.VALID_REPO_TYPES
+        if invalid:
+            raise ValueError(
+                f'Invalid repo_type(s): {", ".join(sorted(invalid))}. '
+                f'Must be from: {", ".join(sorted(cls.VALID_REPO_TYPES))}'
+            )
+
+        if "all" in types:
+            return {"model", "dataset", "space"}
+        return types
+    
     def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
-                 token: str | None = None, repo_type: str | None = None):
+                 token: str | None = None, repo_type: str | list[str] | None = None):
         """
         Parameters:
         ------------
@@ -22,19 +53,13 @@ class HuggingFaceExporter(BaseExporter):
         sheet_name     - String. Sheet tab name.
         creds_path     - String. Path to service_account.json.
         token          - String | None. Hugging Face token.
-        repo_type      - String | None. Repo type filter (all, model, dataset, space).
+        repo_type      - String | list[str] | None. Repo type(s) to fetch (all, model, dataset, space). Accepts several, e.g. ["model", "dataset"] or "model,dataset".
         """
         super().__init__(org_name, spreadsheet_id, sheet_name, creds_path)
         self.creds_path = creds_path
         self.token = token
 
-        repo_type = (repo_type or "all").strip().lower()
-        if repo_type not in self.VALID_REPO_TYPES:
-            raise ValueError(
-                f'Invalid repo_type "{repo_type}". '
-                f'Must be one of: {", ".join(sorted(self.VALID_REPO_TYPES))}'
-            )
-        self.repo_type = repo_type
+        self.repo_types = self._parse_repo_types(repo_type)
 
         self.api = HfApi(token=token)
         
@@ -58,17 +83,17 @@ class HuggingFaceExporter(BaseExporter):
 
     def fetch_repos(self) -> list:
         """
-        Fetch models, datasets, and/or spaces for the org, filtered by self.repo_type.
+        Fetch models, datasets, and/or spaces for the org, filtered by self.repo_types.
         Returns a list of (repo, repo_type) tuples.
         """
         repos = []
-        if self.repo_type in ("all", "model"):
+        if "model" in self.repo_types:
             for m in self.api.list_models(author=self.org_name):
                 repos.append((m, "model"))
-        if self.repo_type in ("all", "dataset"):
+        if "dataset" in self.repo_types:
             for d in self.api.list_datasets(author=self.org_name):
                 repos.append((d, "dataset"))
-        if self.repo_type in ("all", "space"):
+        if "space" in self.repo_types:
             for s in self.api.list_spaces(author=self.org_name):
                 repos.append((s, "space"))
         return repos
