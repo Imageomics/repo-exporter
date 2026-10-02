@@ -194,6 +194,7 @@ def test_get_repo_info_matches_expected_output():
     result = exporter.get_repo_info(repo)
 
     expected = {
+        "_repo_key": "cool-project",
         "Repository Name": '=HYPERLINK("https://github.com/Imageomics/cool-project", "cool-project")',
         "Description": "A cool research project",
         "Date Created": "2022-01-01",
