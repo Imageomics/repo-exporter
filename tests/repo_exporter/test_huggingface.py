@@ -307,3 +307,127 @@ def test_get_associated_datasets_returns_no_when_missing():
     exporter = make_exporter()
     repo = make_mock_repo(tags=[])
     assert exporter.get_associated_datasets(repo) == "No"
+    
+# repo_type parsing / validation
+
+ALL_TYPES = {"model", "dataset", "space"}
+
+
+def test_parse_repo_types_none_defaults_to_all():
+    assert HuggingFaceExporter._parse_repo_types(None) == ALL_TYPES
+
+
+def test_parse_repo_types_all_expands_to_every_type():
+    assert HuggingFaceExporter._parse_repo_types("all") == ALL_TYPES
+
+
+def test_parse_repo_types_empty_string_defaults_to_all():
+    assert HuggingFaceExporter._parse_repo_types("") == ALL_TYPES
+
+
+def test_parse_repo_types_single_string():
+    assert HuggingFaceExporter._parse_repo_types("model") == {"model"}
+
+
+def test_parse_repo_types_list_of_types():
+    assert HuggingFaceExporter._parse_repo_types(["model", "dataset"]) == {"model", "dataset"}
+
+
+def test_parse_repo_types_comma_separated_string():
+    assert HuggingFaceExporter._parse_repo_types("model,dataset") == {"model", "dataset"}
+
+
+def test_parse_repo_types_comma_separated_inside_list():
+    assert HuggingFaceExporter._parse_repo_types(["model,space"]) == {"model", "space"}
+
+
+def test_parse_repo_types_ignores_case_whitespace_and_trailing_comma():
+    assert HuggingFaceExporter._parse_repo_types(" Model , DATASET,") == {"model", "dataset"}
+
+
+def test_parse_repo_types_duplicates_collapse():
+    assert HuggingFaceExporter._parse_repo_types(["model", "model"]) == {"model"}
+
+
+def test_parse_repo_types_all_mixed_with_other_types_expands_to_all():
+    assert HuggingFaceExporter._parse_repo_types(["all", "model"]) == ALL_TYPES
+
+
+def test_parse_repo_types_invalid_value_mixed_with_valid_raises():
+    with pytest.raises(ValueError, match="foo"):
+        HuggingFaceExporter._parse_repo_types(["model", "foo"])
+
+
+def test_parse_repo_types_reports_every_invalid_value():
+    with pytest.raises(ValueError) as exc_info:
+        HuggingFaceExporter._parse_repo_types(["bad", "worse", "model"])
+    msg = str(exc_info.value)
+    assert "bad" in msg
+    assert "worse" in msg
+
+
+def test_init_defaults_repo_types_to_all():
+    assert make_exporter().repo_types == ALL_TYPES
+
+
+def test_init_accepts_multiple_repo_types():
+    exporter = make_exporter(repo_type=["model", "dataset"])
+    assert exporter.repo_types == {"model", "dataset"}
+
+
+def test_init_invalid_repo_type_raises_value_error():
+    with pytest.raises(ValueError, match="Invalid repo_type"):
+        make_exporter(repo_type="models")
+
+
+# fetch_repos() filtering
+
+def _exporter_with_fake_listings(repo_type):
+    exporter = make_exporter(repo_type=repo_type)
+    exporter.api = MagicMock()
+    exporter.api.list_models.return_value = [MagicMock(id="imageomics/m1")]
+    exporter.api.list_datasets.return_value = [MagicMock(id="imageomics/d1")]
+    exporter.api.list_spaces.return_value = [MagicMock(id="imageomics/s1")]
+    return exporter
+
+
+@pytest.mark.parametrize(
+    "repo_type, expected_types",
+    [
+        (None, ["model", "dataset", "space"]),
+        ("all", ["model", "dataset", "space"]),
+        ("model", ["model"]),
+        ("dataset", ["dataset"]),
+        ("space", ["space"]),
+        (["model", "dataset"], ["model", "dataset"]),
+        (["model", "space"], ["model", "space"]),
+        (["dataset", "space"], ["dataset", "space"]),
+        ("model,dataset", ["model", "dataset"]),
+    ],
+)
+def test_fetch_repos_returns_only_requested_types(repo_type, expected_types):
+    exporter = _exporter_with_fake_listings(repo_type)
+
+    repos = exporter.fetch_repos()
+
+    assert [label for _, label in repos] == expected_types
+
+
+def test_fetch_repos_multiple_types_skips_the_unrequested_list_call():
+    exporter = _exporter_with_fake_listings(["model", "dataset"])
+
+    exporter.fetch_repos()
+
+    exporter.api.list_models.assert_called_once_with(author="imageomics")
+    exporter.api.list_datasets.assert_called_once_with(author="imageomics")
+    exporter.api.list_spaces.assert_not_called()
+
+
+def test_fetch_repos_single_type_only_calls_that_list_method():
+    exporter = _exporter_with_fake_listings("space")
+
+    exporter.fetch_repos()
+
+    exporter.api.list_spaces.assert_called_once_with(author="imageomics")
+    exporter.api.list_models.assert_not_called()
+    exporter.api.list_datasets.assert_not_called()

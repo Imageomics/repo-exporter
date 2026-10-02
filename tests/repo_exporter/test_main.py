@@ -92,6 +92,7 @@ def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls
         spreadsheet_id="sheet123",
         sheet_name="HF-Repos",
         creds_path="creds.json",
+        repo_type="all",
     )
     mock_exporter.run.assert_called_once()
 
@@ -197,7 +198,7 @@ def test_parser_huggingface_defaults():
     assert args.platform == "huggingface"
     assert args.org is None
     assert args.token is None
-    assert not hasattr(args, "repo_type")  # HF subparser has no --repo-type
+    assert args.repo_type is None 
 
 
 def test_parser_huggingface_accepts_all_flags():
@@ -227,7 +228,62 @@ def test_parser_version_flag_exits_cleanly(capsys):
     with pytest.raises(SystemExit) as exc_info:
         parser.parse_args(["--version"])
     assert exc_info.value.code == 0
+    
+def test_parser_huggingface_repo_type_flag():
+    args = main_module.parse_args(["huggingface", "--repo-type", "model"])
+    assert args.repo_type == ["model"]
 
+def test_parser_huggingface_repo_type_accepts_multiple_values():
+    args = main_module.parse_args(["huggingface", "--repo-type", "model", "dataset"])
+    assert args.repo_type == ["model", "dataset"]
+
+
+def test_parser_huggingface_repo_type_followed_by_other_flag():
+    args = main_module.parse_args([
+        "huggingface", "--repo-type", "model", "dataset", "--org", "imageomics",
+    ])
+    assert args.repo_type == ["model", "dataset"]
+    assert args.org == "imageomics"
+
+
+def test_parser_huggingface_repo_type_requires_a_value():
+    with pytest.raises(SystemExit):
+        main_module.parse_args(["huggingface", "--repo-type"])
+
+
+def test_parser_github_repo_type_still_rejects_multiple_values():
+    with pytest.raises(SystemExit):
+        main_module.parse_args(["github", "--repo-type", "public", "private"])
+
+
+@patch.object(main_module, "HuggingFaceExporter")
+def test_export_repos_huggingface_passes_list_repo_type_through(mock_hf_cls):
+    mock_hf_cls.return_value = MagicMock()
+
+    main_module.export_repos(
+        platform="huggingface",
+        org_name="imageomics",
+        spreadsheet_id="sheet123",
+        repo_type=["model", "dataset"],
+    )
+
+    _, kwargs = mock_hf_cls.call_args
+    assert kwargs["repo_type"] == ["model", "dataset"]
+
+
+def test_export_repos_huggingface_falls_back_to_env_repo_type(monkeypatch):
+    monkeypatch.setattr(main_module, "HF_REPO_TYPE", "model,dataset")
+    with patch.object(main_module, "HuggingFaceExporter") as mock_hf_cls:
+        mock_hf_cls.return_value = MagicMock()
+
+        main_module.export_repos(
+            platform="huggingface",
+            org_name="imageomics",
+            spreadsheet_id="sheet123",
+        )
+
+        _, kwargs = mock_hf_cls.call_args
+        assert kwargs["repo_type"] == "model,dataset"
 
 # main()
 
@@ -258,9 +314,9 @@ def test_main_raises_systemexit_on_value_error(mock_export_repos, monkeypatch):
 
 
 @patch.object(main_module, "export_repos")
-def test_main_huggingface_repo_type_is_none_not_missing_attr(mock_export_repos, monkeypatch):
-    """huggingface subparser has no --repo-type; main() uses getattr(..., None)
-    so it shouldn't raise AttributeError."""
+def test_main_huggingface_repo_type_defaults_to_none_when_not_passed(mock_export_repos, monkeypatch):
+    """When --repo-type isn't passed on the huggingface subcommand, args.repo_type
+    is None and main() forwards that through via getattr(..., None)."""
     fake_args = main_module.create_parser().parse_args([
         "huggingface", "--org", "imageomics", "--spreadsheet-id", "sheet123",
     ])
@@ -270,3 +326,27 @@ def test_main_huggingface_repo_type_is_none_not_missing_attr(mock_export_repos, 
 
     _, kwargs = mock_export_repos.call_args
     assert kwargs["repo_type"] is None
+    
+@patch.object(main_module, "export_repos")
+def test_main_huggingface_forwards_multiple_repo_types(mock_export_repos, monkeypatch):
+    fake_args = main_module.create_parser().parse_args([
+        "huggingface", "--org", "imageomics", "--spreadsheet-id", "sheet123",
+        "--repo-type", "model", "dataset",
+    ])
+    monkeypatch.setattr(main_module, "parse_args", lambda: fake_args)
+
+    main_module.main()
+
+    _, kwargs = mock_export_repos.call_args
+    assert kwargs["repo_type"] == ["model", "dataset"]
+
+
+def test_main_invalid_huggingface_repo_type_exits_with_message(monkeypatch):
+    fake_args = main_module.create_parser().parse_args([
+        "huggingface", "--org", "imageomics", "--spreadsheet-id", "sheet123",
+        "--repo-type", "models",
+    ])
+    monkeypatch.setattr(main_module, "parse_args", lambda: fake_args)
+
+    with pytest.raises(SystemExit, match="Invalid repo_type"):
+        main_module.main()
