@@ -321,6 +321,23 @@ class GitHubExporter(BaseExporter):
         except Exception:
             return "N/A"
 
+    def get_keywords(self, repo) -> str:
+        """
+        Return the repo's GitHub topics (the tags under "About") as a
+        comma-separated string, or "N/A" if there are none.
+
+        Parameters:
+        ------------
+        repo - PyGitHub Repository object.
+        """
+        try:
+            topics = repo.topics
+            if not topics:
+                return "N/A"
+            return ", ".join(topics)
+        except Exception:
+            return "N/A"
+        
     def is_valid_doi(self, doi: str | None) -> bool:
         """
         Return True if doi is a valid, Zenodo-issued DOI.
@@ -552,6 +569,7 @@ class GitHubExporter(BaseExporter):
         return {
             "Repository Name": f'=HYPERLINK("{repo.html_url}", "{repo.name}")',
             "Description": repo.description or "N/A",
+            "Keywords": self.get_keywords(repo),
             "Date Created": repo.created_at.strftime("%Y-%m-%d"),
             "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
             "Created By": self.get_repo_creator(repo),
