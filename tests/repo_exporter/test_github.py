@@ -81,6 +81,7 @@ def make_mock_repo(
     forks_count=2,
     archived=False,
     homepage="https://example.org/cool-project",
+    topics=None,
     languages=None,
     readme_content="",
     files=None,
@@ -98,6 +99,7 @@ def make_mock_repo(
     repo.forks_count = forks_count
     repo.archived = archived
     repo.homepage = homepage
+    repo.topics = topics if topics is not None else []
     repo.html_url = f"https://github.com/Imageomics/{name}"
 
     branches_mock = MagicMock()
@@ -181,6 +183,7 @@ def test_get_repo_info_matches_expected_output():
     exporter = make_exporter()
     repo = make_mock_repo(
         readme_content=FULL_README,
+        topics=["computer-vision", "biology"],
         files={
             ".gitignore": "*.pyc",
             "requirements.txt": "pandas\n",
@@ -196,6 +199,7 @@ def test_get_repo_info_matches_expected_output():
     expected = {
         "Repository Name": '=HYPERLINK("https://github.com/Imageomics/cool-project", "cool-project")',
         "Description": "A cool research project",
+        "Keywords": "computer-vision, biology",
         "Date Created": "2022-01-01",
         "Last Updated": "2026-01-01",
         "Created By": "Jane Doe (janedoe)",
@@ -252,6 +256,7 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Stars"] == 10
     assert result["# of Branches"] == 3
     assert result["Description"] == "N/A"
+    assert result["Keywords"] == "N/A"
     assert result["Top 4 Contributors (lines of code changes)"] == "Jane Doe (janedoe), John Smith (jsmith)"
     assert result["README"] == "Yes"
     assert result["License"] == "No"
@@ -301,6 +306,7 @@ def test_get_repo_info_forked_and_archived_repo():
     assert result["Stars"] == 10
     assert result["# of Branches"] == 3
     assert result["Description"] == "A cool research project"
+    assert result["Keywords"] == "N/A"
     assert result["Top 4 Contributors (lines of code changes)"] == "Jane Doe (janedoe), John Smith (jsmith)"
     assert result["README"] == "Yes"
     assert result["License"] == "No"
@@ -585,6 +591,29 @@ def test_has_doi_no_citation_and_no_badge_returns_no():
     repo = MagicMock()
     repo.get_contents.side_effect = GithubException(404, "Not Found", None)
     assert exporter.has_doi(repo, "no badge here") == "No"
+    
+# get_keywords()
+
+def test_get_keywords_joins_topics_with_commas():
+    exporter = make_exporter()
+    repo = make_mock_repo(topics=["api", "github", "google-sheets"])
+    assert exporter.get_keywords(repo) == "api, github, google-sheets"
+
+
+def test_get_keywords_returns_na_when_no_topics():
+    exporter = make_exporter()
+    repo = make_mock_repo(topics=[])
+    assert exporter.get_keywords(repo) == "N/A"
+
+
+def test_get_keywords_returns_na_when_topics_cannot_be_read():
+    class BrokenRepo:
+        @property
+        def topics(self):
+            raise GithubException(500, "Server Error", None)
+
+    exporter = make_exporter()
+    assert exporter.get_keywords(BrokenRepo()) == "N/A"
 
 # _find_paper_matches()
 
