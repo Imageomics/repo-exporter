@@ -707,8 +707,8 @@ def test_error_mode_log_writes_failed_repo_to_log_file(tmp_path):
     assert "Simulated failure for testing" in log_contents
 
 
-def test_error_mode_none_does_not_write_log_file(tmp_path):
-    exporter, log_path = _make_error_mode_exporter(tmp_path, error_mode="none")
+def test_error_mode_console_does_not_write_log_file(tmp_path):
+    exporter, log_path = _make_error_mode_exporter(tmp_path, error_mode="console")
     good_repo, bad_repo = _good_and_bad_repos()
 
     exporter.fetch_repos = MagicMock(return_value=[good_repo, bad_repo])
@@ -842,8 +842,8 @@ def test_error_mode_column_all_repos_fail_still_writes_errors(capsys):
     assert "ERROR: No data collected" not in out
 
 
-def test_error_mode_none_does_not_add_status_key():
-    exporter = make_exporter()  # default error_mode "none"
+def test_error_mode_console_does_not_add_status_key():
+    exporter = make_exporter()  # default error_mode "console"
     exporter.fetch_repos = MagicMock(return_value=["repo-a"])
     exporter.get_repo_info = MagicMock(return_value={"Repository Name": "repo-a"})
     exporter.update_google_sheet = MagicMock()

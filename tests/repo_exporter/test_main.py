@@ -224,7 +224,7 @@ def test_parser_huggingface_accepts_all_flags():
         "--spreadsheet-id", "sheet123",
         "--sheet-name", "HF-Repos",
         "--credentials-path", "creds.json",
-        "--error-mode", "none",
+        "--error-mode", "console",
         "--error-log-path", "hf-errors.log",
     ])
     assert args.org == "imageomics"
@@ -232,7 +232,7 @@ def test_parser_huggingface_accepts_all_flags():
     assert args.spreadsheet_id == "sheet123"
     assert args.sheet_name == "HF-Repos"
     assert args.credentials_path == "creds.json"
-    assert args.error_mode == "none"
+    assert args.error_mode == "console"
     assert args.error_log_path == "hf-errors.log"
 
 
@@ -319,11 +319,11 @@ def test_export_repos_explicit_error_mode_overrides_env(monkeypatch):
             platform="github",
             org_name="imageomics",
             spreadsheet_id="sheet123",
-            error_mode="none",
+            error_mode="console",
         )
 
         _, kwargs = mock_gh_cls.call_args
-        assert kwargs["error_mode"] == "none"
+        assert kwargs["error_mode"] == "console"
 
 
 def test_parser_rejects_invalid_error_mode_choice():

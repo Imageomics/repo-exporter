@@ -17,7 +17,7 @@ class BaseExporter(ABC):
     self.creds_path in their __init__.
     """
 
-    VALID_ERROR_MODES = {"log", "column", "none"}
+    VALID_ERROR_MODES = {"console", "log", "column"}
     
     def __init__(
         self,
@@ -25,7 +25,7 @@ class BaseExporter(ABC):
         spreadsheet_id: str,
         sheet_name: str,
         creds_path: str,
-        error_mode: str = "none",
+        error_mode: str = "console",
         error_log_path: str | None = None,
     ):
         self.org_name = org_name
@@ -33,7 +33,7 @@ class BaseExporter(ABC):
         self.sheet_name = sheet_name
         self.creds_path = creds_path
 
-        error_mode = (error_mode or "none").strip().lower()
+        error_mode = (error_mode or "console").strip().lower()
         if error_mode not in self.VALID_ERROR_MODES:
             raise ValueError(
                 f"Invalid error_mode '{error_mode}'. Must be one of {sorted(self.VALID_ERROR_MODES)}."
@@ -577,13 +577,10 @@ class BaseExporter(ABC):
 
         A repo whose fetch fails entirely (not just one field) is handled
         per self.error_mode:
-        - "none"   -> console message only; the repo's existing sheet row
-                        (if any) is left untouched this run.
-        - "log"    -> same, plus appended to self.error_log_path.
-        - "column" -> same for the repo's other columns, but its Status
-                        cell is set to the error so it's visible in the
-                        sheet; a never-before-seen repo gets a new row with
-                        just its name and Status.
+        - "console" -> console message only; the repo's existing sheet row (if any) is left untouched this run.
+        - "log" -> same, plus appended to self.error_log_path.
+        - "column"  -> same for the repo's other columns, but its Status cell is set to the error so it's visible in the sheet; a never-before-seen repo gets a new row with
+        just its name and Status.
         """
         start_time = time.time()
 

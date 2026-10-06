@@ -139,7 +139,7 @@ All options fall back to the corresponding [environment variable](#environment-v
 | `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
 | `--sheet-name` | `GH_SHEET_NAME` | Sheet tab name (default: `GH-Repos`) |
 | `--credentials-path` | `GOOGLE_CREDENTIALS_PATH` | Path to `service_account.json` (default: `service_account.json`) |
-| `--error-mode` | `ERROR_MODE` | Failure reporting mode: `log`, `column`, or `none` (default: `none`) |
+| `--error-mode` | `ERROR_MODE` | Failure reporting mode: `console`, `log`, or `column` (default: `console`) |
 | `--error-log-path` | `ERROR_LOG_PATH` | Path to write errors when `--error-mode=log` (default: `repo_exporter_errors.log`) |
 
 **`repo-exporter huggingface [options]`**
@@ -151,7 +151,7 @@ All options fall back to the corresponding [environment variable](#environment-v
 | `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
 | `--sheet-name` | `HF_SHEET_NAME` | Sheet tab name (default: `HF-Repos`) |
 | `--credentials-path` | `GOOGLE_CREDENTIALS_PATH` | Path to `service_account.json` (default: `service_account.json`) |
-| `--error-mode` | `ERROR_MODE` | Failure reporting mode: `log`, `column`, or `none` (default: `none`) |
+| `--error-mode` | `ERROR_MODE` | Failure reporting mode: `console`, `log`, or `column` (default: `console`) |
 | `--error-log-path` | `ERROR_LOG_PATH` | Path to write errors when `--error-mode=log` (default: `repo_exporter_errors.log`) |
 
 Run `repo-exporter github --help` or `repo-exporter huggingface --help` to see these options from the command line.
@@ -185,8 +185,8 @@ Run `repo-exporter github --help` or `repo-exporter huggingface --help` to see t
 
 Applies to both exporters.
 
-* `ERROR_MODE` is optional. Controls how a repo whose fetch fails completely is reported (default: `"none"`):
-  - `"none"` prints a message to the console; the repo's existing row in the sheet, if any, is left unchanged.
+* `ERROR_MODE` is optional. Controls how a repo whose fetch fails completely is reported (default: `"console"`):
+  - `"console"` prints a message to the console; the repo's existing row in the sheet, if any, is left unchanged.
   - `"log"` prints a message to the console and appends a timestamped entry to `ERROR_LOG_PATH`; the repo's existing row in the sheet, if any, is left unchanged.
   - `"column"` prints a message to the console and writes the error into the repo's `Status` column in the sheet, making failures visible without checking logs. A repo with no existing row gets a new one containing just its name and Status.
 * `ERROR_LOG_PATH` is optional. Path to write errors when `ERROR_MODE="log"` (defaults to `repo_exporter_errors.log`).

@@ -12,7 +12,7 @@ GH_ORG_NAME = os.getenv("GH_ORG_NAME")
 GH_TOKEN = os.getenv("GH_TOKEN")
 GH_SHEET_NAME = os.getenv("GH_SHEET_NAME", "GH-Repos")
 GH_REPO_TYPE = os.getenv("GH_REPO_TYPE", "all")
-ERROR_MODE = os.getenv("ERROR_MODE", "none")
+ERROR_MODE = os.getenv("ERROR_MODE", "console")
 ERROR_LOG_PATH = os.getenv("ERROR_LOG_PATH", "repo_exporter_errors.log")
 HF_ORG_NAME = os.getenv("HF_ORG_NAME")
 HF_TOKEN = os.getenv("HF_TOKEN")
@@ -44,7 +44,7 @@ def export_repos(
     sheet_name     - String | None. Sheet tab name; falls back to platform default.
     creds_path     - String | None. Path to service_account.json; falls back to GOOGLE_CREDENTIALS_PATH env var.
     repo_type      - String | None. GitHub-only repo type filter; falls back to GH_REPO_TYPE env var.
-    error_mode     - String | None. "log" or "none"; falls back to ERROR_MODE env var (default "none").
+    error_mode     - String | None. "console", "log", or "column"; falls back to ERROR_MODE env var (default "console").
     error_log_path - String | None. Path for error_mode="log"; falls back to ERROR_LOG_PATH env var.
     """
     platform = platform.strip().lower()
@@ -123,10 +123,11 @@ def create_parser():
     credentials_arg = {'help': f"Path to service_account.json (overrides GOOGLE_CREDENTIALS_PATH in .env; default: {GOOGLE_CREDENTIALS_PATH})"}
     error_mode_arg = {
         'default': None,
-        'choices': ['log', 'column', 'none'],
-        'help': f"How to surface repos that fail entirely: 'log' appends to --error-log-path, "
-                f"'column' writes the error into a Status column in the sheet, "
-                f"'none' is console-only (overrides ERROR_MODE in .env; default: {ERROR_MODE})",
+        'choices': ['console', 'log', 'column'],
+        'help': f"How to surface repos that fail entirely: 'console' prints to the console only, "
+                f"'log' also appends to --error-log-path, "
+                f"'column' also writes the error into a Status column in the sheet "
+                f"(overrides ERROR_MODE in .env; default: {ERROR_MODE})",
     }
     error_log_path_arg = {
         'default': None,

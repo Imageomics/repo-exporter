@@ -11,7 +11,7 @@ class HuggingFaceExporter(BaseExporter):
     """
 
     def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
-                 token: str | None = None, error_mode: str = "none", error_log_path: str | None = None):
+                 token: str | None = None, error_mode: str = "console", error_log_path: str | None = None):
         """
         Parameters:
         ------------
@@ -20,7 +20,7 @@ class HuggingFaceExporter(BaseExporter):
         sheet_name     - String. Sheet tab name.
         creds_path     - String. Path to service_account.json.
         token          - String | None. Hugging Face token.
-        error_mode     - String. One of "log", "none" (default: "none").
+        error_mode     - String. One of "console", "log", "column" (default: "console").
         error_log_path - String | None. Path for error_mode="log" (default: repo_exporter_errors.log).
         """
         super().__init__(org_name, spreadsheet_id, sheet_name, creds_path,

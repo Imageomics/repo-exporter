@@ -350,7 +350,7 @@ def test_huggingface_exporter_forwards_error_mode_and_log_path():
     assert exporter.error_log_path == "custom-hf.log"
 
 
-def test_huggingface_exporter_defaults_error_mode_to_none():
+def test_huggingface_exporter_defaults_error_mode_to_console():
     exporter = make_exporter()
-    assert exporter.error_mode == "none"
+    assert exporter.error_mode == "console"
     assert exporter.error_log_path == "repo_exporter_errors.log"
