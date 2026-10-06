@@ -143,6 +143,11 @@ def test_get_repo_info_matches_expected_output():
     """Golden test: a fully-populated dataset repo should produce this exact row."""
     exporter = make_exporter()
     repo = make_mock_repo(
+        card_data={
+            "license": "mit",
+            "description": "A cool research dataset",
+            "tags": ["Computer-Vision", "Biology"],
+        },
         tags=["dataset:imageomics/cool-data-source", "doi:10.57967/hf/1234567"]
     )
     exporter.api = make_mock_api(
@@ -159,6 +164,7 @@ def test_get_repo_info_matches_expected_output():
         "Repository Name": '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-dataset", "datasets/imageomics/cool-dataset")',
         "Repository Type": "dataset",
         "Description": "A cool research dataset",
+        "Keywords": "Computer-Vision, Biology",
         "Date Created": "2022-01-01",
         "Last Updated": "2026-01-01",
         "Created By": "janedoe",
@@ -209,6 +215,7 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Repository Name"] == '=HYPERLINK("https://huggingface.co/imageomics/bare-repo", "imageomics/bare-repo")'
     assert result["Repository Type"] == "model"
     assert result["Description"] == "N/A"
+    assert result["Keywords"] == "N/A"
     assert result["Date Created"] == "2022-01-01"
     assert result["Last Updated"] == "2025-12-01"
     assert result["Created By"] == "imageomics"
@@ -247,6 +254,7 @@ def test_get_repo_info_space_type_and_inactive_repo():
     assert result["Repository Name"] == '=HYPERLINK("https://huggingface.co/spaces/imageomics/cool-space", "spaces/imageomics/cool-space")'
     assert result["Repository Type"] == "space"
     assert result["Description"] == "A cool research demo"
+    assert result["Keywords"] == "N/A"
     assert result["Date Created"] == "2022-01-01"
     assert result["Last Updated"] == "2024-01-01"
     assert result["Created By"] == "janedoe"
@@ -307,3 +315,28 @@ def test_get_associated_datasets_returns_no_when_missing():
     exporter = make_exporter()
     repo = make_mock_repo(tags=[])
     assert exporter.get_associated_datasets(repo) == "No"
+    
+# get_keywords
+
+def test_get_keywords_joins_card_tags_and_keeps_case():
+    exporter = make_exporter()
+    repo = make_mock_repo(card_data={"tags": ["Computer-Vision", "Biology"]})
+    assert exporter.get_keywords(repo) == "Computer-Vision, Biology"
+
+def test_get_keywords_ignores_auto_added_repo_tags():
+    exporter = make_exporter()
+    repo = make_mock_repo(
+        card_data={"tags": ["biology"]},
+        tags=["license:mit", "dataset:imageomics/data-a", "region:us"],
+    )
+    assert exporter.get_keywords(repo) == "biology"
+
+def test_get_keywords_accepts_a_single_string_tag():
+    exporter = make_exporter()
+    repo = make_mock_repo(card_data={"tags": "biology"})
+    assert exporter.get_keywords(repo) == "biology"
+
+def test_get_keywords_returns_na_when_no_card_tags():
+    exporter = make_exporter()
+    repo = make_mock_repo(card_data={})
+    assert exporter.get_keywords(repo) == "N/A"

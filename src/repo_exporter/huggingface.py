@@ -171,7 +171,21 @@ class HuggingFaceExporter(BaseExporter):
             return "N/A"
         
         return "N/A"
+    
+    def get_keywords(self, repo) -> str:
+        """
+        Return the tags the author wrote in the repo's model/dataset/space card
+        as a comma-separated string, or "N/A" if there are none.
 
+        Uses card_data (not repo.tags) so the author's original capitalization
+        is kept and tags Hugging Face adds automatically are left out.
+
+        Parameters:
+        ------------
+        repo - HF repo info object.
+        """
+        return self.get_card_field(repo, ["tags"])
+    
     def get_associated_datasets(self, repo) -> str:
         """
         Return comma-separated dataset IDs tagged on the repo.
@@ -338,6 +352,7 @@ class HuggingFaceExporter(BaseExporter):
             "Repository Name": f'=HYPERLINK("{self.get_repo_url(repo, repo_type)}", "{display_id}")',
             "Repository Type": repo_type,
             "Description": self.get_card_field(repo, ["model_description", "description"]) or "N/A",
+            "Keywords": self.get_keywords(repo),
             "Date Created": repo.created_at.strftime("%Y-%m-%d") if getattr(repo, "created_at", False) else "N/A",
             "Last Updated": repo.lastModified.strftime("%Y-%m-%d") if getattr(repo, "lastModified", False) else "N/A",
             "Created By": self.get_author(repo.id, repo_type),
