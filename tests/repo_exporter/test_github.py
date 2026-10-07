@@ -7,8 +7,8 @@ class-based GitHubExporter.get_repo_info() and its instance-method helpers
 refactor into src/repo_exporter/ doesn't silently change the exported data.
 """
 
-from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -194,6 +194,7 @@ def test_get_repo_info_matches_expected_output():
     result = exporter.get_repo_info(repo)
 
     expected = {
+        "_repo_key": "cool-project",
         "Repository Name": '=HYPERLINK("https://github.com/Imageomics/cool-project", "cool-project")',
         "Description": "A cool research project",
         "Date Created": "2022-01-01",

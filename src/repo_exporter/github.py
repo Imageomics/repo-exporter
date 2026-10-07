@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from github import Github, GithubException, Auth
 import pandas as pd
 from tqdm import tqdm
@@ -6,6 +7,7 @@ import re
 import time
 
 from repo_exporter.base import BaseExporter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 PACKAGE_REQUIREMENT_FILES = [
     # Python
@@ -57,6 +59,11 @@ _KNOWN_PAPER_HOST_PATTERN = (
     rf"https?://(?:[A-Za-z0-9-]+\.)*(?:{_PAPER_HOST_DOMAIN_CODES})/[A-Za-z0-9_\-./]+"
 )
 
+# Only recompute contributor stats for repos with commits in this window;
+# otherwise reuse the value already in the sheet.
+STATS_LOOKBACK_DAYS = 7
+CONTRIBUTORS_COL = "Top 4 Contributors (lines of code changes)"
+
 class GitHubExporter(BaseExporter):
     """
     Exports GitHub org repo metadata to a Google Sheet.
@@ -79,6 +86,8 @@ class GitHubExporter(BaseExporter):
         self.repo_type = repo_type
         self.gh = Github(auth=Auth.Token(token)) if token else Github()
         self.existing_df = pd.DataFrame()
+        self._pending_contributors: list = []
+        self._skip_stats: set[str] = set()
         
     @property
     def red_columns(self) -> set[str]:
@@ -105,8 +114,10 @@ class GitHubExporter(BaseExporter):
 
     def _load_existing_sheet(self) -> None:
         """
-        Pre-load Repository Name, Date Created, Created By from the existing
-        sheet so get_repo_creator can skip re-fetching commit history.
+        Pre-load Repository Name, Date Created, Created By, and the top
+        contributors column from the existing sheet, so get_repo_creator can
+        skip re-fetching commit history and unchanged repos can reuse their
+        contributors value.
         """
         try:
             sheet = self._get_sheet()
@@ -116,9 +127,8 @@ class GitHubExporter(BaseExporter):
                 headers = all_values[1]
                 rows = all_values[2:]
                 full_df = pd.DataFrame(rows, columns=headers)
-                self.existing_df = full_df[
-                    ["Repository Name", "Date Created", "Created By"]
-                ].copy()
+                wanted = ["Repository Name", "Date Created", "Created By", CONTRIBUTORS_COL]
+                self.existing_df = full_df[[c for c in wanted if c in full_df.columns]].copy()
                 self.existing_df["Repository Name"] = self.existing_df["Repository Name"].apply(
                     lambda v: self.extract_display_name(v) if isinstance(v, str) else ""
                 )
@@ -127,8 +137,11 @@ class GitHubExporter(BaseExporter):
 
     def fetch_repos(self) -> list:
         """
-        Fetch all repos for the org and pre-load existing sheet data
-        to avoid recomputing Created By for repos already tracked.
+        Fetch all repos for the org, pre-load existing sheet data to avoid
+        recomputing Created By for repos already tracked, trigger
+        contributor-stats computation for every repo up front, and sort
+        smallest-first so small repos clear the main pass quickly while
+        large repos' stats keep computing in the background.
         """
         try:
             org = self.gh.get_organization(self.org_name)
@@ -140,6 +153,15 @@ class GitHubExporter(BaseExporter):
 
         self._load_existing_sheet()
         print(f"Existing sheet data shape: {self.existing_df.shape}")
+
+        stats_repos = self._select_repos_needing_stats(repos)
+        print(f"Contributor stats needed for {len(stats_repos)}/{len(repos)} repos "
+              f"(recent commits or no existing value)")
+
+        print("Pre-warming contributor stats cache...")
+        self._prewarm_stats_cache(stats_repos)
+
+        repos.sort(key=lambda r: r.size)
 
         return repos
 
@@ -269,10 +291,155 @@ class GitHubExporter(BaseExporter):
         except Exception:
             return "N/A"
 
-    def get_top_contributors(self, repo, top_n: int = 4) -> str:
+    def _format_contributor_stats(self, stats, top_n: int = 4) -> str:
         """
-        Return top N contributors as a comma-separated string, ranked by lines changed.
-        Falls back to commit-based ranking if stats are unavailable.
+        Rank already-fetched contributor stats by lines changed and format
+        the top N as a comma-separated string.
+
+        Parameters:
+        ------------
+        stats  - List of PyGitHub StatsContributor objects.
+        top_n  - Integer. Number of top contributors to return.
+        """
+        contributors = []
+        for contributor in stats:
+            author = getattr(contributor, "author", None)
+            if author is None:
+                continue
+            name = getattr(author, "name", None) or getattr(author, "login", "Unknown")
+            login = getattr(author, "login", "unknown")
+            total_additions = sum(week.a for week in contributor.weeks)
+            total_deletions = sum(week.d for week in contributor.weeks)
+            contributors.append((name, login, total_additions + total_deletions))
+            
+        top_n_contributors = sorted(contributors, key=lambda x: x[2], reverse=True)[:top_n]
+        return ", ".join(f"{name} ({login})" for name, login, _ in top_n_contributors)
+
+    def _get_existing_contributors(self, repo_name: str) -> str | None:
+        """
+        Return the contributors value already in the sheet for repo_name, or
+        None if there isn't a usable one (missing, empty, "N/A", or a
+        commit-based fallback that is worth retrying).
+
+        Parameters:
+        ------------
+        repo_name - String. Repository name (not the HYPERLINK formula).
+        """
+        if self.existing_df.empty or CONTRIBUTORS_COL not in self.existing_df.columns:
+            return None
+        match = self.existing_df.loc[self.existing_df["Repository Name"] == repo_name]
+        if match.empty:
+            return None
+        value = str(match.iloc[0][CONTRIBUTORS_COL]).strip()
+        if not value or value == "N/A" or "(commit-based)" in value:
+            return None
+        return value
+
+    def _has_recent_commits(self, repo, days: int = STATS_LOOKBACK_DAYS) -> bool:
+        """
+        Return True if the repo has commits in the last `days` days.
+        Checks repo.pushed_at first (no API call), then confirms with a
+        single get_commits(since=...) call. Returns True on any error so
+        a failed check never causes stats to be skipped.
+
+        Parameters:
+        ------------
+        repo - PyGitHub Repository object.
+        days - Integer. Size of the lookback window.
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        try:
+            pushed_at = repo.pushed_at
+            if pushed_at is not None:
+                if pushed_at.tzinfo is None:
+                    pushed_at = pushed_at.replace(tzinfo=timezone.utc)
+                if pushed_at < cutoff:
+                    return False
+            return bool(repo.get_commits(since=cutoff).get_page(0))
+        except Exception:
+            return True
+
+    def _needs_stats(self, repo) -> bool:
+        """
+        A repo needs fresh contributor stats if the sheet has no usable
+        value for it, or if it had commits in the lookback window.
+
+        Parameters:
+        ------------
+        repo - PyGitHub Repository object.
+        """
+        if self._get_existing_contributors(repo.name) is None:
+            return True
+        return self._has_recent_commits(repo)
+
+    def _select_repos_needing_stats(self, repos: list) -> list:
+        """
+        Split repos into those needing fresh stats (returned) and those
+        whose existing sheet value is reused (recorded in self._skip_stats).
+
+        Parameters:
+        ------------
+        repos - List of PyGitHub Repository objects.
+        """
+        needs = []
+        self._skip_stats = set()
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = {executor.submit(self._needs_stats, repo): repo for repo in repos}
+            for future in as_completed(futures):
+                repo = futures[future]
+                try:
+                    needs_stats = future.result()
+                except Exception:
+                    # Fail safe: if the check itself breaks, recompute stats.
+                    needs_stats = True
+                if needs_stats:
+                    needs.append(repo)
+                else:
+                    self._skip_stats.add(repo.name)
+        return needs
+    
+    def _prewarm_stats_cache(self, repos: list) -> None:
+        """
+        Fire a get_stats_contributors() trigger call for every repo up
+        front, before the main pass starts. GitHub computes contributor
+        stats asynchronously once triggered -- this call just starts that
+        computation; it doesn't wait for or return the result. Firing it
+        here, for every repo at once, gives large/slow repos the entire
+        script runtime to finish in the background, instead of only
+        whatever time is left after the main pass reaches them.
+
+        Parameters:
+        ------------
+        repos - List of PyGitHub Repository objects.
+        """
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(self._safe_trigger_stats, repo) for repo in repos]
+            for future in as_completed(futures):
+                future.result()
+
+    @staticmethod
+    def _safe_trigger_stats(repo) -> None:
+        """
+        Call get_stats_contributors() purely to trigger GitHub's async
+        computation; the return value is discarded and any error is
+        swallowed since get_top_contributors_fast/resolve_contributor_stats
+        will handle the real fetch and its own errors later.
+
+        Parameters:
+        ------------
+        repo - PyGitHub Repository object.
+        """
+        try:
+            repo.get_stats_contributors()
+        except Exception:
+            pass
+        
+    def get_top_contributors_fast(self, repo, top_n: int = 4) -> tuple[str | None, bool]:
+        """
+        Single non-blocking attempt to get contributor stats -- no sleep/retry.
+        Returns (formatted_value, ready). When ready is False, GitHub hasn't
+        cached stats for this repo yet and the caller should defer it to a
+        second pass rather than block waiting here.
 
         Parameters:
         ------------
@@ -280,30 +447,41 @@ class GitHubExporter(BaseExporter):
         top_n  - Integer. Number of top contributors to return.
         """
         try:
-            stats = None
-            for _ in range(3):
-                stats = repo.get_stats_contributors()
-                if stats:
-                    break
-                time.sleep(20)
-
-            if not stats:
-                tqdm.write(f"  Falling back to commit-based for {repo.name}...")
-                return self._get_top_contributors_commits(repo, top_n)
-
-            contributors = []
-            for contributor in stats:
-                total_additions = sum(week.a for week in contributor.weeks)
-                total_deletions = sum(week.d for week in contributor.weeks)
-                total_changes = total_additions + total_deletions
-                contributors.append((contributor.author.name, contributor.author.login, total_changes))
-
-            top_n_contributors = sorted(contributors, key=lambda x: x[2], reverse=True)[:top_n]
-            return ", ".join([f"{name} ({login})" for name, login, _ in top_n_contributors])
-
+            stats = repo.get_stats_contributors()
         except Exception:
+            stats = None
+
+        if stats:
+            return self._format_contributor_stats(stats, top_n), True
+        return None, False
+
+    def resolve_contributor_stats(self, repo, top_n: int = 4) -> str:
+        """
+        Second-pass resolution for a repo whose stats weren't ready on the
+        first attempt. Retries with a short wait, then falls back to
+        commit-based ranking if GitHub still hasn't finished computing.
+
+        Parameters:
+        ------------
+        repo   - PyGitHub Repository object.
+        top_n  - Integer. Number of top contributors to return.
+        """
+        stats = None
+        for attempt in range(2):
+            try:
+                stats = repo.get_stats_contributors()
+            except Exception:
+                stats = None
+            if stats:
+                break
+            if attempt == 0:
+                time.sleep(15)
+
+        if not stats:
             tqdm.write(f"  Falling back to commit-based for {repo.name}...")
             return self._get_top_contributors_commits(repo, top_n)
+
+        return self._format_contributor_stats(stats, top_n)
 
     def get_primary_language(self, repo) -> str:
         """
@@ -549,13 +727,23 @@ class GitHubExporter(BaseExporter):
         except Exception:
             readme_content_lower = ""
 
+        contributors_value = None
+        if repo.name in self._skip_stats:
+            contributors_value = self._get_existing_contributors(repo.name)
+
+        if contributors_value is None:
+            contributors_value, ready = self.get_top_contributors_fast(repo, 4)
+            if not ready:
+                self._pending_contributors.append(repo)
+            
         return {
+            "_repo_key": repo.name,
             "Repository Name": f'=HYPERLINK("{repo.html_url}", "{repo.name}")',
             "Description": repo.description or "N/A",
             "Date Created": repo.created_at.strftime("%Y-%m-%d"),
             "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
             "Created By": self.get_repo_creator(repo),
-            "Top 4 Contributors (lines of code changes)": self.get_top_contributors(repo, 4),
+            "Top 4 Contributors (lines of code changes)": contributors_value,
             "Stars": repo.stargazers_count,
             "# of Branches": self.get_num_branches(repo),
             "README": self.has_readme(repo),
@@ -578,5 +766,36 @@ class GitHubExporter(BaseExporter):
             "Paper Association": self.get_associated_paper(readme_content_lower, repo.homepage),
             "DOI for GitHub Repo": self.has_doi(repo, readme_content_lower),
         }
+        
+    def has_pending_work(self) -> bool:
+        return bool(self._pending_contributors)
+
+    def resolve_pending(self, data: list[dict]) -> None:
+        """
+        Resolve contributor stats for repos deferred during the main pass,
+        using a second, smaller ThreadPoolExecutor. By now, GitHub has had
+        the entire main-pass duration to finish computing stats in the
+        background, so this pass should mostly resolve fast.
+        """
+        if not self._pending_contributors:
+            return
+
+        rows_by_key = {row["_repo_key"]: row for row in data}
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(self.resolve_contributor_stats, repo): repo
+                for repo in self._pending_contributors
+            }
+            for future in as_completed(futures):
+                repo = futures[future]
+                try:
+                    value = future.result(timeout=90)
+                except Exception:
+                    value = self._get_top_contributors_commits(repo, 4)
+
+                row = rows_by_key.get(repo.name)
+                if row is not None:
+                    row["Top 4 Contributors (lines of code changes)"] = value
 
     
