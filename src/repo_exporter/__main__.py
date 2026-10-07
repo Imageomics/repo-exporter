@@ -40,7 +40,7 @@ def export_repos(
     spreadsheet_id - String | None. Google Sheets spreadsheet ID; falls back to SPREADSHEET_ID env var.
     sheet_name     - String | None. Sheet tab name; falls back to platform default.
     creds_path     - String | None. Path to service_account.json; falls back to GOOGLE_CREDENTIALS_PATH env var.
-    repo_type      - String | list[str] | None. Repo type filter. HF accepts several (e.g. ["model", "dataset"]); GitHub takes a single value. Falls back to GH_REPO_TYPE / HF_REPO_TYPE env var depending on platform.
+    repo_type      - String | list[str] | None. Repo type filter. GitHub: one of all, public, private, forks, sources, member. HuggingFace: one or more of all, model, dataset, space (e.g. ["model", "dataset"]). Falls back to GH_REPO_TYPE / HF_REPO_TYPE env var depending on platform.
     """
     platform = platform.strip().lower()
     spreadsheet_id = spreadsheet_id or SPREADSHEET_ID
