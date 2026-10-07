@@ -429,9 +429,13 @@ class BaseExporter(ABC):
         header = self._sync_new_columns(sheet, df, header)
 
         if errors and self.get_column_index(header, "Status") is None:
-            # All repos failed this run (df has no rows to sync "Status"
-            # from) -- still need the column to exist before writing errors.
-            header = self._sync_new_columns(sheet, pd.DataFrame(columns=["Status"]), header)
+            # All repos failed this run (df has no rows to sync "Repository Name"
+            # or "Status" from) -- still need both column to exist before writing errors.
+            header = self._sync_new_columns(
+                sheet,
+                pd.DataFrame(columns=["Repository Name", "Status"]),
+                header,
+            )
 
         if not df.empty:
             batch_body, _ = self._build_batch_body(sheet, df, header)
@@ -621,7 +625,7 @@ class BaseExporter(ABC):
                 )
                 if self.error_mode == "log":
                     self._log_error(repo_args, e)
-                    tqdm.write(f"  Logged to {self.error_log_path}. Skipping...")
+                    tqdm.write(f"  Error log path: {self.error_log_path}. Skipping...")
                 elif self.error_mode == "column":
                     try:
                         repo_name_value = self._error_repo_name(repo_args)

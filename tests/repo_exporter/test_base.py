@@ -1008,7 +1008,7 @@ def test_update_google_sheet_ensures_status_column_when_all_repos_failed():
     sheet.row_values.return_value = ["Repository Name"]
 
     # First _sync_new_columns call (df is empty) adds nothing; the fallback
-    # call with pd.DataFrame(columns=["Status"]) is what adds "Status".
+    # call with pd.DataFrame(columns=["Repository Name", "Status"]) is what adds "Status".
     def fake_sync(s, d, h):
         if "Status" in d.columns and "Status" not in h:
             return h + ["Status"]
@@ -1025,3 +1025,21 @@ def test_update_google_sheet_ensures_status_column_when_all_repos_failed():
     assert exporter._sync_new_columns.call_count == 2
     header_passed = exporter._write_error_statuses.call_args[0][1]
     assert "Status" in header_passed
+    
+def test_update_google_sheet_syncs_name_and_status_when_header_empty_and_all_failed():
+    exporter = make_exporter()
+    exporter._get_sheet = MagicMock()
+    sheet = exporter._get_sheet.return_value
+    sheet.row_values.return_value = []
+
+    def fake_sync(s, d, h):
+        return h + [c for c in d.columns if c not in h]
+
+    exporter._sync_new_columns = MagicMock(side_effect=fake_sync)
+    exporter._write_error_statuses = MagicMock()
+
+    errors = [{"Repository Name": "bad", "Status": "ERROR: x"}]
+    exporter.update_google_sheet(pd.DataFrame(), errors=errors)
+
+    header_passed = exporter._write_error_statuses.call_args[0][1]
+    assert header_passed == ["Repository Name", "Status"]
