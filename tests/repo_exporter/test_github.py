@@ -7,8 +7,8 @@ class-based GitHubExporter.get_repo_info() and its instance-method helpers
 refactor into src/repo_exporter/ doesn't silently change the exported data.
 """
 
-from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
