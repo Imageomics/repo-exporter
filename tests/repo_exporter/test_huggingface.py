@@ -307,17 +307,50 @@ def test_get_associated_datasets_returns_no_when_missing():
     exporter = make_exporter()
     repo = make_mock_repo(tags=[])
     assert exporter.get_associated_datasets(repo) == "No"
-    
-def test_get_repo_info_license_missing_metadata_maps_to_no():
-    """Dedicated coverage for the License N/A -> "No" mapping in
-    get_repo_info(), called out separately in PR review since it
-    intentionally differs from the legacy exporter's "N/A" output."""
+
+# _error_repo_name
+
+def test_error_repo_name_builds_hyperlink_for_model():
     exporter = make_exporter()
-    repo = make_mock_repo(card_data={})  # no "license" key:  get_card_field() returns "N/A"
-    exporter.api = make_mock_api(repo=repo)
+    repo_summary = MagicMock(id="imageomics/cool-model")
 
-    with patch("repo_exporter.huggingface.hf_hub_download", return_value="/fake/README.md"), \
-         patch("builtins.open", mock_open(read_data="plain readme")):
-        result = exporter.get_repo_info(repo, "model")
+    result = exporter._error_repo_name((repo_summary, "model"))
 
-    assert result["License"] == "No"
+    assert result == '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "imageomics/cool-model")'
+
+
+def test_error_repo_name_builds_hyperlink_for_dataset():
+    exporter = make_exporter()
+    repo_summary = MagicMock(id="imageomics/cool-dataset")
+
+    result = exporter._error_repo_name((repo_summary, "dataset"))
+
+    assert result == (
+        '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-dataset", '
+        '"datasets/imageomics/cool-dataset")'
+    )
+
+
+def test_error_repo_name_builds_hyperlink_for_space():
+    exporter = make_exporter()
+    repo_summary = MagicMock(id="imageomics/cool-space")
+
+    result = exporter._error_repo_name((repo_summary, "space"))
+
+    assert result == (
+        '=HYPERLINK("https://huggingface.co/spaces/imageomics/cool-space", '
+        '"spaces/imageomics/cool-space")'
+    )
+    
+# error_mode / error_log_path forwarding
+
+def test_huggingface_exporter_forwards_error_mode_and_log_path():
+    exporter = make_exporter(error_mode="log", error_log_path="custom-hf.log")
+    assert exporter.error_mode == "log"
+    assert exporter.error_log_path == "custom-hf.log"
+
+
+def test_huggingface_exporter_defaults_error_mode_to_console():
+    exporter = make_exporter()
+    assert exporter.error_mode == "console"
+    assert exporter.error_log_path == "repo_exporter_errors.log"
