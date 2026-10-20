@@ -320,7 +320,7 @@ class BaseExporter(ABC):
         self,
         sheet,
         header: list,
-        df: pd.DataFrame,
+        total_rows: int,
         red_columns: set,
         secondary_columns: set,
         secondary_color: dict,
@@ -334,14 +334,19 @@ class BaseExporter(ABC):
         ------------
         sheet            - gspread Worksheet object.
         header           - List of column header strings from the sheet.
-        df               - pd.DataFrame. Used to determine row count.
+        total_rows       - Integer. Total rows in the sheet (title + header +
+                            all data rows), i.e. len(existing) from
+                            _build_batch_body. Using the sheet's real row
+                            count instead of this run's row count keeps
+                            partial runs from un-highlighting rows outside
+                            this run's data.
         red_columns      - Set of column names to highlight red when "No".
         secondary_columns - Set of column names to highlight with secondary_color when "No".
         secondary_color  - Dict with keys "red", "green", "blue" (0-1 floats).
         """
         HEADER_ROW_INDEX = 2
         sheet_id = sheet.id
-        end_row = HEADER_ROW_INDEX + len(df)
+        end_row = total_rows
 
         desired = {}  # col_index -> color
         for col_set, color in [
