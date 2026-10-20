@@ -443,13 +443,13 @@ class BaseExporter(ABC):
             )
 
         if not df.empty:
-            batch_body, _ = self._build_batch_body(sheet, df, header)
+            batch_body, existing = self._build_batch_body(sheet, df, header)
             self._write_batch(sheet, batch_body)
 
             self._apply_conditional_formatting(
                 sheet,
                 header,
-                df,
+                len(existing),
                 red_columns=self.red_columns,
                 secondary_columns=self.secondary_columns,
                 secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
