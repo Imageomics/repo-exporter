@@ -306,6 +306,7 @@ class BaseExporter(ABC):
         red_columns: set,
         secondary_columns: set,
         secondary_color: dict,
+        end_row: int | None = None,
     ) -> None:
         """
         Sync "No" conditional formatting rules to specified columns, diffing
@@ -325,10 +326,12 @@ class BaseExporter(ABC):
         red_columns      - Set of column names to highlight red when "No".
         secondary_columns - Set of column names to highlight with secondary_color when "No".
         secondary_color  - Dict with keys "red", "green", "blue" (0-1 floats).
+        end_row          - Integer | None. Exclusive end row index for the rules' ranges. Defaults to header rows + len(df) when not given.
         """
         HEADER_ROW_INDEX = 2
         sheet_id = sheet.id
-        end_row = total_rows
+        if end_row is None:
+            end_row = HEADER_ROW_INDEX + len(df)
 
         desired = {}  # col_index -> color
         for col_set, color in [
@@ -418,6 +421,7 @@ class BaseExporter(ABC):
             red_columns=self.red_columns,
             secondary_columns=self.secondary_columns,
             secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+            end_row=len(existing),
         )
 
     def _fetch_one(self, repo_args) -> dict:
