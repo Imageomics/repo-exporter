@@ -568,7 +568,20 @@ identifiers:
 """
     repo = _repo_with_citation(citation)
     assert exporter.has_doi(repo, "") == "https://doi.org/10.5281/zenodo.11288083"
-
+    
+def test_has_doi_skips_non_doi_identifier_before_valid_doi():
+    """A non-DOI identifier appearing before the valid DOI identifier
+    should be skipped, not mistaken for the DOI entry."""
+    exporter = make_exporter()
+    citation = """title: Test
+identifiers:
+  - type: url
+    value: "https://example.com/some-resource"
+  - type: doi
+    value: "10.5281/zenodo.11288083"
+"""
+    repo = _repo_with_citation(citation)
+    assert exporter.has_doi(repo, "") == "https://doi.org/10.5281/zenodo.11288083"
 
 def test_has_doi_reads_identifiers_inline_doi_key():
     exporter = make_exporter()
