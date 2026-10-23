@@ -73,7 +73,8 @@ def test_export_repos_github_strips_whitespace_only_token_to_none(mock_gh_cls):
 
 
 @patch.object(main_module, "HuggingFaceExporter")
-def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls):
+def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls, monkeypatch):
+    monkeypatch.setattr(main_module, "HF_REPO_TYPE", "all")
     mock_exporter = MagicMock()
     mock_hf_cls.return_value = mock_exporter
 

@@ -580,7 +580,63 @@ def test_apply_conditional_formatting_treats_omitted_zero_channels_as_equal():
 
     sheet.spreadsheet.batch_update.assert_not_called()
 
+def test_update_google_sheet_filtered_refresh_does_not_shrink_formatting_range():
+    """Regression test: refreshing a subset of repos must size formatting
+    rules from the whole sheet, not from the filtered DataFrame."""
+    exporter = make_exporter()
+    header = ["Repository Name", "README"]
+    sheet = MagicMock()
+    sheet.id = 123
+    sheet.title = "GH-Repos"
+    sheet.col_count = 10
+    sheet.row_values.return_value = header
+    # 2 header rows + 10 existing repos
+    sheet.get_all_values.return_value = (
+        [["title", ""], header]
+        + [[f"repo{i}", "Yes"] for i in range(10)]
+    )
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = {"sheets": []}
+    exporter._get_sheet = MagicMock(return_value=sheet)
 
+    # Filtered refresh: only one repo in the DataFrame
+    df = pd.DataFrame([{"Repository Name": "repo3", "README": "No"}])
+
+    exporter.update_google_sheet(df)
+
+    requests = sheet.spreadsheet.batch_update.call_args[0][0]["requests"]
+    rules = [r["addConditionalFormatRule"]["rule"] for r in requests
+             if "addConditionalFormatRule" in r]
+    assert rules, "expected at least one formatting rule"
+    for rule in rules:
+        assert rule["ranges"][0]["endRowIndex"] == 12  # 2 header + 10 data rows
+    
+def test_update_google_sheet_filtered_refresh_keeps_existing_full_range_rules():
+    """Regression test: a full export leaves rules spanning every row; a later
+    filtered refresh must leave them untouched instead of shrinking them."""
+    exporter = make_exporter()
+    header = ["Repository Name", "README"]
+    sheet = MagicMock()
+    sheet.id = 123
+    sheet.title = "GH-Repos"
+    sheet.col_count = 10
+    sheet.row_values.return_value = header
+    # 2 header rows + 10 existing repos
+    sheet.get_all_values.return_value = (
+        [["title", ""], header]
+        + [[f"repo{i}", "Yes"] for i in range(10)]
+    )
+    # Rule left behind by an earlier full export: README column, rows 2..12
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
+        123, [(1, {"red": 1, "green": 0.5, "blue": 0.5}, 12)]
+    )
+    exporter._get_sheet = MagicMock(return_value=sheet)
+
+    df = pd.DataFrame([{"Repository Name": "repo3", "README": "No"}])
+
+    exporter.update_google_sheet(df)
+
+    sheet.spreadsheet.batch_update.assert_not_called()
+        
 # run() orchestration
 
 def test_run_writes_sorted_dataframe_and_reports_success(capsys):
