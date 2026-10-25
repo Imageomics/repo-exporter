@@ -574,7 +574,7 @@ identifiers:
 """
     repo = _repo_with_citation(citation)
     assert exporter.has_doi(repo, "") == "https://doi.org/10.5281/zenodo.11288083"
-    
+
 def test_has_doi_skips_non_doi_identifier_before_valid_doi():
     """A non-DOI identifier appearing before the valid DOI identifier
     should be skipped, not mistaken for the DOI entry."""
@@ -604,7 +604,7 @@ def test_has_doi_no_citation_and_no_badge_returns_no():
     repo = MagicMock()
     repo.get_contents.side_effect = GithubException(404, "Not Found", None)
     assert exporter.has_doi(repo, "no badge here") == "No"
-    
+
 # get_keywords()
 
 def test_get_keywords_joins_topics_with_commas():
@@ -628,6 +628,13 @@ def test_get_keywords_returns_na_when_topics_cannot_be_read():
     exporter = make_exporter()
     assert exporter.get_keywords(BrokenRepo()) == "N/A"
 
+
+def test_pygithub_repository_exposes_topics_attribute():
+    """get_keywords reads repo.topics, so real PyGithub Repository objects
+    must have it (MagicMock would accept any attribute and hide a miss)."""
+    from github.Repository import Repository
+    assert hasattr(Repository, "topics")
+    
 # _find_paper_matches()
 
 def test_find_paper_matches_finds_direct_and_doi_matches():

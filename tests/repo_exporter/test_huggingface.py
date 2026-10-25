@@ -315,7 +315,7 @@ def test_get_associated_datasets_returns_no_when_missing():
     exporter = make_exporter()
     repo = make_mock_repo(tags=[])
     assert exporter.get_associated_datasets(repo) == "No"
-    
+
 def test_get_repo_info_license_missing_metadata_maps_to_no():
     """Dedicated coverage for the License N/A -> "No" mapping in
     get_repo_info(), called out separately in PR review since it
