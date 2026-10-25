@@ -61,6 +61,24 @@ class HuggingFaceExporter(BaseExporter):
             repos.append((s, "space"))
         return repos
 
+    @staticmethod
+    def _display_id(repo_id: str, repo_type: str) -> str:
+        """
+        Return the full Hugging Face identifier for a repo, with the
+        "datasets/" or "spaces/" prefix where appropriate (models have none).
+        The org is already part of repo_id, so it is not added again.
+
+        Parameters:
+        ------------
+        repo_id   - String. Repo ID, e.g. "imageomics/cool-dataset".
+        repo_type - String. One of "model", "dataset", "space".
+        """
+        if repo_type == "dataset":
+            return f"datasets/{repo_id}"
+        if repo_type == "space":
+            return f"spaces/{repo_id}"
+        return repo_id
+
     def _error_repo_name(self, repo_args) -> str:
         """
         Build a HYPERLINK formula for a repo whose fetch failed, using only
@@ -73,13 +91,33 @@ class HuggingFaceExporter(BaseExporter):
         """
         repo_summary, repo_type = repo_args
         url = self.get_repo_url(repo_summary, repo_type)
-        if repo_type == "dataset":
-            display_id = f"datasets/{repo_summary.id}"
-        elif repo_type == "space":
-            display_id = f"spaces/{repo_summary.id}"
-        else:
-            display_id = repo_summary.id
+        display_id = self._display_id(repo_summary.id, repo_type)
         return f'=HYPERLINK("{url}", "{display_id}")'
+
+    def _repo_label(self, repo_args) -> str:
+        """
+        Console label for a (repo_summary, repo_type) tuple, including the
+        datasets/ or spaces/ prefix so same-ID repos of different types
+        can be told apart.
+
+        Parameters:
+        ------------
+        repo_args - A (repo_summary, repo_type) tuple, matching fetch_repos()'s output.
+        """
+        repo_summary, repo_type = repo_args
+        return f"/{self._display_id(repo_summary.id, repo_type)}"
+
+    def _repo_log_id(self, repo_args) -> str:
+        """
+        Log identifier for a (repo_summary, repo_type) tuple. The HF ID
+        already contains the org, so the org is not prepended again.
+
+        Parameters:
+        ------------
+        repo_args - A (repo_summary, repo_type) tuple, matching fetch_repos()'s output.
+        """
+        repo_summary, repo_type = repo_args
+        return self._display_id(repo_summary.id, repo_type)
 
     # Repo metadata helpers
 

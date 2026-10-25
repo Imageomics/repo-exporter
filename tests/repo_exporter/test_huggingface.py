@@ -342,6 +342,52 @@ def test_error_repo_name_builds_hyperlink_for_space():
         '"spaces/imageomics/cool-space")'
     )
     
+# _repo_label / _repo_log_id
+
+def test_repo_log_id_does_not_repeat_org_name():
+    exporter = make_exporter()
+    summary = MagicMock(id="imageomics/shared")
+
+    assert exporter._repo_log_id((summary, "model")) == "imageomics/shared"
+
+def test_repo_log_id_distinguishes_model_dataset_and_space_with_same_id():
+    exporter = make_exporter()
+    summary = MagicMock(id="imageomics/shared")
+
+    assert exporter._repo_log_id((summary, "model")) == "imageomics/shared"
+    assert exporter._repo_log_id((summary, "dataset")) == "datasets/imageomics/shared"
+    assert exporter._repo_log_id((summary, "space")) == "spaces/imageomics/shared"
+
+
+def test_repo_label_includes_type_prefix():
+    exporter = make_exporter()
+    summary = MagicMock(id="imageomics/shared")
+
+    assert exporter._repo_label((summary, "dataset")) == "/datasets/imageomics/shared"
+
+def test_error_mode_log_writes_distinct_lines_for_same_id_across_types(tmp_path):
+    log_path = tmp_path / "errors.log"
+    exporter = make_exporter(error_mode="log", error_log_path=str(log_path))
+    summary = MagicMock(id="imageomics/shared")
+    exporter.fetch_repos = MagicMock(return_value=[
+        (summary, "model"),
+        (summary, "dataset"),
+        (summary, "space"),
+    ])
+    exporter.get_repo_info = MagicMock(side_effect=RuntimeError("boom"))
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    lines = log_path.read_text().splitlines()
+    ids = [line.split("] ", 1)[1].split(" - ", 1)[0] for line in lines]
+    assert ids == [
+        "imageomics/shared",
+        "datasets/imageomics/shared",
+        "spaces/imageomics/shared",
+    ]
+    assert not any("imageomics/imageomics" in line for line in lines)
+    
 # error_mode / error_log_path forwarding
 
 def test_huggingface_exporter_forwards_error_mode_and_log_path():

@@ -540,6 +540,18 @@ class BaseExporter(ABC):
         """
         repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
         return f"/{getattr(repo, 'name', getattr(repo, 'id', str(repo)))}"
+    
+    def _repo_log_id(self, repo_args) -> str:
+        """
+        Return an unambiguous identifier for a repo, used in error log lines.
+        Default is "org/name" (GitHub). Subclasses override this when the
+        platform's repo IDs already include the org or need a type prefix.
+
+        Parameters:
+        ------------
+        repo_args - A single repo object or a tuple whose first element is the repo.
+        """
+        return f"{self.org_name}{self._repo_label(repo_args)}"
 
     def _log_error(self, repo_args, error: Exception) -> None:
         """
@@ -552,9 +564,9 @@ class BaseExporter(ABC):
         repo_args - A single repo object or a tuple whose first element is the repo.
         error     - The exception raised while fetching this repo's info.
         """
-        label = self._repo_label(repo_args)
+        repo_id = self._repo_log_id(repo_args)
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        line = f"[{timestamp}] {self.org_name}{label} - {type(error).__name__}: {error}\n"
+        line = f"[{timestamp}] {repo_id} - {type(error).__name__}: {error}\n"
         try:
             with open(self.error_log_path, "a", encoding="utf-8") as f:
                 f.write(line)
