@@ -61,9 +61,49 @@ class GitHubExporter(BaseExporter):
     """
     Exports GitHub org repo metadata to a Google Sheet.
     """
+    
+    VALID_REPO_TYPES = {"all", "public", "private", "forks", "sources", "member"}
+
+    @classmethod
+    def _parse_repo_types(cls, repo_type) -> list[str]:
+        """
+        Normalize repo_type (None, a string, a comma-separated string, or a
+        list of strings) into an ordered, de-duplicated list of GitHub repo
+        types. "all" already includes every other type, so if it appears the
+        result is just ["all"].
+
+        Parameters:
+        ------------
+        repo_type - None, String, or list of Strings. Requested repo type(s).
+        """
+        if repo_type is None:
+            raw = ["all"]
+        elif isinstance(repo_type, str):
+            raw = repo_type.split(",")
+        else:
+            raw = [part for item in repo_type for part in item.split(",")]
+
+        types = []
+        for t in raw:
+            t = t.strip().lower()
+            if t and t not in types:
+                types.append(t)
+        if not types:
+            types = ["all"]
+
+        invalid = [t for t in types if t not in cls.VALID_REPO_TYPES]
+        if invalid:
+            raise ValueError(
+                f'Invalid repo_type(s): {", ".join(sorted(invalid))}. '
+                f'Must be from: {", ".join(sorted(cls.VALID_REPO_TYPES))}'
+            )
+
+        if "all" in types:
+            return ["all"]
+        return types
 
     def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
-             token: str | None = None, repo_type: str | None = None):
+             token: str | None = None, repo_type: str | list[str] | None = None):
         """
         Parameters:
         ------------
@@ -72,11 +112,10 @@ class GitHubExporter(BaseExporter):
         spreadsheet_id - String. Google Sheets spreadsheet ID.
         sheet_name     - String. Sheet tab name.
         creds_path     - String. Path to service_account.json.
-        repo_type      - String | None. Repo type filter (all, public, private, forks, sources, member).
-        """
+        repo_type      - String | list[str] | None. Repo type(s) to fetch (all, public, private, forks, sources, member). Accepts several, e.g. ["forks", "sources"] or "forks,sources"."""
         super().__init__(org_name, spreadsheet_id, sheet_name, creds_path)
         self.token = token
-        self.repo_type = repo_type
+        self.repo_types = self._parse_repo_types(repo_type)
         self.gh = Github(auth=Auth.Token(token)) if token else Github()
         self.existing_df = pd.DataFrame()
         
@@ -127,15 +166,21 @@ class GitHubExporter(BaseExporter):
 
     def fetch_repos(self) -> list:
         """
-        Fetch all repos for the org and pre-load existing sheet data
-        to avoid recomputing Created By for repos already tracked.
+        Fetch all repos for each requested type.
         """
         try:
             org = self.gh.get_organization(self.org_name)
         except Exception as e:
             raise RuntimeError(f'Could not access org "{self.org_name}": {e}')
 
-        repos = list(org.get_repos(type=self.repo_type))
+        repos = []
+        seen = set()
+        for repo_type in self.repo_types:
+            for repo in org.get_repos(type=repo_type):
+                if repo.full_name in seen:
+                    continue
+                seen.add(repo.full_name)
+                repos.append(repo)
         print(f"Total repos fetched: {len(repos)}")
 
         self._load_existing_sheet()
