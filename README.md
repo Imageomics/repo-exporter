@@ -134,7 +134,7 @@ All options fall back to the corresponding [environment variable](#environment-v
 |---|---|---|
 | `--org` | `GH_ORG_NAME` | GitHub organization name |
 | `--token` | `GH_TOKEN` | GitHub personal access token |
-| `--repo-type` | `GH_REPO_TYPE` | Repo type filter: `all`, `public`, `private`, `forks`, `sources`, `member` (default: `all`) |
+| `--repo-type` | `GH_REPO_TYPE` | Repo type filter: `all`, `public`, `private`, `forks`, `sources`, `member`. Accepts several, e.g. `--repo-type forks sources` (default: `all`) |
 | `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
 | `--sheet-name` | `GH_SHEET_NAME` | Sheet tab name (default: `GH-Repos`) |
 | `--credentials-path` | `GOOGLE_CREDENTIALS_PATH` | Path to `service_account.json` (default: `service_account.json`) |
@@ -167,7 +167,7 @@ Run `repo-exporter github --help` or `repo-exporter huggingface --help` to see t
 * Set `GH_ORG_NAME` to your GitHub organization name (for API calls).
 * Set `SPREADSHEET_ID` to the Google Sheet ID used by the exporter.
 * `GH_SHEET_NAME` is optional. If not provided, the exporter uses "GH-Repos".
-* `GH_REPO_TYPE` is optional. If not provided, the exporter uses "all" (also accepts `public`, `private`, `forks`, `sources`, `member`). 
+* `GH_REPO_TYPE` is optional. If not provided, the exporter uses "all" (also accepts `public`, `private`, `forks`, `sources`, `member`). Several types can be combined as a comma-separated list, e.g. `forks,sources`. 
 * `GH_TOKEN` is required to access GitHub repositories.
 
 ### Hugging Face exporter
