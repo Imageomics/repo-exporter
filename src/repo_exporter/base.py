@@ -326,12 +326,12 @@ class BaseExporter(ABC):
         red_columns      - Set of column names to highlight red when "No".
         secondary_columns - Set of column names to highlight with secondary_color when "No".
         secondary_color  - Dict with keys "red", "green", "blue" (0-1 floats).
-        end_row          - Integer | None. Exclusive end row index for the rules' ranges. Defaults to header rows + len(df) when not given.
+        end_row          - Integer | None. Exclusive end row index for the rules' ranges. Defaults to total_rows when not given.
         """
         HEADER_ROW_INDEX = 2
         sheet_id = sheet.id
         if end_row is None:
-            end_row = HEADER_ROW_INDEX + len(df)
+            end_row = total_rows
 
         desired = {}  # col_index -> color
         for col_set, color in [
