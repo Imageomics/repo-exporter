@@ -729,3 +729,94 @@ def test_get_associated_paper_breaks_ties_by_position():
     )
     result = exporter.get_associated_paper(readme)
     assert result == '=HYPERLINK("https://doi.org/10.1038/s41586-020-1234-5", "Yes")'
+    
+# repo_type parsing / validation
+
+@pytest.mark.parametrize(
+    "repo_type, expected",
+    [
+        (None, ["all"]),
+        ("all", ["all"]),
+        ("", ["all"]),
+        ("forks", ["forks"]),
+        (["forks", "sources"], ["forks", "sources"]),
+        ("forks,sources", ["forks", "sources"]),
+        (["forks,member"], ["forks", "member"]),
+        (" Forks , SOURCES,", ["forks", "sources"]),
+        (["forks", "forks"], ["forks"]),
+        (["forks", "all"], ["all"]),
+    ],
+)
+def test_parse_repo_types(repo_type, expected):
+    assert GitHubExporter._parse_repo_types(repo_type) == expected
+
+
+def test_parse_repo_types_invalid_value_raises():
+    with pytest.raises(ValueError, match="foo"):
+        GitHubExporter._parse_repo_types(["forks", "foo"])
+
+
+def test_parse_repo_types_reports_every_invalid_value():
+    with pytest.raises(ValueError) as exc_info:
+        GitHubExporter._parse_repo_types(["bad", "worse", "forks"])
+    msg = str(exc_info.value)
+    assert "bad" in msg
+    assert "worse" in msg
+
+
+def test_init_defaults_repo_types_to_all():
+    assert make_exporter().repo_types == ["all"]
+
+
+def test_init_accepts_multiple_repo_types():
+    assert make_exporter(repo_type=["forks", "sources"]).repo_types == ["forks", "sources"]
+
+
+def test_init_invalid_repo_type_raises_value_error():
+    with pytest.raises(ValueError, match="Invalid repo_type"):
+        make_exporter(repo_type="forkz")
+
+
+# fetch_repos() with multiple types
+
+def _fake_repo(full_name):
+    return MagicMock(full_name=full_name)
+
+
+def _exporter_with_fake_org(repo_type, repos_by_type):
+    exporter = make_exporter(repo_type=repo_type)
+    org = MagicMock()
+    org.get_repos.side_effect = lambda type: repos_by_type[type]
+    exporter.gh = MagicMock()
+    exporter.gh.get_organization.return_value = org
+    exporter._load_existing_sheet = MagicMock()
+    return exporter, org
+
+
+def test_fetch_repos_makes_one_call_per_type_and_merges():
+    r1, r2 = _fake_repo("org/a"), _fake_repo("org/b")
+    exporter, org = _exporter_with_fake_org(
+        ["forks", "sources"], {"forks": [r1], "sources": [r2]}
+    )
+
+    repos = exporter.fetch_repos()
+
+    assert repos == [r1, r2]
+    assert [c.kwargs["type"] for c in org.get_repos.call_args_list] == ["forks", "sources"]
+
+
+def test_fetch_repos_removes_duplicates_across_types():
+    r1, r2 = _fake_repo("org/a"), _fake_repo("org/b")
+    exporter, _ = _exporter_with_fake_org(
+        ["forks", "member"], {"forks": [r1], "member": [r1, r2]}
+    )
+
+    assert exporter.fetch_repos() == [r1, r2]
+
+
+def test_fetch_repos_all_makes_a_single_call():
+    r1 = _fake_repo("org/a")
+    exporter, org = _exporter_with_fake_org(["forks", "all"], {"all": [r1]})
+
+    assert exporter.fetch_repos() == [r1]
+    org.get_repos.assert_called_once_with(type="all")

@@ -188,7 +188,7 @@ def test_parser_github_accepts_all_flags():
     ])
     assert args.org == "imageomics"
     assert args.token == "tok123"
-    assert args.repo_type == "public"
+    assert args.repo_type == ["public"]
     assert args.spreadsheet_id == "sheet123"
     assert args.sheet_name == "GH-Repos"
     assert args.credentials_path == "creds.json"
@@ -252,9 +252,35 @@ def test_parser_huggingface_repo_type_requires_a_value():
         main_module.parse_args(["huggingface", "--repo-type"])
 
 
-def test_parser_github_repo_type_still_rejects_multiple_values():
-    with pytest.raises(SystemExit):
-        main_module.parse_args(["github", "--repo-type", "public", "private"])
+def test_parser_github_repo_type_accepts_multiple_values():
+    args = main_module.parse_args(["github", "--repo-type", "forks", "sources"])
+    assert args.repo_type == ["forks", "sources"]
+
+
+@patch.object(main_module, "GitHubExporter")
+def test_export_repos_github_passes_list_repo_type_through(mock_gh_cls):
+    mock_gh_cls.return_value = MagicMock()
+
+    main_module.export_repos(
+        platform="github",
+        org_name="imageomics",
+        spreadsheet_id="sheet123",
+        repo_type=["forks", "sources"],
+    )
+
+    _, kwargs = mock_gh_cls.call_args
+    assert kwargs["repo_type"] == ["forks", "sources"]
+
+
+def test_main_invalid_github_repo_type_exits_with_message(monkeypatch):
+    fake_args = main_module.create_parser().parse_args([
+        "github", "--org", "imageomics", "--spreadsheet-id", "sheet123",
+        "--repo-type", "forkz",
+    ])
+    monkeypatch.setattr(main_module, "parse_args", lambda: fake_args)
+
+    with pytest.raises(SystemExit, match="Invalid repo_type"):
+        main_module.main()
 
 
 @patch.object(main_module, "HuggingFaceExporter")
