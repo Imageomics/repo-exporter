@@ -16,6 +16,7 @@ import pytest
 
 from repo_exporter.base import BaseExporter
 from repo_exporter.github import GitHubExporter
+from types import SimpleNamespace
 
 
 def make_exporter() -> GitHubExporter:
@@ -688,3 +689,81 @@ def test_run_reports_error_when_no_data_collected(capsys):
     exporter.update_google_sheet.assert_not_called()
     out = capsys.readouterr().out
     assert "ERROR: No data collected" in out
+    
+# repo_visibility parsing / filtering
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, "all"),
+        ("", "all"),
+        ("all", "all"),
+        ("public", "public"),
+        ("private", "private"),
+        (" Private ", "private"),
+    ],
+)
+def test_parse_repo_visibility(value, expected):
+    assert BaseExporter._parse_repo_visibility(value) == expected
+
+
+def test_parse_repo_visibility_invalid_raises():
+    with pytest.raises(ValueError, match="Invalid repo_visibility"):
+        BaseExporter._parse_repo_visibility("secret")
+
+
+def test_init_defaults_repo_visibility_to_all():
+    assert make_exporter().repo_visibility == "all"
+
+
+def test_init_invalid_repo_visibility_raises():
+    with pytest.raises(ValueError, match="Invalid repo_visibility"):
+        GitHubExporter(
+            org_name="imageomics",
+            spreadsheet_id="sheet123",
+            sheet_name="GH-Repos",
+            creds_path="fake.json",
+            repo_visibility="secret",
+        )
+
+
+def test_filter_by_visibility_all_keeps_everything():
+    exporter = make_exporter()
+    repos = [SimpleNamespace(private=True), SimpleNamespace(private=False)]
+    assert exporter._filter_by_visibility(repos) == repos
+
+
+def test_filter_by_visibility_private_keeps_only_private():
+    exporter = make_exporter()
+    exporter.repo_visibility = "private"
+    priv, pub = SimpleNamespace(private=True), SimpleNamespace(private=False)
+    assert exporter._filter_by_visibility([priv, pub]) == [priv]
+
+
+def test_filter_by_visibility_public_keeps_only_public():
+    exporter = make_exporter()
+    exporter.repo_visibility = "public"
+    priv, pub = SimpleNamespace(private=True), SimpleNamespace(private=False)
+    assert exporter._filter_by_visibility([priv, pub]) == [pub]
+
+
+def test_filter_by_visibility_handles_repo_type_tuples():
+    exporter = make_exporter()
+    exporter.repo_visibility = "public"
+    priv, pub = SimpleNamespace(private=True), SimpleNamespace(private=False)
+    repos = [(priv, "model"), (pub, "dataset")]
+    assert exporter._filter_by_visibility(repos) == [(pub, "dataset")]
+
+
+def test_run_applies_visibility_filter_before_fetching_info():
+    exporter = make_exporter()
+    exporter.repo_visibility = "private"
+    priv = SimpleNamespace(name="priv-repo", private=True)
+    pub = SimpleNamespace(name="pub-repo", private=False)
+    exporter.fetch_repos = MagicMock(return_value=[pub, priv])
+    exporter.get_repo_info = MagicMock(return_value={"Repository Name": "priv-repo"})
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    exporter.get_repo_info.assert_called_once_with(priv)

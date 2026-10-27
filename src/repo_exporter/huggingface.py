@@ -43,8 +43,7 @@ class HuggingFaceExporter(BaseExporter):
             return {"model", "dataset", "space"}
         return types
     
-    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
-                 token: str | None = None, repo_type: str | list[str] | None = None):
+    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str, token: str | None = None, repo_type: str | list[str] | None = None,        repo_visibility: str | None = None):
         """
         Parameters:
         ------------
@@ -54,9 +53,9 @@ class HuggingFaceExporter(BaseExporter):
         creds_path     - String. Path to service_account.json.
         token          - String | None. Hugging Face token.
         repo_type      - String | list[str] | None. Repo type(s) to fetch (all, model, dataset, space). Accepts several, e.g. ["model", "dataset"] or "model,dataset".
+        repo_visibility - String | None. Visibility filter: all, public, or private. Defaults to all.
         """
-        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path)
-        self.creds_path = creds_path
+        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path, repo_visibility)
         self.token = token
 
         self.repo_types = self._parse_repo_types(repo_type)

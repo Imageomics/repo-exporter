@@ -17,7 +17,8 @@ from repo_exporter import __main__ as main_module
 # export_repos() - platform dispatch and fallbacks
 
 @patch.object(main_module, "GitHubExporter")
-def test_export_repos_github_builds_exporter_with_explicit_args(mock_gh_cls):
+def test_export_repos_github_builds_exporter_with_explicit_args(mock_gh_cls, monkeypatch):
+    monkeypatch.setattr(main_module, "GH_REPO_VISIBILITY", "all")
     mock_exporter = MagicMock()
     mock_gh_cls.return_value = mock_exporter
 
@@ -29,6 +30,7 @@ def test_export_repos_github_builds_exporter_with_explicit_args(mock_gh_cls):
         sheet_name="GH-Repos",
         creds_path="creds.json",
         repo_type="public",
+        repo_visibility="all",
     )
 
     mock_gh_cls.assert_called_once_with(
@@ -38,6 +40,7 @@ def test_export_repos_github_builds_exporter_with_explicit_args(mock_gh_cls):
         sheet_name="GH-Repos",
         creds_path="creds.json",
         repo_type="public",
+        repo_visibility="all",
     )
     mock_exporter.run.assert_called_once()
 
@@ -75,6 +78,7 @@ def test_export_repos_github_strips_whitespace_only_token_to_none(mock_gh_cls):
 @patch.object(main_module, "HuggingFaceExporter")
 def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls, monkeypatch):
     monkeypatch.setattr(main_module, "HF_REPO_TYPE", "all")
+    monkeypatch.setattr(main_module, "HF_REPO_VISIBILITY", "all")
     mock_exporter = MagicMock()
     mock_hf_cls.return_value = mock_exporter
 
@@ -94,9 +98,9 @@ def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls
         sheet_name="HF-Repos",
         creds_path="creds.json",
         repo_type="all",
+        repo_visibility="all",
     )
     mock_exporter.run.assert_called_once()
-
 
 def test_export_repos_platform_is_case_and_whitespace_insensitive():
     with patch.object(main_module, "GitHubExporter") as mock_gh_cls:
@@ -376,4 +380,76 @@ def test_main_invalid_huggingface_repo_type_exits_with_message(monkeypatch):
     monkeypatch.setattr(main_module, "parse_args", lambda: fake_args)
 
     with pytest.raises(SystemExit, match="Invalid repo_type"):
+        main_module.main()
+        
+# repo_visibility
+
+def test_parser_repo_visibility_defaults_to_none():
+    assert main_module.parse_args(["github"]).repo_visibility is None
+    assert main_module.parse_args(["huggingface"]).repo_visibility is None
+
+
+def test_parser_github_repo_visibility_flag():
+    args = main_module.parse_args(["github", "--repo-visibility", "private"])
+    assert args.repo_visibility == "private"
+
+
+def test_parser_huggingface_repo_visibility_flag():
+    args = main_module.parse_args(["huggingface", "--repo-visibility", "public"])
+    assert args.repo_visibility == "public"
+
+
+@patch.object(main_module, "GitHubExporter")
+def test_export_repos_github_passes_repo_visibility_through(mock_gh_cls):
+    mock_gh_cls.return_value = MagicMock()
+
+    main_module.export_repos(
+        platform="github",
+        org_name="imageomics",
+        spreadsheet_id="sheet123",
+        repo_visibility="private",
+    )
+
+    _, kwargs = mock_gh_cls.call_args
+    assert kwargs["repo_visibility"] == "private"
+
+
+def test_export_repos_github_falls_back_to_env_repo_visibility(monkeypatch):
+    monkeypatch.setattr(main_module, "GH_REPO_VISIBILITY", "public")
+    with patch.object(main_module, "GitHubExporter") as mock_gh_cls:
+        mock_gh_cls.return_value = MagicMock()
+
+        main_module.export_repos(
+            platform="github",
+            org_name="imageomics",
+            spreadsheet_id="sheet123",
+        )
+
+        _, kwargs = mock_gh_cls.call_args
+        assert kwargs["repo_visibility"] == "public"
+
+
+def test_export_repos_huggingface_falls_back_to_env_repo_visibility(monkeypatch):
+    monkeypatch.setattr(main_module, "HF_REPO_VISIBILITY", "private")
+    with patch.object(main_module, "HuggingFaceExporter") as mock_hf_cls:
+        mock_hf_cls.return_value = MagicMock()
+
+        main_module.export_repos(
+            platform="huggingface",
+            org_name="imageomics",
+            spreadsheet_id="sheet123",
+        )
+
+        _, kwargs = mock_hf_cls.call_args
+        assert kwargs["repo_visibility"] == "private"
+
+
+def test_main_invalid_repo_visibility_exits_with_message(monkeypatch):
+    fake_args = main_module.create_parser().parse_args([
+        "github", "--org", "imageomics", "--spreadsheet-id", "sheet123",
+        "--repo-visibility", "secret",
+    ])
+    monkeypatch.setattr(main_module, "parse_args", lambda: fake_args)
+
+    with pytest.raises(SystemExit, match="Invalid repo_visibility"):
         main_module.main()

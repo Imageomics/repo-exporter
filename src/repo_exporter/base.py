@@ -17,11 +17,33 @@ class BaseExporter(ABC):
     self.creds_path in their __init__.
     """
 
-    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str):
+    VALID_REPO_VISIBILITIES = {"all", "public", "private"}
+
+    @classmethod
+    def _parse_repo_visibility(cls, repo_visibility) -> str:
+        """
+        Normalize repo_visibility (None, "", or a string) into one of
+        "all", "public", "private". None or empty means "all".
+
+        Parameters:
+        ------------
+        repo_visibility - None or String. Requested visibility filter.
+        """
+        visibility = (repo_visibility or "all").strip().lower() or "all"
+        if visibility not in cls.VALID_REPO_VISIBILITIES:
+            raise ValueError(
+                f'Invalid repo_visibility: {visibility}. '
+                f'Must be one of: {", ".join(sorted(cls.VALID_REPO_VISIBILITIES))}'
+            )
+        return visibility
+
+    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
+                 repo_visibility: str | None = None):
         self.org_name = org_name
         self.spreadsheet_id = spreadsheet_id
         self.sheet_name = sheet_name
         self.creds_path = creds_path
+        self.repo_visibility = self._parse_repo_visibility(repo_visibility)
         
     @staticmethod
     def is_inactive(dt: datetime | None) -> str:
@@ -447,6 +469,26 @@ class BaseExporter(ABC):
         """
         repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
         return f"/{getattr(repo, 'name', getattr(repo, 'id', str(repo)))}"
+    
+    def _filter_by_visibility(self, repos: list) -> list:
+        """
+        Keep only repos matching self.repo_visibility ("all" keeps everything).
+        Works for single repo objects and for (repo, repo_type) tuples.
+
+        Parameters:
+        ------------
+        repos - List of repo objects or (repo, repo_type) tuples from fetch_repos().
+        """
+        if self.repo_visibility == "all":
+            return repos
+
+        want_private = self.repo_visibility == "private"
+        kept = []
+        for repo_args in repos:
+            repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
+            if bool(getattr(repo, "private", False)) == want_private:
+                kept.append(repo_args)
+        return kept
 
     # Shared run() orchestration
 
@@ -466,6 +508,10 @@ class BaseExporter(ABC):
         except Exception as e:
             print(f'ERROR: Could not fetch repos for "{self.org_name}": {e}')
             return
+        
+        repos = self._filter_by_visibility(repos)
+        if self.repo_visibility != "all":
+            print(f"Repos after {self.repo_visibility}-only filter: {len(repos)}")
 
         data = []
         tqdm_kwargs = {}

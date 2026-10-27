@@ -431,3 +431,6 @@ def test_fetch_repos_single_type_only_calls_that_list_method():
     exporter.api.list_spaces.assert_called_once_with(author="imageomics")
     exporter.api.list_models.assert_not_called()
     exporter.api.list_datasets.assert_not_called()
+
+def test_init_accepts_repo_visibility():
+    assert make_exporter(repo_visibility="public").repo_visibility == "public"
