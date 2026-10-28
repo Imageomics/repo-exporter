@@ -11,14 +11,15 @@ on:
     - cron: "0 9 * * 1" # Runs once every Monday at 9 AM UTC
   workflow_dispatch:
     inputs:
-      repo_type:
-        description: "Which group of repos to export?"
+      repo_visibility:
+        description: "Which repos to export (public/private)"
         required: false
         type: choice
         default: all
         options:
-          - private
           - all
+          - public
+          - private
 
 jobs:
   update-sheet:
@@ -47,4 +48,5 @@ jobs:
         GOOGLE_CREDENTIALS_PATH: service_account.json
         GH_ORG_NAME: ${{ vars.GH_ORG_NAME }}
         SPREADSHEET_ID: ${{ vars.SPREADSHEET_ID }}
-      run: repo-exporter github --repo-type "${{ github.event.inputs.repo_type || 'all' }}"
+        GH_REPO_VISIBILITY: ${{ github.event.inputs.repo_visibility || 'all' }}
+      run: repo-exporter github

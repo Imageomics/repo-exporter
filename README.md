@@ -39,8 +39,8 @@ Python package that gathers metadata for all repositories in a provided GitHub o
 The workflow runs automatically each week (9am UTC on Mondays); however, you can also run the GitHub Actions workflow manually:
 
    1. Go to the [Actions tab](https://github.com/Imageomics/repo-exporter/actions)
-   2. Click **Update Metadata for GitHub Repository Sheet**
-   3. Click **Run workflow**, with branch as **Branch: main**, with selection **all** and finally press **Run workflow**
+   2. Click **Update Metadata for GitHub Repository Sheet** or **Update Metadata for Hugging Face Repository Sheet**
+   3. Click **Run workflow**, with branch as **Branch: main**, choose which repos to export by visibility (**all**, **public**, or **private**; default **all**) and finally press **Run workflow**
 
 ## Set up your own GitHub Actions workflow
 
