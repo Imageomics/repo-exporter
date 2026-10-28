@@ -820,3 +820,13 @@ def test_fetch_repos_all_makes_a_single_call():
 
     assert exporter.fetch_repos() == [r1]
     org.get_repos.assert_called_once_with(type="all")
+    
+@pytest.mark.parametrize("value", ["public", "private"])
+def test_parse_repo_types_rejects_visibility_values(value):
+    """public/private moved to the separate repo_visibility parameter."""
+    with pytest.raises(ValueError, match=value):
+        GitHubExporter._parse_repo_types(value)
+
+
+def test_init_accepts_repo_visibility():
+    assert make_exporter(repo_visibility="private").repo_visibility == "private"
