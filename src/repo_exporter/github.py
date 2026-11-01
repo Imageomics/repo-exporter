@@ -330,7 +330,10 @@ class GitHubExporter(BaseExporter):
         match = self.existing_df.loc[self.existing_df["Repository Name"] == repo_name]
         if match.empty:
             return None
-        value = str(match.iloc[0][CONTRIBUTORS_COL]).strip()
+        value = match.iloc[0][CONTRIBUTORS_COL]
+        if pd.isna(value):
+            return None
+        value = str(value).strip()
         if not value or value == "N/A" or "(commit-based)" in value:
             return None
         return value
