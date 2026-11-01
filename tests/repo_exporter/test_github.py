@@ -717,3 +717,77 @@ def test_get_associated_paper_breaks_ties_by_position():
     )
     result = exporter.get_associated_paper(readme)
     assert result == '=HYPERLINK("https://doi.org/10.1038/s41586-020-1234-5", "Yes")'
+    
+CONTRIB_COL = "Top 4 Contributors (lines of code changes)"
+
+
+def test_get_top_contributors_fast_not_ready_when_stats_none():
+    exporter = make_exporter()
+    repo = make_mock_repo()
+    repo.get_stats_contributors.return_value = None
+
+    value, ready = exporter.get_top_contributors_fast(repo, 4)
+
+    assert value is None
+    assert ready is False
+
+
+def test_get_repo_info_defers_repo_when_stats_not_ready():
+    exporter = make_exporter()
+    repo = make_mock_repo()
+    repo.get_stats_contributors.return_value = None
+
+    result = exporter.get_repo_info(repo)
+
+    assert repo in exporter._pending_contributors
+    assert result[CONTRIB_COL] is None
+    assert result["_repo_key"] == "cool-project"
+
+
+def test_resolve_pending_writes_value_back_to_matching_row():
+    exporter = make_exporter()
+    repo = make_mock_repo(name="big-repo")
+    exporter._pending_contributors = [repo]
+    data = [
+        {"_repo_key": "big-repo", CONTRIB_COL: None},
+        {"_repo_key": "other-repo", CONTRIB_COL: "Keep (keep)"},
+    ]
+
+    with patch.object(GitHubExporter, "resolve_contributor_stats", return_value="Ada (ada)"):
+        exporter.resolve_pending(data)
+
+    assert data[0][CONTRIB_COL] == "Ada (ada)"
+    assert data[1][CONTRIB_COL] == "Keep (keep)"
+
+
+def test_resolve_contributor_stats_succeeds_on_second_attempt():
+    exporter = make_exporter()
+    repo = make_mock_repo()
+    repo.get_stats_contributors.side_effect = [
+        None,
+        [FakeContributorStats("Ada", "ada", 10, 5)],
+    ]
+
+    with patch("repo_exporter.github.time.sleep") as mock_sleep:
+        result = exporter.resolve_contributor_stats(repo)
+
+    assert result == "Ada (ada)"
+    mock_sleep.assert_called_once_with(15)
+
+
+def test_resolve_contributor_stats_falls_back_to_commits_after_two_attempts():
+    exporter = make_exporter()
+    repo = make_mock_repo()
+    repo.get_stats_contributors.return_value = None
+
+    with patch("repo_exporter.github.time.sleep") as mock_sleep, \
+         patch.object(
+             GitHubExporter, "_get_top_contributors_commits",
+             return_value="Ada (ada) (commit-based)",
+         ) as mock_fallback:
+        result = exporter.resolve_contributor_stats(repo)
+
+    assert result == "Ada (ada) (commit-based)"
+    assert repo.get_stats_contributors.call_count == 2
+    mock_sleep.assert_called_once_with(15)
+    mock_fallback.assert_called_once_with(repo, 4)
