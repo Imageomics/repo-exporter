@@ -10,7 +10,8 @@ class HuggingFaceExporter(BaseExporter):
     Exports Hugging Face org repo metadata to a Google Sheet.
     """
 
-    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str, token: str | None = None):
+    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
+                 token: str | None = None, error_mode: str = "console", error_log_path: str | None = None):
         """
         Parameters:
         ------------
@@ -19,8 +20,11 @@ class HuggingFaceExporter(BaseExporter):
         sheet_name     - String. Sheet tab name.
         creds_path     - String. Path to service_account.json.
         token          - String | None. Hugging Face token.
+        error_mode     - String. One of "console", "log", "column" (default: "console").
+        error_log_path - String | None. Path for error_mode="log" (default: repo_exporter_errors.log).
         """
-        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path)
+        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path,
+                          error_mode=error_mode, error_log_path=error_log_path)
         self.creds_path = creds_path
         self.token = token
         self.api = HfApi(token=token)
@@ -56,6 +60,64 @@ class HuggingFaceExporter(BaseExporter):
         for s in self.api.list_spaces(author=self.org_name):
             repos.append((s, "space"))
         return repos
+
+    @staticmethod
+    def _display_id(repo_id: str, repo_type: str) -> str:
+        """
+        Return the full Hugging Face identifier for a repo, with the
+        "datasets/" or "spaces/" prefix where appropriate (models have none).
+        The org is already part of repo_id, so it is not added again.
+
+        Parameters:
+        ------------
+        repo_id   - String. Repo ID, e.g. "imageomics/cool-dataset".
+        repo_type - String. One of "model", "dataset", "space".
+        """
+        if repo_type == "dataset":
+            return f"datasets/{repo_id}"
+        if repo_type == "space":
+            return f"spaces/{repo_id}"
+        return repo_id
+
+    def _error_repo_name(self, repo_args) -> str:
+        """
+        Build a HYPERLINK formula for a repo whose fetch failed, using only
+        the summary object's id/type from fetch_repos() -- avoids calling
+        model_info/dataset_info/space_info again just to report the error.
+
+        Parameters:
+        ------------
+        repo_args - A (repo_summary, repo_type) tuple, matching fetch_repos()'s output.
+        """
+        repo_summary, repo_type = repo_args
+        url = self.get_repo_url(repo_summary, repo_type)
+        display_id = self._display_id(repo_summary.id, repo_type)
+        return f'=HYPERLINK("{url}", "{display_id}")'
+
+    def _repo_label(self, repo_args) -> str:
+        """
+        Console label for a (repo_summary, repo_type) tuple, including the
+        datasets/ or spaces/ prefix so same-ID repos of different types
+        can be told apart.
+
+        Parameters:
+        ------------
+        repo_args - A (repo_summary, repo_type) tuple, matching fetch_repos()'s output.
+        """
+        repo_summary, repo_type = repo_args
+        return f"/{self._display_id(repo_summary.id, repo_type)}"
+
+    def _repo_log_id(self, repo_args) -> str:
+        """
+        Log identifier for a (repo_summary, repo_type) tuple. The HF ID
+        already contains the org, so the org is not prepended again.
+
+        Parameters:
+        ------------
+        repo_args - A (repo_summary, repo_type) tuple, matching fetch_repos()'s output.
+        """
+        repo_summary, repo_type = repo_args
+        return self._display_id(repo_summary.id, repo_type)
 
     # Repo metadata helpers
 
