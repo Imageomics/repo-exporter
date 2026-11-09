@@ -42,6 +42,7 @@ def test_export_repos_github_builds_exporter_with_explicit_args(mock_gh_cls):
         repo_type="public",
         error_mode="log",
         error_log_path="gh-errors.log",
+        repo_list=None,
     )
     mock_exporter.run.assert_called_once()
 
@@ -100,6 +101,7 @@ def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls
         creds_path="creds.json",
         error_mode="log",
         error_log_path="hf-errors.log",
+        repo_list=None,
     )
     mock_exporter.run.assert_called_once()
 
@@ -182,6 +184,7 @@ def test_parser_github_defaults():
     assert args.credentials_path is None
     assert args.error_mode is None
     assert args.error_log_path is None
+    assert args.repos is None
 
 
 def test_parser_github_accepts_all_flags():
@@ -214,6 +217,9 @@ def test_parser_huggingface_defaults():
     assert not hasattr(args, "repo_type")  
     assert args.error_mode is None
     assert args.error_log_path is None
+    assert args.models is None
+    assert args.datasets is None
+    assert args.spaces is None
 
 
 def test_parser_huggingface_accepts_all_flags():
@@ -334,3 +340,105 @@ def test_parser_rejects_invalid_error_mode_choice():
 def test_parser_accepts_error_mode_column():
     args = main_module.parse_args(["github", "--error-mode", "column"])
     assert args.error_mode == "column"
+    
+# repo_list support (org OR repo list, exactly one)
+
+def test_export_repos_github_repo_list_does_not_require_org(monkeypatch):
+    monkeypatch.setattr(main_module, "GH_ORG_NAME", "env-org")  # must be ignored
+    with patch.object(main_module, "GitHubExporter") as mock_gh_cls:
+        mock_gh_cls.return_value = MagicMock()
+        main_module.export_repos(
+            platform="github",
+            spreadsheet_id="sheet123",
+            repo_list=["imageomics/a"],
+        )
+        _, kwargs = mock_gh_cls.call_args
+        assert kwargs["org_name"] is None
+        assert kwargs["repo_list"] == ["imageomics/a"]
+
+
+def test_export_repos_huggingface_repo_list_does_not_require_org(monkeypatch):
+    monkeypatch.setattr(main_module, "HF_ORG_NAME", None)
+    with patch.object(main_module, "HuggingFaceExporter") as mock_hf_cls:
+        mock_hf_cls.return_value = MagicMock()
+        main_module.export_repos(
+            platform="huggingface",
+            spreadsheet_id="sheet123",
+            repo_list={"model": ["imageomics/m"]},
+        )
+        _, kwargs = mock_hf_cls.call_args
+        assert kwargs["org_name"] is None
+        assert kwargs["repo_list"] == {"model": ["imageomics/m"]}
+
+
+def test_export_repos_org_and_repo_list_together_raises():
+    with pytest.raises(ValueError, match="not both"):
+        main_module.export_repos(
+            platform="github",
+            org_name="imageomics",
+            spreadsheet_id="sheet123",
+            repo_list=["imageomics/a"],
+        )
+
+
+def test_export_repos_github_neither_org_nor_repo_list_mentions_both_options(monkeypatch):
+    monkeypatch.setattr(main_module, "GH_ORG_NAME", None)
+    with pytest.raises(ValueError, match="--repos"):
+        main_module.export_repos(platform="github", spreadsheet_id="sheet123")
+
+
+def test_export_repos_huggingface_neither_org_nor_repo_list_mentions_both_options(monkeypatch):
+    monkeypatch.setattr(main_module, "HF_ORG_NAME", None)
+    with pytest.raises(ValueError, match="--models"):
+        main_module.export_repos(platform="huggingface", spreadsheet_id="sheet123")
+
+
+def test_parser_github_accepts_repos():
+    args = main_module.parse_args(["github", "--repos", "imageomics/a", "imageomics/b"])
+    assert args.repos == ["imageomics/a", "imageomics/b"]
+
+
+def test_parser_huggingface_accepts_models_datasets_spaces():
+    args = main_module.parse_args([
+        "huggingface",
+        "--models", "imageomics/m",
+        "--datasets", "imageomics/d1", "imageomics/d2",
+        "--spaces", "imageomics/s",
+    ])
+    assert args.models == ["imageomics/m"]
+    assert args.datasets == ["imageomics/d1", "imageomics/d2"]
+    assert args.spaces == ["imageomics/s"]
+
+
+def test_build_hf_repo_list_drops_empty_types_and_returns_none_when_empty():
+    assert main_module._build_hf_repo_list(["a/m"], None, ["a/s"]) == {
+        "model": ["a/m"], "space": ["a/s"],
+    }
+    assert main_module._build_hf_repo_list(None, None, None) is None
+
+
+@patch.object(main_module, "export_repos")
+def test_main_huggingface_builds_repo_list_dict(mock_export_repos, monkeypatch):
+    fake_args = main_module.create_parser().parse_args([
+        "huggingface", "--models", "imageomics/m", "--datasets", "imageomics/d",
+        "--spreadsheet-id", "sheet123",
+    ])
+    monkeypatch.setattr(main_module, "parse_args", lambda: fake_args)
+
+    main_module.main()
+
+    _, kwargs = mock_export_repos.call_args
+    assert kwargs["repo_list"] == {"model": ["imageomics/m"], "dataset": ["imageomics/d"]}
+
+
+@patch.object(main_module, "export_repos")
+def test_main_github_passes_repos_as_repo_list(mock_export_repos, monkeypatch):
+    fake_args = main_module.create_parser().parse_args([
+        "github", "--repos", "imageomics/a", "--spreadsheet-id", "sheet123",
+    ])
+    monkeypatch.setattr(main_module, "parse_args", lambda: fake_args)
+
+    main_module.main()
+
+    _, kwargs = mock_export_repos.call_args
+    assert kwargs["repo_list"] == ["imageomics/a"]

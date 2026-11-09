@@ -400,3 +400,41 @@ def test_huggingface_exporter_defaults_error_mode_to_console():
     exporter = make_exporter()
     assert exporter.error_mode == "console"
     assert exporter.error_log_path == "repo_exporter_errors.log"
+
+# repo_list support
+
+def test_normalize_repo_list_accepts_plural_keys_and_dedupes():
+    result = HuggingFaceExporter._normalize_repo_list({
+        "models": ["imageomics/m", "imageomics/m"],
+        "datasets": "imageomics/d",
+    })
+    assert result == {"model": ["imageomics/m"], "dataset": ["imageomics/d"], "space": []}
+
+
+def test_init_rejects_unknown_repo_list_key():
+    with pytest.raises(ValueError, match="Unknown Hugging Face repo type"):
+        make_exporter(org_name=None, repo_list={"widgets": ["imageomics/w"]})
+
+
+def test_init_rejects_malformed_repo_list_id():
+    with pytest.raises(ValueError, match="owner/name"):
+        make_exporter(org_name=None, repo_list={"model": ["no-slash"]})
+
+
+def test_fetch_repos_with_repo_list_returns_typed_tuples_without_listing_org():
+    exporter = make_exporter(org_name=None)
+    exporter.api = MagicMock()
+
+    result = exporter.fetch_repos({"models": ["imageomics/m"], "datasets": ["imageomics/d"]})
+
+    assert [(repo.id, repo_type) for repo, repo_type in result] == [
+        ("imageomics/m", "model"),
+        ("imageomics/d", "dataset"),
+    ]
+    exporter.api.list_models.assert_not_called()
+
+
+def test_fetch_repos_without_org_or_repo_list_raises():
+    exporter = make_exporter(org_name=None)
+    with pytest.raises(RuntimeError, match="org name or a repo list"):
+        exporter.fetch_repos()

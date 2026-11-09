@@ -21,18 +21,20 @@ class BaseExporter(ABC):
     
     def __init__(
         self,
-        org_name: str,
+        org_name: str | None,
         spreadsheet_id: str,
         sheet_name: str,
         creds_path: str,
         error_mode: str = "console",
         error_log_path: str | None = None,
+        repo_list: list | dict | None = None,
     ):
         self.org_name = org_name
         self.spreadsheet_id = spreadsheet_id
         self.sheet_name = sheet_name
         self.creds_path = creds_path
-
+        self.repo_list = repo_list
+        
         error_mode = (error_mode or "console").strip().lower()
         if error_mode not in self.VALID_ERROR_MODES:
             raise ValueError(
@@ -40,6 +42,11 @@ class BaseExporter(ABC):
             )
         self.error_mode = error_mode
         self.error_log_path = error_log_path or "repo_exporter_errors.log"
+    
+    @property
+    def source_label(self) -> str:
+        """Human-readable name of where repos come from, for log messages."""
+        return self.org_name or "the provided repo list"
         
     @staticmethod
     def is_inactive(dt: datetime | None) -> str:
@@ -94,10 +101,14 @@ class BaseExporter(ABC):
         return s
   
     @abstractmethod
-    def fetch_repos(self) -> list:
+    def fetch_repos(self, repo_list=None) -> list:
         """
-        Fetch all repos for the org from the platform API.
-        Returns a list of (repo, repo_type) tuples or equivalent.
+        Build the list of repos to export.
+        If repo_list is given, use it instead of listing the org's repos. Returns a list of (repo, repo_type) tuples or equivalent.
+        
+        Parameters:
+        ------------
+        repo_list - Platform-specific list of repos to export (None = use the org).
         """
         ...
 
@@ -543,15 +554,18 @@ class BaseExporter(ABC):
     
     def _repo_log_id(self, repo_args) -> str:
         """
-        Return an unambiguous identifier for a repo, used in error log lines.
-        Default is "org/name" (GitHub). Subclasses override this when the
+        Return an unambiguous identifier for a repo, used in error log lines. Default is "org/name" (GitHub). When there is no org (repo-list mode), falls back to the repo's full_name ("owner/name") so the owner is
+        still visible. Subclasses override this when the
         platform's repo IDs already include the org or need a type prefix.
 
         Parameters:
         ------------
         repo_args - A single repo object or a tuple whose first element is the repo.
         """
-        return f"{self.org_name}{self._repo_label(repo_args)}"
+        if self.org_name:
+            return f"{self.org_name}{self._repo_label(repo_args)}"
+        repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
+        return str(getattr(repo, "full_name", None) or self._repo_label(repo_args).lstrip("/"))
 
     def _log_error(self, repo_args, error: Exception) -> None:
         """
@@ -605,13 +619,13 @@ class BaseExporter(ABC):
         """
         start_time = time.time()
 
-        print(f"\nFetching repositories for: {self.org_name}")
+        print(f"\nFetching repositories for: {self.source_label}")
         print("\n----------------")
 
         try:
-            repos = self.fetch_repos()
+            repos = self.fetch_repos(self.repo_list)
         except Exception as e:
-            print(f'ERROR: Could not fetch repos for "{self.org_name}": {e}')
+            print(f'ERROR: Could not fetch repos for "{self.source_label}": {e}')
             return
 
         data = []
@@ -622,7 +636,7 @@ class BaseExporter(ABC):
 
         for repo_args in tqdm(
             repos,
-            desc=f"Fetching repos from {self.org_name}...",
+            desc=f"Fetching repos from {self.source_label}...",
             unit="repo",
             colour="green",
             ncols=100,
@@ -668,7 +682,7 @@ class BaseExporter(ABC):
 
         self.update_google_sheet(df, errors=errors or None)
 
-        print(f"Finished fetching info for {len(df)} repositories from {self.org_name}")
+        print(f"Finished fetching info for {len(df)} repositories from {self.source_label}")
         if errors:
             print(f"Recorded {len(errors)} error(s) in the Status column")
 

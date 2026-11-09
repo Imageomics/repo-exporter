@@ -772,3 +772,81 @@ def test_github_exporter_defaults_error_mode_to_console():
     exporter = make_exporter()
     assert exporter.error_mode == "console"
     assert exporter.error_log_path == "repo_exporter_errors.log"
+    
+# repo_list support
+
+def test_normalize_repo_list_cleans_urls_dedupes_and_keeps_order():
+    result = GitHubExporter._normalize_repo_list([
+        "imageomics/a",
+        " https://github.com/imageomics/b.git ",
+        "imageomics/a",
+    ])
+    assert result == ["imageomics/a", "imageomics/b"]
+
+
+def test_init_rejects_malformed_repo_list_entry():
+    with pytest.raises(ValueError, match="owner/repo"):
+        make_exporter(org_name=None, repo_list=["not-a-valid-entry"])
+
+
+def test_fetch_repos_with_repo_list_returns_stubs_without_api_calls():
+    exporter = make_exporter(org_name=None)
+    exporter.gh = MagicMock()
+    exporter._load_existing_sheet = MagicMock()
+
+    result = exporter.fetch_repos(["imageomics/a", "someone/b"])
+
+    assert [r.full_name for r in result] == ["imageomics/a", "someone/b"]
+    assert [r.name for r in result] == ["a", "b"]
+    assert result[0].html_url == "https://github.com/imageomics/a"
+    exporter.gh.get_organization.assert_not_called()
+    exporter.gh.get_repo.assert_not_called()
+
+
+def test_fetch_repos_without_org_or_repo_list_raises():
+    exporter = make_exporter(org_name=None)
+    with pytest.raises(RuntimeError, match="org name or a repo list"):
+        exporter.fetch_repos()
+
+
+def test_fetch_one_resolves_repo_list_stub_to_real_repo():
+    exporter = make_exporter(org_name=None)
+    exporter.gh = MagicMock()
+    exporter.gh.get_repo.return_value = make_mock_repo(name="a")
+    exporter._load_existing_sheet = MagicMock()
+    stub = exporter.fetch_repos(["imageomics/a"])[0]
+
+    result = exporter._fetch_one(stub)
+
+    exporter.gh.get_repo.assert_called_once_with("imageomics/a")
+    assert result["Repository Name"] == '=HYPERLINK("https://github.com/Imageomics/a", "a")'
+
+
+def test_fetch_one_passes_real_repo_through_without_lookup():
+    exporter = make_exporter()
+    exporter.gh = MagicMock()
+
+    exporter._fetch_one(make_mock_repo())
+
+    exporter.gh.get_repo.assert_not_called()
+
+
+def test_run_with_repo_list_logs_unresolvable_repo_with_owner(tmp_path):
+    """A typo'd/inaccessible repo in the list goes through error_mode handling,
+    and the log line names the owner even though there is no org."""
+    log_path = tmp_path / "errors.log"
+    exporter = make_exporter(
+        org_name=None,
+        repo_list=["imageomics/missing"],
+        error_mode="log",
+        error_log_path=str(log_path),
+    )
+    exporter.gh = MagicMock()
+    exporter.gh.get_repo.side_effect = GithubException(404, "Not Found", None)
+    exporter._load_existing_sheet = MagicMock()
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    assert "imageomics/missing" in log_path.read_text()
+    exporter.update_google_sheet.assert_not_called()
