@@ -47,4 +47,4 @@ jobs:
         GOOGLE_CREDENTIALS_PATH: service_account.json
         GH_ORG_NAME: ${{ vars.GH_ORG_NAME }}
         SPREADSHEET_ID: ${{ vars.SPREADSHEET_ID }}
-      run: repo-exporter github --repo-type "${{ github.event.inputs.repo_type || 'all' }}"
+      run: repo-exporter github --repo-type "${{ github.event.inputs.repo_type || 'all' }}" --error-mode column
