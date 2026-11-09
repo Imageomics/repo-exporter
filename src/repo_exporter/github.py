@@ -114,7 +114,7 @@ class GitHubExporter(BaseExporter):
         repo_type      - String | list[str] | None. Repo type(s) to fetch (all, forks, sources, member). Accepts several, e.g. ["forks", "sources"] or "forks,sources".
         repo_visibility - String | None. Visibility filter: all, public, or private. Defaults to all.
         """
-        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path, repo_visibility)
+        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path, repo_visibility=repo_visibility)
         self.token = token
         self.repo_types = self._parse_repo_types(repo_type)
         self.gh = Github(auth=Auth.Token(token)) if token else Github()
