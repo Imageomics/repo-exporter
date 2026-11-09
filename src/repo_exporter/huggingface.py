@@ -55,7 +55,7 @@ class HuggingFaceExporter(BaseExporter):
         repo_type      - String | list[str] | None. Repo type(s) to fetch (all, model, dataset, space). Accepts several, e.g. ["model", "dataset"] or "model,dataset".
         repo_visibility - String | None. Visibility filter: all, public, or private. Defaults to all.
         """
-        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path, repo_visibility)
+        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path, repo_visibility=repo_visibility)
         self.token = token
 
         self.repo_types = self._parse_repo_types(repo_type)
