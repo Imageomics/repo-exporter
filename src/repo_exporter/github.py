@@ -102,7 +102,7 @@ class GitHubExporter(BaseExporter):
             return ["all"]
         return types
 
-    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str, token: str | None = None, repo_type: str | list[str] | None = None,    repo_visibility: str | None = None):
+    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str, token: str | None = None, repo_type: str | list[str] | None = None, repo_visibility: str | None = None, error_mode: str = "console", error_log_path: str | None = None):
         """
         Parameters:
         ------------
@@ -116,7 +116,7 @@ class GitHubExporter(BaseExporter):
         error_mode     - String. One of "console", "log", "column" (default: "console").
         error_log_path - String | None. Path for error_mode="log" (default: repo_exporter_errors.log).
         """
-        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path, repo_visibility=repo_visibility)
+        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path, repo_visibility=repo_visibility, error_mode=error_mode, error_log_path=error_log_path)
         self.token = token
         self.repo_types = self._parse_repo_types(repo_type)
         self.gh = Github(auth=Auth.Token(token)) if token else Github()

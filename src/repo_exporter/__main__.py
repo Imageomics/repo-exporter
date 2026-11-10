@@ -215,7 +215,7 @@ def main():
             creds_path=args.credentials_path,
             repo_type=getattr(args, "repo_type", None),
             error_mode=args.error_mode,
-            error_log_path=args.error_log_path,,
+            error_log_path=args.error_log_path,
             repo_visibility=getattr(args, "repo_visibility", None),
         )
     except ValueError as e:

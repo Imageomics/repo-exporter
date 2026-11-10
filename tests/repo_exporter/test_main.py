@@ -216,7 +216,9 @@ def test_parser_huggingface_defaults():
     assert args.platform == "huggingface"
     assert args.org is None
     assert args.token is None
-    assert args.repo_type is None 
+    assert args.repo_type is None
+    assert args.error_mode is None
+    assert args.error_log_path is None
 
 
 def test_parser_huggingface_accepts_all_flags():
