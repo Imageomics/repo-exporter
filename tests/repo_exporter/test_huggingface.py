@@ -143,6 +143,11 @@ def test_get_repo_info_matches_expected_output():
     """Golden test: a fully-populated dataset repo should produce this exact row."""
     exporter = make_exporter()
     repo = make_mock_repo(
+        card_data={
+            "license": "mit",
+            "description": "A cool research dataset",
+            "tags": ["Computer-Vision", "Biology"],
+        },
         tags=["dataset:imageomics/cool-data-source", "doi:10.57967/hf/1234567"]
     )
     exporter.api = make_mock_api(
@@ -159,6 +164,7 @@ def test_get_repo_info_matches_expected_output():
         "Repository Name": '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-dataset", "datasets/imageomics/cool-dataset")',
         "Repository Type": "dataset",
         "Description": "A cool research dataset",
+        "Keywords": "Computer-Vision, Biology",
         "Date Created": "2022-01-01",
         "Last Updated": "2026-01-01",
         "Created By": "janedoe",
@@ -209,6 +215,7 @@ def test_get_repo_info_minimal_repo_defaults_to_no_or_na():
     assert result["Repository Name"] == '=HYPERLINK("https://huggingface.co/imageomics/bare-repo", "imageomics/bare-repo")'
     assert result["Repository Type"] == "model"
     assert result["Description"] == "N/A"
+    assert result["Keywords"] == "N/A"
     assert result["Date Created"] == "2022-01-01"
     assert result["Last Updated"] == "2025-12-01"
     assert result["Created By"] == "imageomics"
@@ -247,6 +254,7 @@ def test_get_repo_info_space_type_and_inactive_repo():
     assert result["Repository Name"] == '=HYPERLINK("https://huggingface.co/spaces/imageomics/cool-space", "spaces/imageomics/cool-space")'
     assert result["Repository Type"] == "space"
     assert result["Description"] == "A cool research demo"
+    assert result["Keywords"] == "N/A"
     assert result["Date Created"] == "2022-01-01"
     assert result["Last Updated"] == "2024-01-01"
     assert result["Created By"] == "janedoe"
@@ -431,3 +439,122 @@ def test_fetch_repos_single_type_only_calls_that_list_method():
     exporter.api.list_spaces.assert_called_once_with(author="imageomics")
     exporter.api.list_models.assert_not_called()
     exporter.api.list_datasets.assert_not_called()
+
+
+# get_keywords
+
+def test_get_keywords_joins_card_tags_and_keeps_case():
+    exporter = make_exporter()
+    repo = make_mock_repo(card_data={"tags": ["Computer-Vision", "Biology"]})
+    assert exporter.get_keywords(repo) == "Computer-Vision, Biology"
+
+def test_get_keywords_ignores_auto_added_repo_tags():
+    exporter = make_exporter()
+    repo = make_mock_repo(
+        card_data={"tags": ["biology"]},
+        tags=["license:mit", "dataset:imageomics/data-a", "region:us"],
+    )
+    assert exporter.get_keywords(repo) == "biology"
+
+def test_get_keywords_accepts_a_single_string_tag():
+    exporter = make_exporter()
+    repo = make_mock_repo(card_data={"tags": "biology"})
+    assert exporter.get_keywords(repo) == "biology"
+
+def test_get_keywords_returns_na_when_no_card_tags():
+    exporter = make_exporter()
+    repo = make_mock_repo(card_data={})
+    assert exporter.get_keywords(repo) == "N/A"
+
+# _error_repo_name
+
+def test_error_repo_name_builds_hyperlink_for_model():
+    exporter = make_exporter()
+    repo_summary = MagicMock(id="imageomics/cool-model")
+
+    result = exporter._error_repo_name((repo_summary, "model"))
+
+    assert result == '=HYPERLINK("https://huggingface.co/imageomics/cool-model", "imageomics/cool-model")'
+
+
+def test_error_repo_name_builds_hyperlink_for_dataset():
+    exporter = make_exporter()
+    repo_summary = MagicMock(id="imageomics/cool-dataset")
+
+    result = exporter._error_repo_name((repo_summary, "dataset"))
+
+    assert result == (
+        '=HYPERLINK("https://huggingface.co/datasets/imageomics/cool-dataset", '
+        '"datasets/imageomics/cool-dataset")'
+    )
+
+
+def test_error_repo_name_builds_hyperlink_for_space():
+    exporter = make_exporter()
+    repo_summary = MagicMock(id="imageomics/cool-space")
+
+    result = exporter._error_repo_name((repo_summary, "space"))
+
+    assert result == (
+        '=HYPERLINK("https://huggingface.co/spaces/imageomics/cool-space", '
+        '"spaces/imageomics/cool-space")'
+    )
+
+# _repo_label / _repo_log_id
+
+def test_repo_log_id_does_not_repeat_org_name():
+    exporter = make_exporter()
+    summary = MagicMock(id="imageomics/shared")
+
+    assert exporter._repo_log_id((summary, "model")) == "imageomics/shared"
+
+def test_repo_log_id_distinguishes_model_dataset_and_space_with_same_id():
+    exporter = make_exporter()
+    summary = MagicMock(id="imageomics/shared")
+
+    assert exporter._repo_log_id((summary, "model")) == "imageomics/shared"
+    assert exporter._repo_log_id((summary, "dataset")) == "datasets/imageomics/shared"
+    assert exporter._repo_log_id((summary, "space")) == "spaces/imageomics/shared"
+
+
+def test_repo_label_includes_type_prefix():
+    exporter = make_exporter()
+    summary = MagicMock(id="imageomics/shared")
+
+    assert exporter._repo_label((summary, "dataset")) == "/datasets/imageomics/shared"
+
+def test_error_mode_log_writes_distinct_lines_for_same_id_across_types(tmp_path):
+    log_path = tmp_path / "errors.log"
+    exporter = make_exporter(error_mode="log", error_log_path=str(log_path))
+    summary = MagicMock(id="imageomics/shared")
+    exporter.fetch_repos = MagicMock(return_value=[
+        (summary, "model"),
+        (summary, "dataset"),
+        (summary, "space"),
+    ])
+    exporter.get_repo_info = MagicMock(side_effect=RuntimeError("boom"))
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    lines = log_path.read_text().splitlines()
+    ids = [line.split("] ", 1)[1].split(" - ", 1)[0] for line in lines]
+    assert ids == [
+        "imageomics/shared",
+        "datasets/imageomics/shared",
+        "spaces/imageomics/shared",
+    ]
+    assert not any("imageomics/imageomics" in line for line in lines)
+
+# error_mode / error_log_path forwarding
+
+def test_huggingface_exporter_forwards_error_mode_and_log_path():
+    exporter = make_exporter(error_mode="log", error_log_path="custom-hf.log")
+    assert exporter.error_mode == "log"
+    assert exporter.error_log_path == "custom-hf.log"
+
+
+def test_huggingface_exporter_defaults_error_mode_to_console():
+    exporter = make_exporter()
+    assert exporter.error_mode == "console"
+    assert exporter.error_log_path == "repo_exporter_errors.log"

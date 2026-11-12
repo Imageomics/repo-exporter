@@ -103,7 +103,8 @@ class GitHubExporter(BaseExporter):
         return types
 
     def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
-             token: str | None = None, repo_type: str | list[str] | None = None):
+             token: str | None = None, repo_type: str | list[str] | None = None,
+             error_mode: str = "console", error_log_path: str | None = None):
         """
         Parameters:
         ------------
@@ -112,8 +113,12 @@ class GitHubExporter(BaseExporter):
         spreadsheet_id - String. Google Sheets spreadsheet ID.
         sheet_name     - String. Sheet tab name.
         creds_path     - String. Path to service_account.json.
-        repo_type      - String | list[str] | None. Repo type(s) to fetch (all, public, private, forks, sources, member). Accepts several, e.g. ["forks", "sources"] or "forks,sources"."""
-        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path)
+        repo_type      - String | list[str] | None. Repo type(s) to fetch (all, public, private, forks, sources, member). Accepts several, e.g. ["forks", "sources"] or "forks,sources".
+        error_mode     - String. One of "console", "log", "column" (default: "console").
+        error_log_path - String | None. Path for error_mode="log" (default: repo_exporter_errors.log).
+        """
+        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path,
+                          error_mode=error_mode, error_log_path=error_log_path)
         self.token = token
         self.repo_types = self._parse_repo_types(repo_type)
         self.gh = Github(auth=Auth.Token(token)) if token else Github()
@@ -187,6 +192,23 @@ class GitHubExporter(BaseExporter):
         print(f"Existing sheet data shape: {self.existing_df.shape}")
 
         return repos
+
+    def _error_repo_name(self, repo_args) -> str:
+        """
+        Build a HYPERLINK formula for a repo whose fetch failed, using only
+        the name/html_url already present on the repo object from
+        org.get_repos() -- no extra API call needed.
+
+        Parameters:
+        ------------
+        repo_args - A single PyGitHub Repository object (GitHub repos aren't tuples).
+        """
+        repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
+        name = getattr(repo, "name", None)
+        url = getattr(repo, "html_url", None)
+        if name and url:
+            return f'=HYPERLINK("{url}", "{name}")'
+        return str(name or repo)
 
     def has_file(self, repo, *paths: str) -> str:
         """
@@ -366,6 +388,23 @@ class GitHubExporter(BaseExporter):
         except Exception:
             return "N/A"
 
+    def get_keywords(self, repo) -> str:
+        """
+        Return the repo's GitHub topics (the tags under "About") as a
+        comma-separated string, or "N/A" if there are none.
+
+        Parameters:
+        ------------
+        repo - PyGitHub Repository object.
+        """
+        try:
+            topics = repo.topics
+            if not topics:
+                return "N/A"
+            return ", ".join(topics)
+        except Exception:
+            return "N/A"
+        
     def is_valid_doi(self, doi: str | None) -> bool:
         """
         Return True if doi is a valid, Zenodo-issued DOI.
@@ -597,6 +636,7 @@ class GitHubExporter(BaseExporter):
         return {
             "Repository Name": f'=HYPERLINK("{repo.html_url}", "{repo.name}")',
             "Description": repo.description or "N/A",
+            "Keywords": self.get_keywords(repo),
             "Date Created": repo.created_at.strftime("%Y-%m-%d"),
             "Last Updated": repo.updated_at.strftime("%Y-%m-%d"),
             "Created By": self.get_repo_creator(repo),
