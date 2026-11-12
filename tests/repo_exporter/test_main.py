@@ -29,6 +29,8 @@ def test_export_repos_github_builds_exporter_with_explicit_args(mock_gh_cls):
         sheet_name="GH-Repos",
         creds_path="creds.json",
         repo_type="public",
+        error_mode="log",
+        error_log_path="gh-errors.log",
     )
 
     mock_gh_cls.assert_called_once_with(
@@ -38,6 +40,8 @@ def test_export_repos_github_builds_exporter_with_explicit_args(mock_gh_cls):
         sheet_name="GH-Repos",
         creds_path="creds.json",
         repo_type="public",
+        error_mode="log",
+        error_log_path="gh-errors.log",
     )
     mock_exporter.run.assert_called_once()
 
@@ -85,6 +89,8 @@ def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls
         spreadsheet_id="sheet123",
         sheet_name="HF-Repos",
         creds_path="creds.json",
+        error_mode="log",
+        error_log_path="hf-errors.log",
     )
 
     mock_hf_cls.assert_called_once_with(
@@ -94,6 +100,8 @@ def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls
         sheet_name="HF-Repos",
         creds_path="creds.json",
         repo_type="all",
+        error_mode="log",
+        error_log_path="hf-errors.log",
     )
     mock_exporter.run.assert_called_once()
 
@@ -174,6 +182,8 @@ def test_parser_github_defaults():
     assert args.spreadsheet_id is None
     assert args.sheet_name is None
     assert args.credentials_path is None
+    assert args.error_mode is None
+    assert args.error_log_path is None
 
 
 def test_parser_github_accepts_all_flags():
@@ -185,6 +195,8 @@ def test_parser_github_accepts_all_flags():
         "--spreadsheet-id", "sheet123",
         "--sheet-name", "GH-Repos",
         "--credentials-path", "creds.json",
+        "--error-mode", "log",
+        "--error-log-path", "gh-errors.log",
     ])
     assert args.org == "imageomics"
     assert args.token == "tok123"
@@ -192,7 +204,8 @@ def test_parser_github_accepts_all_flags():
     assert args.spreadsheet_id == "sheet123"
     assert args.sheet_name == "GH-Repos"
     assert args.credentials_path == "creds.json"
-
+    assert args.error_mode == "log"
+    assert args.error_log_path == "gh-errors.log"
 
 def test_parser_huggingface_defaults():
     args = main_module.parse_args(["huggingface"])
@@ -210,12 +223,16 @@ def test_parser_huggingface_accepts_all_flags():
         "--spreadsheet-id", "sheet123",
         "--sheet-name", "HF-Repos",
         "--credentials-path", "creds.json",
+        "--error-mode", "console",
+        "--error-log-path", "hf-errors.log",
     ])
     assert args.org == "imageomics"
     assert args.token == "hf_tok"
     assert args.spreadsheet_id == "sheet123"
     assert args.sheet_name == "HF-Repos"
     assert args.credentials_path == "creds.json"
+    assert args.error_mode == "console"
+    assert args.error_log_path == "hf-errors.log"
 
 
 def test_parser_rejects_unknown_platform():
@@ -351,3 +368,47 @@ def test_main_invalid_huggingface_repo_type_exits_with_message(monkeypatch):
 
     with pytest.raises(SystemExit, match="Invalid repo_type"):
         main_module.main()
+    
+# error_mode / error_log_path: env-var fallback and CLI parsing
+
+def test_export_repos_github_defaults_error_mode_from_env_when_not_passed(monkeypatch):
+    monkeypatch.setattr(main_module, "ERROR_MODE", "log")
+    monkeypatch.setattr(main_module, "ERROR_LOG_PATH", "env-errors.log")
+    with patch.object(main_module, "GitHubExporter") as mock_gh_cls:
+        mock_gh_cls.return_value = MagicMock()
+
+        main_module.export_repos(
+            platform="github",
+            org_name="imageomics",
+            spreadsheet_id="sheet123",
+        )
+
+        _, kwargs = mock_gh_cls.call_args
+        assert kwargs["error_mode"] == "log"
+        assert kwargs["error_log_path"] == "env-errors.log"
+
+
+def test_export_repos_explicit_error_mode_overrides_env(monkeypatch):
+    monkeypatch.setattr(main_module, "ERROR_MODE", "log")
+    with patch.object(main_module, "GitHubExporter") as mock_gh_cls:
+        mock_gh_cls.return_value = MagicMock()
+
+        main_module.export_repos(
+            platform="github",
+            org_name="imageomics",
+            spreadsheet_id="sheet123",
+            error_mode="console",
+        )
+
+        _, kwargs = mock_gh_cls.call_args
+        assert kwargs["error_mode"] == "console"
+
+
+def test_parser_rejects_invalid_error_mode_choice():
+    parser = main_module.create_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["github", "--error-mode", "bogus"])
+        
+def test_parser_accepts_error_mode_column():
+    args = main_module.parse_args(["github", "--error-mode", "column"])
+    assert args.error_mode == "column"
