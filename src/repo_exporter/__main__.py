@@ -16,6 +16,7 @@ ERROR_MODE = os.getenv("ERROR_MODE", "console")
 ERROR_LOG_PATH = os.getenv("ERROR_LOG_PATH", "repo_exporter_errors.log")
 HF_ORG_NAME = os.getenv("HF_ORG_NAME")
 HF_TOKEN = os.getenv("HF_TOKEN")
+HF_REPO_TYPE = os.getenv("HF_REPO_TYPE", "all") 
 HF_SHEET_NAME = os.getenv("HF_SHEET_NAME", "HF-Repos")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
@@ -28,7 +29,7 @@ def export_repos(
     spreadsheet_id: str | None = None,
     sheet_name: str | None = None,
     creds_path: str | None = None,
-    repo_type: str | None = None,
+    repo_type: str | list[str] | None = None,
     error_mode: str | None = None,
     error_log_path: str | None = None,
 ) -> None:
@@ -43,7 +44,7 @@ def export_repos(
     spreadsheet_id - String | None. Google Sheets spreadsheet ID; falls back to SPREADSHEET_ID env var.
     sheet_name     - String | None. Sheet tab name; falls back to platform default.
     creds_path     - String | None. Path to service_account.json; falls back to GOOGLE_CREDENTIALS_PATH env var.
-    repo_type      - String | None. GitHub-only repo type filter; falls back to GH_REPO_TYPE env var.
+    repo_type      - String | list[str] | None. Repo type filter. GitHub: one of all, public, private, forks, sources, member. HuggingFace: one or more of all, model, dataset, space (e.g. ["model", "dataset"]). Falls back to GH_REPO_TYPE / HF_REPO_TYPE env var depending on platform.
     error_mode     - String | None. "console", "log", or "column"; falls back to ERROR_MODE env var (default "console").
     error_log_path - String | None. Path for error_mode="log"; falls back to ERROR_LOG_PATH env var.
     """
@@ -77,6 +78,7 @@ def export_repos(
         token = (token or HF_TOKEN or "").strip() or None
         org_name = org_name or HF_ORG_NAME
         sheet_name = sheet_name or HF_SHEET_NAME
+        repo_type = repo_type or HF_REPO_TYPE
 
         _validate_required({"HF_ORG_NAME": org_name, "SPREADSHEET_ID": spreadsheet_id})
 
@@ -86,6 +88,7 @@ def export_repos(
             spreadsheet_id=spreadsheet_id,
             sheet_name=sheet_name,
             creds_path=creds_path,
+            repo_type=repo_type,
             error_mode=error_mode,
             error_log_path=error_log_path,
         )
@@ -154,6 +157,16 @@ def create_parser():
     hf_parser = subparsers.add_parser("huggingface", help="Export Hugging Face repositories.")
     hf_parser.add_argument("--org", default=None, help="Hugging Face org name (overrides HF_ORG_NAME in .env)")
     hf_parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
+    hf_parser.add_argument(
+        "--repo-type",
+        nargs="+",
+        default=None,
+        help=f"Repo type filter: all, model, dataset, space. Accepts several, "
+            f"e.g. --repo-type model dataset "
+            f"(overrides HF_REPO_TYPE in .env, which can be comma-separated, "
+            f"e.g. model,dataset; default: {HF_REPO_TYPE})"
+            
+    )
     hf_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
     hf_parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")
     hf_parser.add_argument("--credentials-path", **credentials_arg)
