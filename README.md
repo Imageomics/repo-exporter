@@ -27,6 +27,7 @@ Python package that gathers metadata for all repositories in a provided GitHub o
       - **For GitHub:** `README.md`, license, `.gitignore`, package requirements (`requirements.txt`, `environment.yaml`, etc.), `CITATION.cff`, `.zenodo.json`, `CONTRIBUTING.md`, and `AGENTS.md` files
       - **For Hugging Face:** `README.md` ([dataset or model card](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/About-Templates/)/Space README) and license (read from `yaml`)
       - DOI for the repository (HF generated or from Zenodo for GitHub repos)
+      - Repo keywords (**GitHub:** repository topics; **Hugging Face:** tags from the model/dataset/Space card)
   - Primary Programming Language (**GitHub only**)
   - Website Reference/Homepage, Associated Dataset(s), Model(s), or Paper(s), and associated [GitHub] repo for Hugging Face repositories
   - Supports configurable worksheet names with defaults:
