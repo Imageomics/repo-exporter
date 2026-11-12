@@ -38,4 +38,4 @@ jobs:
         GOOGLE_CREDENTIALS_PATH: service_account.json
         HF_ORG_NAME: ${{ vars.HF_ORG_NAME }}
         SPREADSHEET_ID: ${{ vars.SPREADSHEET_ID }}
-      run: repo-exporter huggingface
+      run: repo-exporter huggingface --error-mode column
