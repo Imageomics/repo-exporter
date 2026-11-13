@@ -17,7 +17,26 @@ class BaseExporter(ABC):
     self.creds_path in their __init__.
     """
 
+    VALID_REPO_VISIBILITIES = {"all", "public", "private"}
     VALID_ERROR_MODES = {"console", "log", "column"}
+
+    @classmethod
+    def _parse_repo_visibility(cls, repo_visibility) -> str:
+        """
+        Normalize repo_visibility (None, "", or a string) into one of
+        "all", "public", "private". None or empty means "all".
+
+        Parameters:
+        ------------
+        repo_visibility - None or String. Requested visibility filter.
+        """
+        visibility = (repo_visibility or "all").strip().lower() or "all"
+        if visibility not in cls.VALID_REPO_VISIBILITIES:
+            raise ValueError(
+                f'Invalid repo_visibility: {visibility}. '
+                f'Must be one of: {", ".join(sorted(cls.VALID_REPO_VISIBILITIES))}'
+            )
+        return visibility
     
     def __init__(
         self,
@@ -25,6 +44,7 @@ class BaseExporter(ABC):
         spreadsheet_id: str,
         sheet_name: str,
         creds_path: str,
+        repo_visibility: str | None = None,
         error_mode: str = "console",
         error_log_path: str | None = None,
     ):
@@ -32,6 +52,7 @@ class BaseExporter(ABC):
         self.spreadsheet_id = spreadsheet_id
         self.sheet_name = sheet_name
         self.creds_path = creds_path
+        self.repo_visibility = self._parse_repo_visibility(repo_visibility)
 
         error_mode = (error_mode or "console").strip().lower()
         if error_mode not in self.VALID_ERROR_MODES:
@@ -457,7 +478,7 @@ class BaseExporter(ABC):
                 secondary_columns=self.secondary_columns,
                 secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
                 end_row=len(existing),
-        )
+                )
 
         if errors:
             self._write_error_statuses(sheet, header, errors)
@@ -545,6 +566,26 @@ class BaseExporter(ABC):
         repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
         return f"/{getattr(repo, 'name', getattr(repo, 'id', str(repo)))}"
     
+    def _filter_by_visibility(self, repos: list) -> list:
+        """
+        Keep only repos matching self.repo_visibility ("all" keeps everything).
+        Works for single repo objects and for (repo, repo_type) tuples.
+
+        Parameters:
+        ------------
+        repos - List of repo objects or (repo, repo_type) tuples from fetch_repos().
+        """
+        if self.repo_visibility == "all":
+            return repos
+
+        want_private = self.repo_visibility == "private"
+        kept = []
+        for repo_args in repos:
+            repo = repo_args[0] if isinstance(repo_args, tuple) else repo_args
+            if bool(getattr(repo, "private", False)) == want_private:
+                kept.append(repo_args)
+        return kept
+    
     def _repo_log_id(self, repo_args) -> str:
         """
         Return an unambiguous identifier for a repo, used in error log lines.
@@ -617,6 +658,10 @@ class BaseExporter(ABC):
         except Exception as e:
             print(f'ERROR: Could not fetch repos for "{self.org_name}": {e}')
             return
+        
+        repos = self._filter_by_visibility(repos)
+        if self.repo_visibility != "all":
+            print(f"Repos after {self.repo_visibility}-only filter: {len(repos)}")
 
         data = []
         errors = []

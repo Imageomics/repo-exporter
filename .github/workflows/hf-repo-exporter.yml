@@ -1,7 +1,6 @@
 name: Update Metadata for Hugging Face Repository Sheet
 
 on:
-  workflow_dispatch:
   schedule:
            # ┌──────────── restricted to minute (0-59)
            # │ ┌────────── restricted to hour (0-23)
@@ -10,6 +9,17 @@ on:
            # │ │ │ │ ┌──── restricted to day of week (0-6, 0=Sunday)
            # │ │ │ │ │    * means doesn't restrict anything
     - cron: "0 9 * * 1" # Runs once every Monday at 9 AM UTC
+  workflow_dispatch:
+    inputs:
+      repo_visibility:
+        description: "Which repos to export (public/private)"
+        required: false
+        type: choice
+        default: all
+        options:
+          - all
+          - public
+          - private
 
 jobs:
   update-sheet:
@@ -38,4 +48,5 @@ jobs:
         GOOGLE_CREDENTIALS_PATH: service_account.json
         HF_ORG_NAME: ${{ vars.HF_ORG_NAME }}
         SPREADSHEET_ID: ${{ vars.SPREADSHEET_ID }}
+        HF_REPO_VISIBILITY: ${{ github.event.inputs.repo_visibility || 'all' }}
       run: repo-exporter huggingface

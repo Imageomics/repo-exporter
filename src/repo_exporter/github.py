@@ -62,7 +62,7 @@ class GitHubExporter(BaseExporter):
     Exports GitHub org repo metadata to a Google Sheet.
     """
     
-    VALID_REPO_TYPES = {"all", "public", "private", "forks", "sources", "member"}
+    VALID_REPO_TYPES = {"all", "forks", "sources", "member"}
 
     @classmethod
     def _parse_repo_types(cls, repo_type) -> list[str]:
@@ -102,9 +102,7 @@ class GitHubExporter(BaseExporter):
             return ["all"]
         return types
 
-    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
-             token: str | None = None, repo_type: str | list[str] | None = None,
-             error_mode: str = "console", error_log_path: str | None = None):
+    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str, token: str | None = None, repo_type: str | list[str] | None = None, repo_visibility: str | None = None, error_mode: str = "console", error_log_path: str | None = None):
         """
         Parameters:
         ------------
@@ -113,12 +111,12 @@ class GitHubExporter(BaseExporter):
         spreadsheet_id - String. Google Sheets spreadsheet ID.
         sheet_name     - String. Sheet tab name.
         creds_path     - String. Path to service_account.json.
-        repo_type      - String | list[str] | None. Repo type(s) to fetch (all, public, private, forks, sources, member). Accepts several, e.g. ["forks", "sources"] or "forks,sources".
+        repo_type      - String | list[str] | None. Repo type(s) to fetch (all, forks, sources, member). Accepts several, e.g. ["forks", "sources"] or "forks,sources".
+        repo_visibility - String | None. Visibility filter: all, public, or private. Defaults to all.
         error_mode     - String. One of "console", "log", "column" (default: "console").
         error_log_path - String | None. Path for error_mode="log" (default: repo_exporter_errors.log).
         """
-        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path,
-                          error_mode=error_mode, error_log_path=error_log_path)
+        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path, repo_visibility=repo_visibility, error_mode=error_mode, error_log_path=error_log_path)
         self.token = token
         self.repo_types = self._parse_repo_types(repo_type)
         self.gh = Github(auth=Auth.Token(token)) if token else Github()

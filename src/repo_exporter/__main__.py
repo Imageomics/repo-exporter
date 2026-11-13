@@ -14,10 +14,14 @@ GH_SHEET_NAME = os.getenv("GH_SHEET_NAME", "GH-Repos")
 GH_REPO_TYPE = os.getenv("GH_REPO_TYPE", "all")
 ERROR_MODE = os.getenv("ERROR_MODE", "console")
 ERROR_LOG_PATH = os.getenv("ERROR_LOG_PATH", "repo_exporter_errors.log")
+GH_REPO_VISIBILITY = os.getenv("GH_REPO_VISIBILITY", "all")
+
 HF_ORG_NAME = os.getenv("HF_ORG_NAME")
 HF_TOKEN = os.getenv("HF_TOKEN")
 HF_REPO_TYPE = os.getenv("HF_REPO_TYPE", "all") 
 HF_SHEET_NAME = os.getenv("HF_SHEET_NAME", "HF-Repos")
+HF_REPO_VISIBILITY = os.getenv("HF_REPO_VISIBILITY", "all")
+
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "service_account.json")
 
@@ -30,6 +34,7 @@ def export_repos(
     sheet_name: str | None = None,
     creds_path: str | None = None,
     repo_type: str | list[str] | None = None,
+    repo_visibility: str | None = None,
     error_mode: str | None = None,
     error_log_path: str | None = None,
 ) -> None:
@@ -44,7 +49,8 @@ def export_repos(
     spreadsheet_id - String | None. Google Sheets spreadsheet ID; falls back to SPREADSHEET_ID env var.
     sheet_name     - String | None. Sheet tab name; falls back to platform default.
     creds_path     - String | None. Path to service_account.json; falls back to GOOGLE_CREDENTIALS_PATH env var.
-    repo_type      - String | list[str] | None. Repo type filter. GitHub: one or more of all, public, private, forks, sources, member. HuggingFace: one or more of all, model, dataset, space (e.g. ["model", "dataset"]). Falls back to GH_REPO_TYPE / HF_REPO_TYPE env var depending on platform.
+    repo_type      - String | list[str] | None. Repo type filter. GitHub: one or more of all, forks, sources, member. HuggingFace: one or more of all, model, dataset, space (e.g. ["model", "dataset"]). Falls back to GH_REPO_TYPE / HF_REPO_TYPE env var depending on platform.
+    repo_visibility - String | None. Visibility filter: all, public, or private. Falls back to GH_REPO_VISIBILITY / HF_REPO_VISIBILITY env var depending on platform.
     error_mode     - String | None. "console", "log", or "column"; falls back to ERROR_MODE env var (default "console").
     error_log_path - String | None. Path for error_mode="log"; falls back to ERROR_LOG_PATH env var.
     """
@@ -59,7 +65,8 @@ def export_repos(
         token = (token or GH_TOKEN or "").strip() or None
         org_name = org_name or GH_ORG_NAME
         sheet_name = sheet_name or GH_SHEET_NAME
-        repo_type = repo_type or GH_REPO_TYPE 
+        repo_type = repo_type or GH_REPO_TYPE
+        repo_visibility = repo_visibility or GH_REPO_VISIBILITY
         
         _validate_required({"GH_ORG_NAME": org_name, "SPREADSHEET_ID": spreadsheet_id})
 
@@ -72,6 +79,7 @@ def export_repos(
             repo_type=repo_type,
             error_mode=error_mode,
             error_log_path=error_log_path,
+            repo_visibility=repo_visibility,
         )
 
     elif platform == "huggingface":
@@ -79,6 +87,7 @@ def export_repos(
         org_name = org_name or HF_ORG_NAME
         sheet_name = sheet_name or HF_SHEET_NAME
         repo_type = repo_type or HF_REPO_TYPE
+        repo_visibility = repo_visibility or HF_REPO_VISIBILITY
 
         _validate_required({"HF_ORG_NAME": org_name, "SPREADSHEET_ID": spreadsheet_id})
 
@@ -91,6 +100,7 @@ def export_repos(
             repo_type=repo_type,
             error_mode=error_mode,
             error_log_path=error_log_path,
+            repo_visibility=repo_visibility,
         )
 
     else:
@@ -145,10 +155,16 @@ def create_parser():
         "--repo-type",
         nargs="+",
         default=None,
-        help=f"Repo type filter: all, public, private, forks, sources, member. Accepts several, "
+        help=f"Repo type filter: all, forks, sources, member. Accepts several, "
              f"e.g. --repo-type forks sources "
              f"(overrides GH_REPO_TYPE in .env, which can be comma-separated, "
              f"e.g. forks,sources; default: {GH_REPO_TYPE})"
+    )
+    gh_parser.add_argument(
+        "--repo-visibility",
+        default=None,
+        help=f"Visibility filter: all, public, private "
+             f"(overrides GH_REPO_VISIBILITY in .env; default: {GH_REPO_VISIBILITY})"
     )
     gh_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
     gh_parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides GH_SHEET_NAME in .env; default: {GH_SHEET_NAME})")
@@ -167,8 +183,13 @@ def create_parser():
         help=f"Repo type filter: all, model, dataset, space. Accepts several, "
             f"e.g. --repo-type model dataset "
             f"(overrides HF_REPO_TYPE in .env, which can be comma-separated, "
-            f"e.g. model,dataset; default: {HF_REPO_TYPE})"
-            
+            f"e.g. model,dataset; default: {HF_REPO_TYPE})"    
+    )
+    hf_parser.add_argument(
+        "--repo-visibility",
+        default=None,
+        help=f"Visibility filter: all, public, private "
+             f"(overrides HF_REPO_VISIBILITY in .env; default: {HF_REPO_VISIBILITY})"
     )
     hf_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
     hf_parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")
@@ -195,6 +216,7 @@ def main():
             repo_type=getattr(args, "repo_type", None),
             error_mode=args.error_mode,
             error_log_path=args.error_log_path,
+            repo_visibility=getattr(args, "repo_visibility", None),
         )
     except ValueError as e:
         raise SystemExit(str(e))
