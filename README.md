@@ -183,7 +183,7 @@ Run `repo-exporter github --help` or `repo-exporter huggingface --help` to see t
 * Set `HF_ORG_NAME` to your Hugging Face organization name (**case-sensitive**, for API calls).
 * Set `SPREADSHEET_ID` to the Google Sheet ID used by the exporter.
 * `HF_SHEET_NAME` is optional. If not provided, the exporter uses "HF-Repos".
-* `HF_REPO_TYPE` is optional. If not provided, the exporter uses "all" (also accepts `model`, `dataset`, `space`).
+* `HF_REPO_TYPE` is optional. If not provided, the exporter uses "all" (also accepts `model`, `dataset`, `space`). Several types can be combined as a comma-separated list, e.g. `model,dataset`.
 * `HF_REPO_VISIBILITY` is optional. If not provided, the exporter uses "all" (also accepts `public`, `private`). It combines with `HF_REPO_TYPE`, e.g. `model` with `private` exports only private models.
 * `HF_TOKEN` is required to access Hugging Face repositories.
 

@@ -796,19 +796,6 @@ def test_get_associated_paper_breaks_ties_by_position():
     result = exporter.get_associated_paper(readme)
     assert result == '=HYPERLINK("https://doi.org/10.1038/s41586-020-1234-5", "Yes")'
     
-# error_mode / error_log_path forwarding
-
-def test_github_exporter_forwards_error_mode_and_log_path():
-    exporter = make_exporter(error_mode="log", error_log_path="custom-gh.log")
-    assert exporter.error_mode == "log"
-    assert exporter.error_log_path == "custom-gh.log"
-
-
-def test_github_exporter_defaults_error_mode_to_console():
-    exporter = make_exporter()
-    assert exporter.error_mode == "console"
-    assert exporter.error_log_path == "repo_exporter_errors.log"
-    
 # repo_type parsing / validation
 
 @pytest.mark.parametrize(
@@ -899,6 +886,20 @@ def test_fetch_repos_all_makes_a_single_call():
 
     assert exporter.fetch_repos() == [r1]
     org.get_repos.assert_called_once_with(type="all")
+    
+# error_mode / error_log_path forwarding
+
+def test_github_exporter_forwards_error_mode_and_log_path():
+    exporter = make_exporter(error_mode="log", error_log_path="custom-gh.log")
+    assert exporter.error_mode == "log"
+    assert exporter.error_log_path == "custom-gh.log"
+
+
+def test_github_exporter_defaults_error_mode_to_console():
+    exporter = make_exporter()
+    assert exporter.error_mode == "console"
+    assert exporter.error_log_path == "repo_exporter_errors.log"
+    
     
 @pytest.mark.parametrize("value", ["public", "private"])
 def test_parse_repo_types_rejects_visibility_values(value):
