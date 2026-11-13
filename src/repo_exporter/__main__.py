@@ -88,9 +88,9 @@ def export_repos(
             spreadsheet_id=spreadsheet_id,
             sheet_name=sheet_name,
             creds_path=creds_path,
+            repo_type=repo_type,
             error_mode=error_mode,
             error_log_path=error_log_path,
-            repo_type=repo_type,
         )
 
     else:
