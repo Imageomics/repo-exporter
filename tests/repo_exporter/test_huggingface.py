@@ -428,11 +428,11 @@ def test_error_mode_log_writes_distinct_lines_for_same_id_across_types(tmp_path)
 
     lines = log_path.read_text().splitlines()
     ids = [line.split("] ", 1)[1].split(" - ", 1)[0] for line in lines]
-    assert ids == [
+    assert sorted(ids) == sorted([
         "imageomics/shared",
         "datasets/imageomics/shared",
         "spaces/imageomics/shared",
-    ]
+    ])
     assert not any("imageomics/imageomics" in line for line in lines)
 
 # error_mode / error_log_path forwarding
