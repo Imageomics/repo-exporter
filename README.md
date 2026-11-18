@@ -1,6 +1,6 @@
 # Repository Exporter [![DOI](https://zenodo.org/badge/1080019710.svg)](https://doi.org/10.5281/zenodo.17835081)
 
-Python package that gathers metadata for all repositories in a provided GitHub or Hugging Face organization and automatically exports the data into a designated Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
+Python package that gathers metadata for all repositories in a provided GitHub or Hugging Face organization, or for a specific list of repositories, and automatically exports the data into a designated Google Sheet (using a Google Cloud Console Service Account) for easy viewing and analysis.
 
 ## Contents
 - [Features](#features)  
@@ -9,7 +9,8 @@ Python package that gathers metadata for all repositories in a provided GitHub o
   - [Create a GitHub Personal Access Token](#create-a-github-personal-access-token)
   - [Create a Hugging Face Token](#create-a-hugging-face-token)   
   - [Set up Google Cloud Service Account Access](#set-up-google-cloud-service-account-access)  
-- [Run repo exporter locally](#run-repo-exporter-locally)  
+- [Run repo exporter locally](#run-repo-exporter-locally)   
+  - [Export a specific list of repositories](#export-a-specific-list-of-repositories)
   - [Command-line options](#command-line-options)
 - [Environment Variables](#environment-variables)  
 - [Testing](#testing)
@@ -36,6 +37,7 @@ Python package that gathers metadata for all repositories in a provided GitHub o
 - Exports everything to a given Google Sheet document that it will require Editor permission to on the sheet's sharing permissions list
 - For [**Standard Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#standard-files) highlights **No** data cell values with red cell colors and for [**Recommended Files**](https://imageomics.github.io/Collaborative-distributed-science-guide/wiki-guide/GitHub-Repo-Guide/#recommended-files) and **Filters** highlights **No** data cell values with orange cell colors
 -  Supports an opt-in `--error-mode` flag for surfacing repos whose fetch failed entirely (console-only, log file, or a `Status` column in the sheet) so a failure doesn't silently leave a stale row untouched
+- Supports exporting a specific list of repositories instead of a whole organization (`--repos` for GitHub; `--models`, `--datasets`, and `--spaces` for Hugging Face)
 
 ## Usage
 The workflow runs automatically each week (9am UTC on Mondays); however, you can also run the GitHub Actions workflow manually:
@@ -126,6 +128,26 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
       repo-exporter --version
       ```
 
+### Export a specific list of repositories
+
+To export only certain repositories instead of an entire organization, provide a list of repositories. Use either an organization **or** a list of repositories, not both.
+
+- **Export specific GitHub repositories** (`owner/repo`, space-separated)
+  ```
+  repo-exporter github --repos Imageomics/repo-exporter Imageomics/another-repo
+  ```
+
+- **Export specific Hugging Face repositories** (`owner/name`, space-separated; the flags can be combined)
+  ```
+  repo-exporter huggingface --models imageomics/my-model --datasets imageomics/my-dataset imageomics/other-dataset --spaces imageomics/my-space
+  ```
+
+When a list is provided:
+- `GH_ORG_NAME` and `HF_ORG_NAME` are not required. `SPREADSHEET_ID` and the Google service account credentials are still required.
+- `--repo-type` is ignored for GitHub.
+- Repositories already in the sheet are updated in place and new ones are added as new rows. Rows for repositories not in the list are left unchanged.
+- A repository that cannot be fetched (e.g., a typo or no access) is reported according to the [error handling](#error-handling) mode.
+
 ### Command-line options
 
 All options fall back to the corresponding [environment variable](#environment-variables) when omitted, so you can mix and match `.env` values with one-off CLI overrides.
@@ -135,8 +157,9 @@ All options fall back to the corresponding [environment variable](#environment-v
 | Flag | Overrides | Description |
 |---|---|---|
 | `--org` | `GH_ORG_NAME` | GitHub organization name |
+| `--repos` | None | Specific repositories to export, as `owner/repo` separated by spaces (use instead of `--org`) |
 | `--token` | `GH_TOKEN` | GitHub personal access token |
-| `--repo-type` | `GH_REPO_TYPE` | Repo type filter: `all`, `public`, `private`, `forks`, `sources`, `member` (default: `all`) |
+| `--repo-type` | `GH_REPO_TYPE` | Repo type filter: `all`, `public`, `private`, `forks`, `sources`, `member` (default: `all`; ignored when `--repos` is used) |
 | `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
 | `--sheet-name` | `GH_SHEET_NAME` | Sheet tab name (default: `GH-Repos`) |
 | `--credentials-path` | `GOOGLE_CREDENTIALS_PATH` | Path to `service_account.json` (default: `service_account.json`) |
@@ -148,6 +171,9 @@ All options fall back to the corresponding [environment variable](#environment-v
 | Flag | Overrides | Description |
 |---|---|---|
 | `--org` | `HF_ORG_NAME` | Hugging Face organization name (**case-sensitive**) |
+| `--models` | None | Specific model repositories to export, as `owner/name` separated by spaces (use instead of `--org`) |
+| `--datasets` | None | Specific dataset repositories to export, as `owner/name` separated by spaces (use instead of `--org`) |
+| `--spaces` | None | Specific Space repositories to export, as `owner/name` separated by spaces (use instead of `--org`) |
 | `--token` | `HF_TOKEN` | Hugging Face token |
 | `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
 | `--sheet-name` | `HF_SHEET_NAME` | Sheet tab name (default: `HF-Repos`) |
@@ -160,7 +186,7 @@ Run `repo-exporter github --help` or `repo-exporter huggingface --help` to see t
 ## Environment Variables
 
 > [!NOTE]
-> `SPREADSHEET_ID` and Google service account credentials are required for both GitHub and Hugging Face exports, as well as the platform-prefaced variables (e.g., `GH_ORG_NAME` and `HF_ORG_NAME`)
+> `SPREADSHEET_ID` and Google service account credentials are required for both GitHub and Hugging Face exports, as well as an organization name (`GH_ORG_NAME` or `HF_ORG_NAME`), unless you [export a list of repositories](#export-a-specific-list-of-repositories) instead.
 > * Both exporters support optional custom sheet name variables (`GH_SHEET_NAME` and `HF_SHEET_NAME`; these must be *distinct*).
 > * Any of these values may instead be passed as a CLI flag. See [Command-line options](#command-line-options).
 
