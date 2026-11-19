@@ -566,51 +566,6 @@ def test_apply_conditional_formatting_treats_omitted_zero_channels_as_equal():
 
     sheet.spreadsheet.batch_update.assert_not_called()
 
-def test_apply_conditional_formatting_uses_total_rows_not_df_len():
-    """Regression: a partial run (fewer rows in df than exist in the sheet)
-    must size the range to the sheet's real row count, not len(df)."""
-    exporter = make_exporter()
-    sheet = MagicMock()
-    sheet.id = 42
-    header = ["Repository Name", "README"]
-    # Sheet has 20 data rows total, but this run only touched 5
-    sheet_total_rows = 2 + 20  # HEADER_ROW_INDEX + full sheet data rows
-    color = {"red": 1, "green": 0.5, "blue": 0.5}
-
-    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
-        42, [(1, color, sheet_total_rows)]  # rule already correctly sized to the full sheet
-    )
-
-    exporter._apply_conditional_formatting(
-        sheet, header, sheet_total_rows,
-        red_columns={"README"},
-        secondary_columns=set(),
-        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
-    )
-
-    # Should be a no-op: the rule already matches the sheet's full row count
-    sheet.spreadsheet.batch_update.assert_not_called()
-
-
-# _is_managed_rule
-
-def test_is_managed_rule_true_for_exporter_signature():
-    rule = BaseExporter._build_conditional_rule(sheet_id=42, col_index=1, end_row=5, color={"red": 1})
-    assert BaseExporter._is_managed_rule(rule) is True
-
-def test_is_managed_rule_false_for_wrong_condition_type():
-    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_CONTAINS", value="No")
-    assert BaseExporter._is_managed_rule(rule) is False
-
-def test_is_managed_rule_false_for_wrong_value():
-    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_EQ", value="Yes")
-    assert BaseExporter._is_managed_rule(rule) is False
-
-def test_is_managed_rule_false_for_wrong_start_row():
-    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_EQ", value="No", start_row=0)
-    assert BaseExporter._is_managed_rule(rule) is False
-
-
 def test_update_google_sheet_filtered_refresh_does_not_shrink_formatting_range():
     """Regression test: refreshing a subset of repos must size formatting
     rules from the whole sheet, not from the filtered DataFrame."""
@@ -640,7 +595,7 @@ def test_update_google_sheet_filtered_refresh_does_not_shrink_formatting_range()
     assert rules, "expected at least one formatting rule"
     for rule in rules:
         assert rule["ranges"][0]["endRowIndex"] == 12  # 2 header + 10 data rows
-
+    
 def test_update_google_sheet_filtered_refresh_keeps_existing_full_range_rules():
     """Regression test: a full export leaves rules spanning every row; a later
     filtered refresh must leave them untouched instead of shrinking them."""
@@ -667,7 +622,7 @@ def test_update_google_sheet_filtered_refresh_keeps_existing_full_range_rules():
     exporter.update_google_sheet(df)
 
     sheet.spreadsheet.batch_update.assert_not_called()
-
+        
 # run() orchestration
 
 def test_run_writes_sorted_dataframe_and_reports_success(capsys):

@@ -9,7 +9,7 @@ class HuggingFaceExporter(BaseExporter):
     """
     Exports Hugging Face org repo metadata to a Google Sheet.
     """
-
+    
     VALID_REPO_TYPES = {"all", "model", "dataset", "space"}
 
     @classmethod
@@ -44,6 +44,7 @@ class HuggingFaceExporter(BaseExporter):
         return types
     
     def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
+                
                  token: str | None = None, repo_type: str | list[str] | None = None, error_mode: str = "console", error_log_path: str | None = None):
         """
         Parameters:
