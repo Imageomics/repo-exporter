@@ -29,7 +29,7 @@ def test_export_repos_github_builds_exporter_with_explicit_args(mock_gh_cls, mon
         spreadsheet_id="sheet123",
         sheet_name="GH-Repos",
         creds_path="creds.json",
-        repo_type="public",
+        repo_type="forks",
         error_mode="log",
         error_log_path="gh-errors.log",
         repo_visibility="all",
@@ -41,7 +41,7 @@ def test_export_repos_github_builds_exporter_with_explicit_args(mock_gh_cls, mon
         spreadsheet_id="sheet123",
         sheet_name="GH-Repos",
         creds_path="creds.json",
-        repo_type="public",
+        repo_type="forks",
         error_mode="log",
         error_log_path="gh-errors.log",
         repo_visibility="all",
@@ -194,7 +194,7 @@ def test_parser_github_accepts_all_flags():
         "github",
         "--org", "imageomics",
         "--token", "tok123",
-        "--repo-type", "public",
+        "--repo-type", "forks",
         "--spreadsheet-id", "sheet123",
         "--sheet-name", "GH-Repos",
         "--credentials-path", "creds.json",
@@ -203,7 +203,7 @@ def test_parser_github_accepts_all_flags():
     ])
     assert args.org == "imageomics"
     assert args.token == "tok123"
-    assert args.repo_type == ["public"]
+    assert args.repo_type == ["forks"]
     assert args.spreadsheet_id == "sheet123"
     assert args.sheet_name == "GH-Repos"
     assert args.credentials_path == "creds.json"

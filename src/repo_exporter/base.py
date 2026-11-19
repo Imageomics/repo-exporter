@@ -474,7 +474,7 @@ class BaseExporter(ABC):
                 red_columns=self.red_columns,
                 secondary_columns=self.secondary_columns,
                 secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
-                )
+            )
 
         if errors:
             self._write_error_statuses(sheet, header, errors)
