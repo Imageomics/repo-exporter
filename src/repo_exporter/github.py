@@ -93,16 +93,22 @@ class GitHubExporter(BaseExporter):
 
         invalid = [t for t in types if t not in cls.VALID_REPO_TYPES]
         if invalid:
-            raise ValueError(
+            message = (
                 f'Invalid repo_type(s): {", ".join(sorted(invalid))}. '
-                f'Must be from: {", ".join(sorted(cls.VALID_REPO_TYPES))}'
+                f'Must be from: {", ".join(sorted(cls.VALID_REPO_TYPES))}.'
             )
+            if {"public", "private"} & set(invalid):
+                message += " To filter by visibility, use --repo-visibility (GH_REPO_VISIBILITY) instead."
+            raise ValueError(message)
 
         if "all" in types:
             return ["all"]
         return types
 
-    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str, token: str | None = None, repo_type: str | list[str] | None = None, repo_visibility: str | None = None, error_mode: str = "console", error_log_path: str | None = None):
+    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str, 
+                 token: str | None = None, repo_type: str | list[str] | None = None, 
+                 repo_visibility: str | None = None, 
+                 error_mode: str = "console", error_log_path: str | None = None):
         """
         Parameters:
         ------------
@@ -116,7 +122,8 @@ class GitHubExporter(BaseExporter):
         error_mode     - String. One of "console", "log", "column" (default: "console").
         error_log_path - String | None. Path for error_mode="log" (default: repo_exporter_errors.log).
         """
-        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path, repo_visibility=repo_visibility, error_mode=error_mode, error_log_path=error_log_path)
+        super().__init__(org_name, spreadsheet_id, sheet_name, creds_path,
+                         repo_visibility=repo_visibility, error_mode=error_mode, error_log_path=error_log_path)
         self.token = token
         self.repo_types = self._parse_repo_types(repo_type)
         self.gh = Github(auth=Auth.Token(token)) if token else Github()

@@ -907,6 +907,15 @@ def test_parse_repo_types_rejects_visibility_values(value):
     with pytest.raises(ValueError, match=value):
         GitHubExporter._parse_repo_types(value)
 
+def test_parse_repo_types_visibility_error_points_to_repo_visibility_flag():
+    with pytest.raises(ValueError, match="--repo-visibility"):
+        GitHubExporter._parse_repo_types("private")
+
+
+def test_parse_repo_types_invalid_non_visibility_has_no_visibility_hint():
+    with pytest.raises(ValueError) as exc_info:
+        GitHubExporter._parse_repo_types("forkz")
+    assert "--repo-visibility" not in str(exc_info.value)
 
 def test_init_accepts_repo_visibility():
     assert make_exporter(repo_visibility="private").repo_visibility == "private"

@@ -110,6 +110,7 @@ def test_export_repos_huggingface_builds_exporter_with_explicit_args(mock_hf_cls
     )
     mock_exporter.run.assert_called_once()
 
+
 def test_export_repos_platform_is_case_and_whitespace_insensitive():
     with patch.object(main_module, "GitHubExporter") as mock_gh_cls:
         mock_gh_cls.return_value = MagicMock()
@@ -119,7 +120,6 @@ def test_export_repos_platform_is_case_and_whitespace_insensitive():
             spreadsheet_id="sheet123",
         )
         mock_gh_cls.assert_called_once()
-
 
 def test_export_repos_unknown_platform_raises_value_error():
     with pytest.raises(ValueError, match="Unknown platform"):
@@ -150,7 +150,6 @@ def test_export_repos_lists_all_missing_vars_together(monkeypatch):
     msg = str(exc_info.value)
     assert "GH_ORG_NAME" in msg
     assert "SPREADSHEET_ID" in msg
-
 
 
 # _validate_required()
@@ -211,6 +210,7 @@ def test_parser_github_accepts_all_flags():
     assert args.error_mode == "log"
     assert args.error_log_path == "gh-errors.log"
 
+
 def test_parser_huggingface_defaults():
     args = main_module.parse_args(["huggingface"])
     assert args.platform == "huggingface"
@@ -253,9 +253,11 @@ def test_parser_version_flag_exits_cleanly(capsys):
         parser.parse_args(["--version"])
     assert exc_info.value.code == 0
     
+    
 def test_parser_huggingface_repo_type_flag():
     args = main_module.parse_args(["huggingface", "--repo-type", "model"])
     assert args.repo_type == ["model"]
+
 
 def test_parser_huggingface_repo_type_accepts_multiple_values():
     args = main_module.parse_args(["huggingface", "--repo-type", "model", "dataset"])
@@ -335,6 +337,7 @@ def test_export_repos_huggingface_falls_back_to_env_repo_type(monkeypatch):
         _, kwargs = mock_hf_cls.call_args
         assert kwargs["repo_type"] == "model,dataset"
 
+
 # main()
 
 @patch.object(main_module, "export_repos")
@@ -376,6 +379,7 @@ def test_main_huggingface_repo_type_defaults_to_none_when_not_passed(mock_export
 
     _, kwargs = mock_export_repos.call_args
     assert kwargs["repo_type"] is None
+    
     
 @patch.object(main_module, "export_repos")
 def test_main_huggingface_forwards_multiple_repo_types(mock_export_repos, monkeypatch):
@@ -446,29 +450,6 @@ def test_parser_accepts_error_mode_column():
     args = main_module.parse_args(["github", "--error-mode", "column"])
     assert args.error_mode == "column"
     
-@patch.object(main_module, "export_repos")
-def test_main_huggingface_forwards_multiple_repo_types(mock_export_repos, monkeypatch):
-    fake_args = main_module.create_parser().parse_args([
-        "huggingface", "--org", "imageomics", "--spreadsheet-id", "sheet123",
-        "--repo-type", "model", "dataset",
-    ])
-    monkeypatch.setattr(main_module, "parse_args", lambda: fake_args)
-
-    main_module.main()
-
-    _, kwargs = mock_export_repos.call_args
-    assert kwargs["repo_type"] == ["model", "dataset"]
-
-
-def test_main_invalid_huggingface_repo_type_exits_with_message(monkeypatch):
-    fake_args = main_module.create_parser().parse_args([
-        "huggingface", "--org", "imageomics", "--spreadsheet-id", "sheet123",
-        "--repo-type", "models",
-    ])
-    monkeypatch.setattr(main_module, "parse_args", lambda: fake_args)
-
-    with pytest.raises(SystemExit, match="Invalid repo_type"):
-        main_module.main()
         
 # repo_visibility
 
