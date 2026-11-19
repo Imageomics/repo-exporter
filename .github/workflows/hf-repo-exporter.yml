@@ -49,4 +49,4 @@ jobs:
         HF_ORG_NAME: ${{ vars.HF_ORG_NAME }}
         SPREADSHEET_ID: ${{ vars.SPREADSHEET_ID }}
         HF_REPO_VISIBILITY: ${{ github.event.inputs.repo_visibility || 'all' }}
-      run: repo-exporter huggingface
+      run: repo-exporter huggingface --error-mode column

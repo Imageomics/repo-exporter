@@ -49,4 +49,4 @@ jobs:
         GH_ORG_NAME: ${{ vars.GH_ORG_NAME }}
         SPREADSHEET_ID: ${{ vars.SPREADSHEET_ID }}
         GH_REPO_VISIBILITY: ${{ github.event.inputs.repo_visibility || 'all' }}
-      run: repo-exporter github
+      run: repo-exporter github --error-mode column
