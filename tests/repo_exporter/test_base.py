@@ -16,6 +16,7 @@ import pytest
 
 from repo_exporter.base import BaseExporter
 from repo_exporter.github import GitHubExporter
+from types import SimpleNamespace
 
 
 def make_exporter() -> GitHubExporter:
@@ -566,6 +567,50 @@ def test_apply_conditional_formatting_treats_omitted_zero_channels_as_equal():
 
     sheet.spreadsheet.batch_update.assert_not_called()
 
+def test_apply_conditional_formatting_uses_total_rows_not_df_len():
+    """Regression: a partial run (fewer rows in df than exist in the sheet)
+    must size the range to the sheet's real row count, not len(df)."""
+    exporter = make_exporter()
+    sheet = MagicMock()
+    sheet.id = 42
+    header = ["Repository Name", "README"]
+    # Sheet has 20 data rows total, but this run only touched 5
+    sheet_total_rows = 2 + 20  # HEADER_ROW_INDEX + full sheet data rows
+    color = {"red": 1, "green": 0.5, "blue": 0.5}
+
+    sheet.spreadsheet.fetch_sheet_metadata.return_value = _metadata_with_rules(
+        42, [(1, color, sheet_total_rows)]  # rule already correctly sized to the full sheet
+    )
+
+    exporter._apply_conditional_formatting(
+        sheet, header, sheet_total_rows,
+        red_columns={"README"},
+        secondary_columns=set(),
+        secondary_color={"red": 1, "green": 0.8, "blue": 0.4},
+    )
+
+    # Should be a no-op: the rule already matches the sheet's full row count
+    sheet.spreadsheet.batch_update.assert_not_called()
+
+
+# _is_managed_rule
+
+def test_is_managed_rule_true_for_exporter_signature():
+    rule = BaseExporter._build_conditional_rule(sheet_id=42, col_index=1, end_row=5, color={"red": 1})
+    assert BaseExporter._is_managed_rule(rule) is True
+
+def test_is_managed_rule_false_for_wrong_condition_type():
+    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_CONTAINS", value="No")
+    assert BaseExporter._is_managed_rule(rule) is False
+
+def test_is_managed_rule_false_for_wrong_value():
+    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_EQ", value="Yes")
+    assert BaseExporter._is_managed_rule(rule) is False
+
+def test_is_managed_rule_false_for_wrong_start_row():
+    rule = _unmanaged_rule(42, col_index=1, condition_type="TEXT_EQ", value="No", start_row=0)
+    assert BaseExporter._is_managed_rule(rule) is False
+    
 def test_update_google_sheet_filtered_refresh_does_not_shrink_formatting_range():
     """Regression test: refreshing a subset of repos must size formatting
     rules from the whole sheet, not from the filtered DataFrame."""
@@ -1085,3 +1130,81 @@ def test_update_google_sheet_syncs_name_and_status_when_header_empty_and_all_fai
 
     header_passed = exporter._write_error_statuses.call_args[0][1]
     assert header_passed == ["Repository Name", "Status"]
+    
+# repo_visibility parsing / filtering
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, "all"),
+        ("", "all"),
+        ("all", "all"),
+        ("public", "public"),
+        ("private", "private"),
+        (" Private ", "private"),
+    ],
+)
+def test_parse_repo_visibility(value, expected):
+    assert BaseExporter._parse_repo_visibility(value) == expected
+
+
+def test_parse_repo_visibility_invalid_raises():
+    with pytest.raises(ValueError, match="Invalid repo_visibility"):
+        BaseExporter._parse_repo_visibility("secret")
+
+
+def test_init_defaults_repo_visibility_to_all():
+    assert make_exporter().repo_visibility == "all"
+
+
+def test_init_invalid_repo_visibility_raises():
+    with pytest.raises(ValueError, match="Invalid repo_visibility"):
+        GitHubExporter(
+            org_name="imageomics",
+            spreadsheet_id="sheet123",
+            sheet_name="GH-Repos",
+            creds_path="fake.json",
+            repo_visibility="secret",
+        )
+
+
+def test_filter_by_visibility_all_keeps_everything():
+    exporter = make_exporter()
+    repos = [SimpleNamespace(private=True), SimpleNamespace(private=False)]
+    assert exporter._filter_by_visibility(repos) == repos
+
+
+def test_filter_by_visibility_private_keeps_only_private():
+    exporter = make_exporter()
+    exporter.repo_visibility = "private"
+    priv, pub = SimpleNamespace(private=True), SimpleNamespace(private=False)
+    assert exporter._filter_by_visibility([priv, pub]) == [priv]
+
+
+def test_filter_by_visibility_public_keeps_only_public():
+    exporter = make_exporter()
+    exporter.repo_visibility = "public"
+    priv, pub = SimpleNamespace(private=True), SimpleNamespace(private=False)
+    assert exporter._filter_by_visibility([priv, pub]) == [pub]
+
+
+def test_filter_by_visibility_handles_repo_type_tuples():
+    exporter = make_exporter()
+    exporter.repo_visibility = "public"
+    priv, pub = SimpleNamespace(private=True), SimpleNamespace(private=False)
+    repos = [(priv, "model"), (pub, "dataset")]
+    assert exporter._filter_by_visibility(repos) == [(pub, "dataset")]
+
+
+def test_run_applies_visibility_filter_before_fetching_info():
+    exporter = make_exporter()
+    exporter.repo_visibility = "private"
+    priv = SimpleNamespace(name="priv-repo", private=True)
+    pub = SimpleNamespace(name="pub-repo", private=False)
+    exporter.fetch_repos = MagicMock(return_value=[pub, priv])
+    exporter.get_repo_info = MagicMock(return_value={"Repository Name": "priv-repo"})
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    exporter.get_repo_info.assert_called_once_with(priv)
