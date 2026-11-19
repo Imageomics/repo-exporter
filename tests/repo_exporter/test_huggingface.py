@@ -439,7 +439,20 @@ def test_fetch_repos_single_type_only_calls_that_list_method():
     exporter.api.list_spaces.assert_called_once_with(author="imageomics")
     exporter.api.list_models.assert_not_called()
     exporter.api.list_datasets.assert_not_called()
+    
+def test_get_repo_info_license_missing_metadata_maps_to_no():
+    """Dedicated coverage for the License N/A -> "No" mapping in
+    get_repo_info(), called out separately in PR review since it
+    intentionally differs from the legacy exporter's "N/A" output."""
+    exporter = make_exporter()
+    repo = make_mock_repo(card_data={})  # no "license" key:  get_card_field() returns "N/A"
+    exporter.api = make_mock_api(repo=repo)
 
+    with patch("repo_exporter.huggingface.hf_hub_download", return_value="/fake/README.md"), \
+         patch("builtins.open", mock_open(read_data="plain readme")):
+        result = exporter.get_repo_info(repo, "model")
+
+    assert result["License"] == "No"
 
 # get_keywords
 
