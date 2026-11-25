@@ -41,9 +41,16 @@ jobs:
     - name: Write Google credentials
       run: printf "%s" '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service_account.json
 
+    - name: Create App Token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
     - name: Run script
       env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
         GOOGLE_CREDENTIALS_PATH: service_account.json
         GH_ORG_NAME: ${{ vars.GH_ORG_NAME }}
         SPREADSHEET_ID: ${{ vars.SPREADSHEET_ID }}

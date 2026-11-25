@@ -5,8 +5,8 @@ Python package that gathers metadata for all repositories in a provided GitHub o
 ## Contents
 - [Features](#features)  
 - [Usage](#usage)  
-- [Set up your own GitHub Actions workflow](#set-up-your-own-github-actions-workflow)  
-  - [Create a GitHub Personal Access Token](#create-a-github-personal-access-token)
+- [Set up your own GitHub Actions workflows](#set-up-your-own-github-actions-workflows)  
+  - [Create a GitHub App for Organization Access](#create-a-github-app-for-organization-access)
   - [Create a Hugging Face Token](#create-a-hugging-face-token)   
   - [Set up Google Cloud Service Account Access](#set-up-google-cloud-service-account-access)  
 - [Run repo exporter locally](#run-repo-exporter-locally)  
@@ -44,25 +44,18 @@ The workflow runs automatically each week (9am UTC on Mondays); however, you can
    2. Click **Update Metadata for GitHub Repository Sheet**
    3. Click **Run workflow**, with branch as **Branch: main**, with selection **all** and finally press **Run workflow**
 
-## Set up your own GitHub Actions workflow
+## Set up your own GitHub Actions workflows
 
-To use this script within your own GitHub organization, first fork this repo, then follow the setup steps below to ensure proper access.
+To use package within your own GitHub organization, you can either fork this repo or copy the GitHub and Hugging Face workflows into your own tracking repository and update them to `pip install repo-exporter` where we `pip install .`.
+For either method, follow the setup steps below to ensure proper access.
 
-### Create a GitHub Personal Access Token
-  
-  To create one with permissions for both private and public repositories (public repository read-access only is enabled by default without adminstrator approval):
-   
-  1. Go to [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens)
-  2. Click **Generate new token -> Fine-grained token**
-  3. Under **Resource owner**, select the **organization** you want to access.
-  4. Under **Repository access**, choose **All repositories**.
-  5. Under **Permissions** select **Repositories** and set:
-      - **Metadata** -> Read-only 
-      - **Contents** -> Read-only
-      - **Administration** -> Read-only
-  6. Click **Generate token** and **copy it** (make sure to store it somewhere safe for future use).
-  7. Navigate to `https://github.com/<gh-org-name>/repo-exporter/settings/secrets/actions` and click **New repository secret** and name it **GH_TOKEN** and copy paste the token into the **Secret** section and click **Add secret**
-  **Note:** The token must be approved by the organization administrator before accessing private repositories.
+### Create a GitHub App for Organization Access
+
+  To create an App with permissions for both private and public repositories **requires Organization Admin access**. Follow the [Catalog App instructions](https://github.com/Imageomics/catalog/blob/main/docs/app-authentication.md), with the following changes:
+  - Name it "Repo-exporter Automation App".
+  - Description: "App for automated Organization repo-exporter workflows (weekly GitHub Org checks)." (could use your organization name, we use "Imageomics").
+  - For permissions, grant ***read-only*** for the same three (contents, pull requests, and metadata (default)).
+  - During installation, all repos in the Organization must be allowed (read-only).
 
 ### Create a Hugging Face Token
 
