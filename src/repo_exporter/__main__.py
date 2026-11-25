@@ -31,6 +31,7 @@ def export_repos(
     repo_type: str | None = None,
     error_mode: str | None = None,
     error_log_path: str | None = None,
+    repo_list: list[str] | dict[str, list[str]] | None = None,
 ) -> None:
     """
     Build the appropriate exporter for the given platform and run it.
@@ -39,13 +40,17 @@ def export_repos(
     ------------
     platform       - String. One of "github", "huggingface".
     token          - String | None. API token for the platform.
-    org_name       - String | None. Org name; falls back to GH_ORG_NAME / HF_ORG_NAME env var.
+    org_name       - String | None. Org name; falls back to GH_ORG_NAME / HF_ORG_NAME env var
+                     (only when no repo_list is given). Use this OR repo_list, not both.
     spreadsheet_id - String | None. Google Sheets spreadsheet ID; falls back to SPREADSHEET_ID env var.
     sheet_name     - String | None. Sheet tab name; falls back to platform default.
     creds_path     - String | None. Path to service_account.json; falls back to GOOGLE_CREDENTIALS_PATH env var.
     repo_type      - String | None. GitHub-only repo type filter; falls back to GH_REPO_TYPE env var.
+                     Ignored when repo_list is given.
     error_mode     - String | None. "console", "log", or "column"; falls back to ERROR_MODE env var (default "console").
     error_log_path - String | None. Path for error_mode="log"; falls back to ERROR_LOG_PATH env var.
+    repo_list      - List | Dict | None. Export exactly these repos instead of an org's repos.
+                     GitHub: list of "owner/repo". Hugging Face: {"model": [...], "dataset": [...], "space": [...]}.
     """
     platform = platform.strip().lower()
     spreadsheet_id = spreadsheet_id or SPREADSHEET_ID
@@ -53,14 +58,21 @@ def export_repos(
     error_mode = error_mode or ERROR_MODE
     error_log_path = error_log_path or ERROR_LOG_PATH
 
+    if org_name and repo_list:
+        raise ValueError("Provide either an org name or a repo list, not both.")
+
     if platform == "github":
-    
+
         token = (token or GH_TOKEN or "").strip() or None
-        org_name = org_name or GH_ORG_NAME
+        org_name = None if repo_list else (org_name or GH_ORG_NAME)
         sheet_name = sheet_name or GH_SHEET_NAME
-        repo_type = repo_type or GH_REPO_TYPE 
-        
-        _validate_required({"GH_ORG_NAME": org_name, "SPREADSHEET_ID": spreadsheet_id})
+        repo_type = repo_type or GH_REPO_TYPE
+
+        required = {}
+        if not repo_list:
+            required["GH_ORG_NAME (or pass --repos)"] = org_name
+        required["SPREADSHEET_ID"] = spreadsheet_id
+        _validate_required(required)
 
         exporter = GitHubExporter(
             token=token,
@@ -71,14 +83,19 @@ def export_repos(
             repo_type=repo_type,
             error_mode=error_mode,
             error_log_path=error_log_path,
+            repo_list=repo_list,
         )
 
     elif platform == "huggingface":
         token = (token or HF_TOKEN or "").strip() or None
-        org_name = org_name or HF_ORG_NAME
+        org_name = None if repo_list else (org_name or HF_ORG_NAME)
         sheet_name = sheet_name or HF_SHEET_NAME
 
-        _validate_required({"HF_ORG_NAME": org_name, "SPREADSHEET_ID": spreadsheet_id})
+        required = {}
+        if not repo_list:
+            required["HF_ORG_NAME (or pass --models/--datasets/--spaces)"] = org_name
+        required["SPREADSHEET_ID"] = spreadsheet_id
+        _validate_required(required)
 
         exporter = HuggingFaceExporter(
             token=token,
@@ -88,13 +105,13 @@ def export_repos(
             creds_path=creds_path,
             error_mode=error_mode,
             error_log_path=error_log_path,
+            repo_list=repo_list,
         )
 
     else:
         raise ValueError(f"Unknown platform: {platform}")
- 
-    exporter.run()
 
+    exporter.run()
 
 def _validate_required(required_vars: dict) -> None:
     """
@@ -137,6 +154,10 @@ def create_parser():
     # GitHub command
     gh_parser = subparsers.add_parser("github", help="Export GitHub repositories.")
     gh_parser.add_argument("--org", default=None, help="GitHub org name (overrides GH_ORG_NAME in .env)")
+    gh_parser.add_argument(
+        "--repos", nargs="+", default=None, metavar="OWNER/REPO",
+        help="Export only these repos instead of a whole org (use instead of --org; --repo-type is ignored)"
+    )
     gh_parser.add_argument("--token", default=None, help="GitHub personal access token (overrides GH_TOKEN in .env)")
     gh_parser.add_argument(
         "--repo-type",
@@ -153,6 +174,12 @@ def create_parser():
     # Hugging Face command
     hf_parser = subparsers.add_parser("huggingface", help="Export Hugging Face repositories.")
     hf_parser.add_argument("--org", default=None, help="Hugging Face org name (overrides HF_ORG_NAME in .env)")
+    hf_parser.add_argument("--models", nargs="+", default=None, metavar="OWNER/NAME",
+                           help="Export only these model repos (use instead of --org)")
+    hf_parser.add_argument("--datasets", nargs="+", default=None, metavar="OWNER/NAME",
+                           help="Export only these dataset repos (use instead of --org)")
+    hf_parser.add_argument("--spaces", nargs="+", default=None, metavar="OWNER/NAME",
+                           help="Export only these space repos (use instead of --org)")
     hf_parser.add_argument("--token", default=None, help="Hugging Face token (overrides HF_TOKEN in .env)")
     hf_parser.add_argument("--spreadsheet-id", **spreadsheet_arg)
     hf_parser.add_argument("--sheet-name", default=None, help=f"Sheet tab name (overrides HF_SHEET_NAME in .env; default: {HF_SHEET_NAME})")
@@ -165,8 +192,22 @@ def parse_args(input_args=None):
     args = create_parser().parse_args(input_args)
     return args
 
+def _build_hf_repo_list(models, datasets, spaces) -> dict[str, list[str]] | None:
+    """
+    Combine the --models/--datasets/--spaces CLI values into a repo_list dict,
+    or None if none were given.
+    """
+    repo_list = {"model": models, "dataset": datasets, "space": spaces}
+    repo_list = {repo_type: ids for repo_type, ids in repo_list.items() if ids}
+    return repo_list or None
+
 def main():
     args = parse_args()
+
+    if args.platform == "huggingface":
+        repo_list = _build_hf_repo_list(args.models, args.datasets, args.spaces)
+    else:
+        repo_list = args.repos
 
     try:
         export_repos(
@@ -179,6 +220,7 @@ def main():
             repo_type=getattr(args, "repo_type", None),
             error_mode=args.error_mode,
             error_log_path=args.error_log_path,
+            repo_list=repo_list,
         )
     except ValueError as e:
         raise SystemExit(str(e))

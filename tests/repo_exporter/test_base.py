@@ -1073,3 +1073,33 @@ def test_update_google_sheet_syncs_name_and_status_when_header_empty_and_all_fai
 
     header_passed = exporter._write_error_statuses.call_args[0][1]
     assert header_passed == ["Repository Name", "Status"]
+    
+# repo_list support
+
+def test_source_label_uses_org_name_or_falls_back_to_repo_list():
+    exporter = make_exporter()
+    assert exporter.source_label == "imageomics"
+    exporter.org_name = None
+    assert exporter.source_label == "the provided repo list"
+
+
+def test_run_passes_repo_list_to_fetch_repos():
+    exporter = make_exporter()
+    exporter.org_name = None
+    exporter.repo_list = ["imageomics/a"]
+    exporter.fetch_repos = MagicMock(return_value=[])
+    exporter.update_google_sheet = MagicMock()
+
+    exporter.run()
+
+    exporter.fetch_repos.assert_called_once_with(["imageomics/a"])
+
+
+def test_repo_log_id_uses_full_name_when_no_org():
+    exporter = make_exporter()
+    exporter.org_name = None
+    repo = MagicMock()
+    repo.name = "bad-repo"
+    repo.full_name = "someone/bad-repo"
+
+    assert exporter._repo_log_id(repo) == "someone/bad-repo"

@@ -6,6 +6,7 @@ import re
 import time
 
 from repo_exporter.base import BaseExporter
+from types import SimpleNamespace
 
 PACKAGE_REQUIREMENT_FILES = [
     # Python
@@ -62,23 +63,28 @@ class GitHubExporter(BaseExporter):
     Exports GitHub org repo metadata to a Google Sheet.
     """
 
-    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
+    def __init__(self, org_name: str | None, spreadsheet_id: str, sheet_name: str, creds_path: str,
              token: str | None = None, repo_type: str | None = None,
-             error_mode: str = "console", error_log_path: str | None = None):
+             error_mode: str = "console", error_log_path: str | None = None,
+             repo_list: list[str] | None = None):
         """
         Parameters:
         ------------
         token          - String. GitHub personal access token.
-        org_name       - String. GitHub organization name.
+        org_name       - String | None. GitHub organization name (use this OR repo_list).
         spreadsheet_id - String. Google Sheets spreadsheet ID.
         sheet_name     - String. Sheet tab name.
         creds_path     - String. Path to service_account.json.
         repo_type      - String | None. Repo type filter (all, public, private, forks, sources, member).
+                         Only applies when listing an org; ignored when repo_list is given.
         error_mode     - String. One of "console", "log", "column" (default: "console").
         error_log_path - String | None. Path for error_mode="log" (default: repo_exporter_errors.log).
+        repo_list      - List of "owner/repo" strings | None. Export exactly these repos.
         """
+        repo_list = self._normalize_repo_list(repo_list) if repo_list else None
         super().__init__(org_name, spreadsheet_id, sheet_name, creds_path,
-                          error_mode=error_mode, error_log_path=error_log_path)
+                          error_mode=error_mode, error_log_path=error_log_path,
+                          repo_list=repo_list)
         self.token = token
         self.repo_type = repo_type
         self.gh = Github(auth=Auth.Token(token)) if token else Github()
@@ -129,23 +135,76 @@ class GitHubExporter(BaseExporter):
         except Exception as e:
             print(f"Warning: Could not load existing sheet data: {e}")
 
-    def fetch_repos(self) -> list:
+    @staticmethod
+    def _normalize_repo_list(repo_list: list[str]) -> list[str]:
         """
-        Fetch all repos for the org and pre-load existing sheet data
-        to avoid recomputing Created By for repos already tracked.
-        """
-        try:
-            org = self.gh.get_organization(self.org_name)
-        except Exception as e:
-            raise RuntimeError(f'Could not access org "{self.org_name}": {e}')
+        Validate and clean a list of GitHub repos. Accepts "owner/repo" or a
+        full github.com URL; strips a trailing ".git" or "/"; de-duplicates
+        while keeping order. Raises ValueError on a malformed entry.
 
-        repos = list(org.get_repos(type=self.repo_type))
+        Parameters:
+        ------------
+        repo_list - List of strings.
+        """
+        names = []
+        for entry in repo_list:
+            name = re.sub(r"^https?://github\.com/", "", str(entry).strip(), flags=re.IGNORECASE)
+            name = re.sub(r"(\.git)?/?$", "", name)
+            if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", name):
+                raise ValueError(f'Invalid GitHub repo "{entry}". Use the "owner/repo" format.')
+            names.append(name)
+        return list(dict.fromkeys(names))
+    
+    def fetch_repos(self, repo_list: list[str] | None = None) -> list:
+        """
+        Fetch the repos to export: all repos for the org, or, if repo_list is
+        given, lightweight stubs for each "owner/repo" (resolved to real
+        Repository objects later, in _fetch_one, so a bad entry is handled by
+        run()'s error_mode logic like any other failed repo). Also pre-loads
+        existing sheet data to avoid recomputing Created By for repos already tracked.
+
+        Parameters:
+        ------------
+        repo_list - List of "owner/repo" strings | None.
+        """
+        if repo_list:
+            repos = [
+                SimpleNamespace(
+                    name=full_name.split("/", 1)[1],
+                    full_name=full_name,
+                    html_url=f"https://github.com/{full_name}",
+                )
+                for full_name in self._normalize_repo_list(repo_list)
+            ]
+        else:
+            if not self.org_name:
+                raise RuntimeError("Provide either an org name or a repo list.")
+            try:
+                org = self.gh.get_organization(self.org_name)
+            except Exception as e:
+                raise RuntimeError(f'Could not access org "{self.org_name}": {e}')
+            repos = list(org.get_repos(type=self.repo_type))
+
         print(f"Total repos fetched: {len(repos)}")
 
         self._load_existing_sheet()
         print(f"Existing sheet data shape: {self.existing_df.shape}")
 
         return repos
+
+    def _fetch_one(self, repo_args) -> dict:
+        """
+        Return metadata for one repo. If repo_args is a stub from a repo list,
+        look up the real PyGitHub Repository first (this is where a typo'd or
+        inaccessible repo raises, so run() records it per error_mode).
+
+        Parameters:
+        ------------
+        repo_args - A PyGitHub Repository, or a stub from fetch_repos(repo_list).
+        """
+        if isinstance(repo_args, SimpleNamespace):
+            repo_args = self.gh.get_repo(repo_args.full_name)
+        return self.get_repo_info(repo_args)
 
     def _error_repo_name(self, repo_args) -> str:
         """

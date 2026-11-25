@@ -4,27 +4,40 @@ from collections import Counter
 import re
 
 from repo_exporter.base import BaseExporter
+from types import SimpleNamespace
+
+# Accepted keys in a repo list dict, mapped to the repo_type used internally.
+REPO_LIST_KEYS = {
+    "model": "model", "models": "model",
+    "dataset": "dataset", "datasets": "dataset",
+    "space": "space", "spaces": "space",
+}
 
 class HuggingFaceExporter(BaseExporter):
     """
     Exports Hugging Face org repo metadata to a Google Sheet.
     """
 
-    def __init__(self, org_name: str, spreadsheet_id: str, sheet_name: str, creds_path: str,
-                 token: str | None = None, error_mode: str = "console", error_log_path: str | None = None):
+    def __init__(self, org_name: str | None, spreadsheet_id: str, sheet_name: str, creds_path: str,
+                 token: str | None = None, error_mode: str = "console", error_log_path: str | None = None,
+                 repo_list: dict[str, list[str]] | None = None):
         """
         Parameters:
         ------------
-        org_name       - String. Hugging Face organization name.
+        org_name       - String | None. Hugging Face org name (use this OR repo_list).
         spreadsheet_id - String. Google Sheets spreadsheet ID.
         sheet_name     - String. Sheet tab name.
         creds_path     - String. Path to service_account.json.
         token          - String | None. Hugging Face token.
         error_mode     - String. One of "console", "log", "column" (default: "console").
         error_log_path - String | None. Path for error_mode="log" (default: repo_exporter_errors.log).
+        repo_list      - Dict | None. e.g. {"model": ["org/m"], "dataset": ["org/d"], "space": ["org/s"]}.
+                         Keys may be singular or plural.
         """
+        repo_list = self._normalize_repo_list(repo_list) if repo_list else None
         super().__init__(org_name, spreadsheet_id, sheet_name, creds_path,
-                          error_mode=error_mode, error_log_path=error_log_path)
+                          error_mode=error_mode, error_log_path=error_log_path,
+                          repo_list=repo_list)
         self.creds_path = creds_path
         self.token = token
         self.api = HfApi(token=token)
@@ -47,12 +60,62 @@ class HuggingFaceExporter(BaseExporter):
             "DOI",
         }
 
-    def fetch_repos(self) -> list:
+    @staticmethod
+    def _normalize_repo_list(repo_list: dict) -> dict[str, list[str]]:
         """
-        Fetch all models, datasets, and spaces for the org.
+        Validate a {repo_type: [repo ids]} dict. Accepts singular or plural
+        keys, de-duplicates ids, and returns {"model": [...], "dataset": [...],
+        "space": [...]}. Raises ValueError on a bad key or malformed id.
+
+        Parameters:
+        ------------
+        repo_list - Dict mapping repo type to a list of "owner/name" ids.
+        """
+        if not isinstance(repo_list, dict):
+            raise ValueError(
+                'Hugging Face repo list must be a dict like '
+                '{"model": [...], "dataset": [...], "space": [...]}.'
+            )
+        normalized = {"model": [], "dataset": [], "space": []}
+        for key, ids in repo_list.items():
+            repo_type = REPO_LIST_KEYS.get(str(key).strip().lower())
+            if repo_type is None:
+                raise ValueError(
+                    f'Unknown Hugging Face repo type "{key}" in repo list. '
+                    "Use model, dataset, or space."
+                )
+            if isinstance(ids, str):
+                ids = [ids]
+            for repo_id in ids:
+                repo_id = str(repo_id).strip()
+                if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo_id):
+                    raise ValueError(f'Invalid Hugging Face repo "{repo_id}". Use the "owner/name" format.')
+                normalized[repo_type].append(repo_id)
+        return {t: list(dict.fromkeys(ids)) for t, ids in normalized.items()}
+    
+    def fetch_repos(self, repo_list: dict[str, list[str]] | None = None) -> list:
+        """
+        Fetch the repos to export: the given {repo_type: [ids]} dict if provided,
+        otherwise all models, datasets, and spaces for the org.
         Returns a list of (repo, repo_type) tuples.
+
+        Parameters:
+        ------------
+        repo_list - Dict mapping repo type to a list of "owner/name" ids | None.
         """
         repos = []
+
+        if repo_list:
+            # get_repo_info() only needs .id from the summary object and re-fetches full details itself
+            # A nonexistent id fails inside get_repo_info and is handled by run() per error_mode like any other failed repo 
+            for repo_type, ids in self._normalize_repo_list(repo_list).items():
+                for repo_id in ids:
+                    repos.append((SimpleNamespace(id=repo_id), repo_type))
+            return repos
+
+        if not self.org_name:
+            raise RuntimeError("Provide either an org name or a repo list.")
+
         for m in self.api.list_models(author=self.org_name):
             repos.append((m, "model"))
         for d in self.api.list_datasets(author=self.org_name):
