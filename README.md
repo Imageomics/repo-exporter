@@ -144,6 +144,7 @@ All options fall back to the corresponding [environment variable](#environment-v
 | `--org` | `HF_ORG_NAME` | Hugging Face organization name (**case-sensitive**) |
 | `--token` | `HF_TOKEN` | Hugging Face token |
 | `--repo-type` | `HF_REPO_TYPE` | Repo type filter: `all`, `model`, `dataset`, `space`. Accepts several, e.g. `--repo-type model dataset` (default: `all`) |
+| `--repo-visibility` | `HF_REPO_VISIBILITY` | Visibility filter: `all`, `public`, `private` (default: `all`) |
 | `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
 | `--sheet-name` | `HF_SHEET_NAME` | Sheet tab name (default: `HF-Repos`) |
 | `--credentials-path` | `GOOGLE_CREDENTIALS_PATH` | Path to `service_account.json` (default: `service_account.json`) |
@@ -167,7 +168,8 @@ Run `repo-exporter github --help` or `repo-exporter huggingface --help` to see t
 * Set `GH_ORG_NAME` to your GitHub organization name (for API calls).
 * Set `SPREADSHEET_ID` to the Google Sheet ID used by the exporter.
 * `GH_SHEET_NAME` is optional. If not provided, the exporter uses "GH-Repos".
-* `GH_REPO_TYPE` is optional. If not provided, the exporter uses "all" (also accepts `public`, `private`, `forks`, `sources`, `member`). Several types can be combined as a comma-separated list, e.g. `forks,sources`. 
+* `GH_REPO_TYPE` is optional. If not provided, the exporter uses "all" (also accepts `forks`, `sources`, `member`). Several types can be combined as a comma-separated list, e.g. `forks,sources`. 
+* `GH_REPO_VISIBILITY` is optional. If not provided, the exporter uses "all" (also accepts `public`, `private`). It combines with `GH_REPO_TYPE`, e.g. `forks` with `private` exports only private forks.
 * `GH_TOKEN` is required to access GitHub repositories.
 
 ### Hugging Face exporter
@@ -176,6 +178,7 @@ Run `repo-exporter github --help` or `repo-exporter huggingface --help` to see t
 * Set `SPREADSHEET_ID` to the Google Sheet ID used by the exporter.
 * `HF_SHEET_NAME` is optional. If not provided, the exporter uses "HF-Repos".
 * `HF_REPO_TYPE` is optional. If not provided, the exporter uses "all" (also accepts `model`, `dataset`, `space`). Several types can be combined as a comma-separated list, e.g. `model,dataset`.
+* `HF_REPO_VISIBILITY` is optional. If not provided, the exporter uses "all" (also accepts `public`, `private`). It combines with `HF_REPO_TYPE`, e.g. `model` with `private` exports only private models.
 * `HF_TOKEN` is required to access Hugging Face repositories.
 
 ### Error handling
