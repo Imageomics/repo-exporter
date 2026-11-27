@@ -41,8 +41,8 @@ Python package that gathers metadata for all repositories in a provided GitHub o
 The workflow runs automatically each week (9am UTC on Mondays); however, you can also run the GitHub Actions workflow manually:
 
    1. Go to the [Actions tab](https://github.com/Imageomics/repo-exporter/actions)
-   2. Click **Update Metadata for GitHub Repository Sheet**
-   3. Click **Run workflow**, with branch as **Branch: main**, with selection **all** and finally press **Run workflow**
+   2. Click **Update Metadata for GitHub Repository Sheet** or **Update Metadata for Hugging Face Repository Sheet**
+   3. Click **Run workflow**, with branch as **Branch: main**, choose which repos to export by visibility (**all**, **public**, or **private**; default **all**) and finally press **Run workflow**
 
 ## Set up your own GitHub Actions workflows
 
@@ -129,7 +129,8 @@ All options fall back to the corresponding [environment variable](#environment-v
 |---|---|---|
 | `--org` | `GH_ORG_NAME` | GitHub organization name |
 | `--token` | `GH_TOKEN` | GitHub personal access token |
-| `--repo-type` | `GH_REPO_TYPE` | Repo type filter: `all`, `public`, `private`, `forks`, `sources`, `member`. Accepts several, e.g. `--repo-type forks sources` (default: `all`) |
+| `--repo-type` | `GH_REPO_TYPE` | Repo type filter: `all`, `forks`, `sources`, `member`. Accepts several, e.g. `--repo-type forks sources` (default: `all`) |
+| `--repo-visibility` | `GH_REPO_VISIBILITY` | Visibility filter: `all`, `public`, `private` (default: `all`) |
 | `--spreadsheet-id` | `SPREADSHEET_ID` | Google Sheets spreadsheet ID |
 | `--sheet-name` | `GH_SHEET_NAME` | Sheet tab name (default: `GH-Repos`) |
 | `--credentials-path` | `GOOGLE_CREDENTIALS_PATH` | Path to `service_account.json` (default: `service_account.json`) |
