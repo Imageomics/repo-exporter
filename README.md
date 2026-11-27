@@ -94,7 +94,7 @@ Once configured, the workflow can be run by following the [Usage Instructions](#
    conda activate repo-exporter
    ```
     
-2. [RECOMMENDED] Create a `.env` file in the root of the project to configure required [environment variables](#environment-variables). See [`.env.example`](.env.example) for an example; the default sheet names are included and can be removed. Any value in `.env` can also be overridden with a CLI flag. See [Command-line options](#command-line-options) below.
+2. [RECOMMENDED] Create a `.env` file in the root of the project to configure required [environment variables](#environment-variables). See [`.env.example`](.env.example) for an example; the default values for optional settings are included and can be removed. Any value in `.env` can also be overridden with a CLI flag. See [Command-line options](#command-line-options) below.
 
 
 3. Install the package (this installs the `repo-exporter` CLI along with all dependencies, as defined in `pyproject.toml`):
